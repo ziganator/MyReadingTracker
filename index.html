@@ -4889,17 +4889,19 @@ function formatBadge(fmt) {
   return `<span style="background:${color};color:#fff;border-radius:3px;font-size:0.65rem;font-weight:700;padding:0.1rem 0.45rem;letter-spacing:0.04em;white-space:nowrap;text-transform:uppercase">${label}</span>`;
 }
 
-const BOOK_FORMAT_OPTIONS = ['Book', 'E-Book', 'AudioBook', 'Short Story Collection'];
+const BOOK_FORMAT_OPTIONS = ['Book', 'E-Book', 'AudioBook', 'Graphic Novel', 'Short Story Collection'];
 const OWNED_FORMAT_FILTER_OPTIONS = [
   ['book', 'Books'],
   ['ebook', 'E-Books'],
-  ['audiobook', 'AudioBooks']
+  ['audiobook', 'AudioBooks'],
+  ['graphicnovel', 'Graphic Novels']
 ];
 
 function bookFormatKey(value) {
   const key = normalizedKey(value);
   if (key === 'e-book' || key === 'ebook' || key === 'electronicbook') return 'ebook';
   if (key === 'audio' || key === 'audiobook' || key === 'audio-book') return 'audiobook';
+  if (key === 'graphicnovel' || key === 'graphic-novel' || key === 'comic' || key === 'comics') return 'graphicnovel';
   if (key === 'book' || key === 'physicalbook' || key === 'hardcover' || key === 'paperback') return 'book';
   return key;
 }
@@ -8507,6 +8509,7 @@ function renderBookDetailPage(title, source='', key='') {
     .map(collection => collection.name);
 
   const readDate = monthYearLabelFromKey(monthKeyFromBook(b)) || (b.year_read || '—');
+  const publicationDate = b.publication_date || b.year_pub || '';
 
   const coverEl = coverImageHTML(b, 'detail-cover', '');
 
@@ -8567,7 +8570,7 @@ function renderBookDetailPage(title, source='', key='') {
           ${field('Owned', b.own)}
           ${field('Format', b.format)}
           ${field('Publisher', b.publisher)}
-          ${field('Edition Published', b.publication_date)}
+          ${field('Publication Date', publicationDate)}
           ${field('Pages', b.page_count)}
           ${field('Language', b.language)}
           ${field('ISBN', b.isbn)}
