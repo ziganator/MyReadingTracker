@@ -2071,12 +2071,17 @@
     font-size: 0.78rem;
     line-height: 1.35;
   }
-  .picker-modal-field input[type="text"] {
+  .picker-modal-field input[type="text"],
+  .picker-modal-field textarea {
     width: 100%;
     border: 1px solid var(--border);
     border-radius: 4px;
     font: 1rem 'Crimson Pro', serif;
     padding: 0.5rem;
+  }
+  .picker-modal-field textarea {
+    line-height: 1.35;
+    resize: vertical;
   }
   .picker-choice-grid {
     display: grid;
@@ -4211,15 +4216,23 @@ function bookBelongsToCollection(book, collection) {
 async function loadCollections() {
   if (guestMode || !supabaseSession?.user?.id) {
     libraryCollections = SYSTEM_COLLECTIONS.map(([name, slug]) => ({
-      id: `guest:${slug}`, name, slug, is_system: true
+      id: `guest:${slug}`, name, slug, description: '', is_system: true
     }));
     if (booksStatusFilter === 'all') booksStatusFilter = collectionBySlug('all-books')?.id || 'all';
     return;
   }
   try {
-    let collections = await supabaseTableRequest('collections', {
-      query: '?select=id,name,slug,is_system&order=is_system.desc,created_at.asc'
-    });
+    let collections;
+    try {
+      collections = await supabaseTableRequest('collections', {
+        query: '?select=id,name,slug,description,is_system&order=is_system.desc,created_at.asc'
+      });
+    } catch (error) {
+      if (!String(error.message || '').includes('description')) throw error;
+      collections = (await supabaseTableRequest('collections', {
+        query: '?select=id,name,slug,is_system&order=is_system.desc,created_at.asc'
+      })).map(collection => ({...collection, description: ''}));
+    }
     const existing = new Set(collections.map(collection => collection.slug));
     const missing = SYSTEM_COLLECTIONS
       .filter(([, slug]) => !existing.has(slug))
@@ -4227,6 +4240,7 @@ async function loadCollections() {
         user_id: supabaseSession.user.id,
         name,
         slug,
+        description: '',
         is_system: true
       }));
     if (missing.length) {
@@ -4252,7 +4266,7 @@ async function loadCollections() {
   } catch (error) {
     console.warn('Collections are unavailable until the collections migration is applied:', error.message);
     libraryCollections = SYSTEM_COLLECTIONS.map(([name, slug]) => ({
-      id: `fallback:${slug}`, name, slug, is_system: true
+      id: `fallback:${slug}`, name, slug, description: '', is_system: true
     }));
     if (booksStatusFilter === 'all') booksStatusFilter = collectionBySlug('all-books')?.id || 'all';
     bookCollectionMemberships = new Map();
@@ -6163,13 +6177,19 @@ function openCollectionManager() {
         <button class="account-primary" type="button" onclick="createLibraryCollection()">Create</button>
       </div>
     </div>
+    <div class="picker-modal-field">
+      <label for="new-collection-description">Definition</label>
+      <textarea id="new-collection-description" rows="3" placeholder="What belongs in this collection?"></textarea>
+    </div>
     <div class="collection-manager-list">
       ${libraryCollections.map(collection => `
         <div class="collection-manager-row">
-          <div class="collection-manager-name">${esc(collection.name)}<small>${collection.is_system ? 'Default collection' : 'Custom collection'}</small></div>
+          <div class="collection-manager-name">${esc(collection.name)}
+            <small>${collection.is_system ? 'Default collection' : 'Custom collection'}${collection.description ? ' · ' + esc(collection.description) : ''}</small>
+          </div>
           <div class="collection-manager-actions">
             ${collection.is_system ? '' : `
-              <button type="button" onclick="renameLibraryCollection(${jsArg(collection.id)},${jsArg(collection.name)})">Rename</button>
+              <button type="button" onclick="editLibraryCollection(${jsArg(collection.id)})">Edit</button>
               <button class="danger" type="button" onclick="deleteLibraryCollection(${jsArg(collection.id)},${jsArg(collection.name)})">Delete</button>
             `}
           </div>
@@ -6184,8 +6204,10 @@ function openCollectionManager() {
 
 async function createLibraryCollection() {
   const input = document.getElementById('new-collection-name');
+  const descriptionInput = document.getElementById('new-collection-description');
   const status = document.getElementById('collection-manager-status');
   const name = input?.value.trim();
+  const description = descriptionInput?.value.trim() || '';
   if (!name) return status.textContent = 'Enter a collection name.';
   const slug = collectionSlug(name);
   if (libraryCollections.some(collection => collection.slug === slug)) {
@@ -6194,7 +6216,7 @@ async function createLibraryCollection() {
   try {
     await supabaseTableRequest('collections', {
       method: 'POST',
-      body: [{user_id: supabaseSession.user.id, name, slug, is_system: false}],
+      body: [{user_id: supabaseSession.user.id, name, slug, description, is_system: false}],
       prefer: 'return=representation'
     });
     await loadCollections();
@@ -6202,15 +6224,21 @@ async function createLibraryCollection() {
     openCollectionManager();
   } catch (error) {
     status.textContent = String(error.message).includes('collections')
-      ? 'Run the collections migration before creating collections.'
+      ? 'Run the collections definition migration before creating collections with definitions.'
       : error.message;
   }
 }
 
-async function renameLibraryCollection(id, currentName) {
+async function editLibraryCollection(id) {
   const status = document.getElementById('collection-manager-status');
+  const collection = libraryCollections.find(item => item.id === id);
+  if (!collection || collection.is_system) return;
+  const currentName = collection.name || '';
+  const currentDescription = collection.description || '';
   const name = prompt('Rename collection', currentName || '')?.trim();
-  if (!name || name === currentName) return;
+  if (!name) return;
+  const description = prompt('Collection definition', currentDescription)?.trim() || '';
+  if (name === currentName && description === currentDescription) return;
   const slug = collectionSlug(name);
   if (libraryCollections.some(collection => collection.id !== id && collection.slug === slug)) {
     if (status) status.textContent = 'A collection with that name already exists.';
@@ -6221,14 +6249,16 @@ async function renameLibraryCollection(id, currentName) {
     await supabaseTableRequest('collections', {
       method: 'PATCH',
       query: `?id=eq.${encodeURIComponent(id)}&is_system=eq.false`,
-      body: {name, slug},
+      body: {name, slug, description},
       prefer: 'return=minimal'
     });
     await loadCollections();
     buildBooks();
     openCollectionManager();
   } catch (error) {
-    if (status) status.textContent = error.message;
+    if (status) status.textContent = String(error.message).includes('description')
+      ? 'Run the collections definition migration before editing definitions.'
+      : error.message;
   }
 }
 
@@ -7517,7 +7547,7 @@ function booksFormatFilterHTML() {
     </label>
   `).join('');
   return `<div class="books-sidebar-field">
-    <span>Format</span>
+    <span>Owned Format</span>
     <div class="books-format-filter">
       ${options}
     </div>
@@ -7536,7 +7566,7 @@ function booksCollectionSelectHTML() {
   </div>`;
 }
 
-function booksSidebarFilterSortHTML(genres, years) {
+function booksSidebarFilterHTML(genres, years) {
   const genreOptions = [
     `<option value="" ${booksGenreFilter === '' ? 'selected' : ''}>All Genres</option>`,
     ...genres.map(genre => `<option value="${esc(genre)}" ${booksGenreFilter === genre ? 'selected' : ''}>${esc(genre)}</option>`)
@@ -7550,16 +7580,33 @@ function booksSidebarFilterSortHTML(genres, years) {
     `<option value="owned" ${booksOwnedFilter === 'owned' ? 'selected' : ''}>Owned</option>`,
     `<option value="not-owned" ${booksOwnedFilter === 'not-owned' ? 'selected' : ''}>Not Owned</option>`
   ].join('');
-  const activeSort = `${booksSortLevels[0]?.field || booksSortField}:${booksSortLevels[0]?.direction || booksSortDirection}`;
-  const sortOptions = BOOKS_SORT_OPTIONS.map(([value, label]) =>
-    `<option value="${esc(value)}" ${value === activeSort ? 'selected' : ''}>${esc(label)}</option>`
-  ).join('');
   return `<div class="books-sidebar-select-grid">
     ${booksSidebarSelect('Genre', `<select onchange="applyCascadeChoice('books','genre',this.value)">${genreOptions}</select>`)}
     ${booksSidebarSelect('Reading Year', `<select onchange="applyCascadeChoice('books','year',this.value)">${yearOptions}</select>`)}
     ${booksSidebarSelect('Ownership', `<select onchange="applyCascadeChoice('books','owned',this.value)">${ownedOptions}</select>`)}
     ${booksFormatFilterHTML()}
-    ${booksSidebarSelect('Sort', `<select onchange="setBooksPrimarySort(this.value)">${sortOptions}</select>`)}
+  </div>`;
+}
+
+function booksSidebarSortHTML() {
+  const selected = new Map(booksSortLevels.map((level, index) => [`${level.field}:${level.direction}`, index + 1]));
+  const options = BOOKS_SORT_OPTIONS.map(([value, label]) => {
+    const priority = selected.get(value);
+    const text = priority ? `${priority}. ${label}` : label;
+    return `<label>
+      <input type="checkbox" value="${esc(value)}" ${priority ? 'checked' : ''}
+        onchange="applyCascadeChoice('books','sort',this.value)">
+      ${esc(text)}
+    </label>`;
+  }).join('');
+  return `<div class="books-sidebar-select-grid">
+    <div class="books-sidebar-field">
+      <span>Sort Priority</span>
+      <div class="books-format-filter">
+        ${options}
+      </div>
+    </div>
+    <button class="picker-command secondary" type="button" onclick="applyCascadeChoice('books','sort-reset','')">Reset Order</button>
   </div>`;
 }
 
@@ -8019,8 +8066,14 @@ function booksSidebarPanelHTML(genres, years) {
   }
   if (booksSidebarPanel === 'filters') {
     return `<div class="books-sidebar-section">
-      <div class="books-sidebar-label">Filter & Sort</div>
-      ${booksSidebarFilterSortHTML(genres, years)}
+      <div class="books-sidebar-label">Filter</div>
+      ${booksSidebarFilterHTML(genres, years)}
+    </div>`;
+  }
+  if (booksSidebarPanel === 'sort') {
+    return `<div class="books-sidebar-section">
+      <div class="books-sidebar-label">Sort</div>
+      ${booksSidebarSortHTML()}
     </div>`;
   }
   if (booksSidebarPanel === 'view') {
@@ -8040,7 +8093,8 @@ function booksSidebarTitle() {
   return {
     search: 'Search',
     collection: 'Collections',
-    filters: 'Filter & Sort',
+    filters: 'Filter',
+    sort: 'Sort',
     view: 'View',
     actions: 'Actions'
   }[booksSidebarPanel] || 'Library Controls';
@@ -8055,7 +8109,8 @@ function booksControlsSidebarHTML(genres, years) {
           title="${booksSidebarOpen ? 'Collapse controls' : 'Expand controls'}" onclick="toggleBooksSidebar()">${booksSidebarOpen ? '‹' : '›'}</button>
         ${booksSidebarIcon('search', '⌕', 'Search')}
         ${booksSidebarIcon('collection', '▣', 'Collections')}
-        ${booksSidebarIcon('filters', '◷', 'Filter & Sort')}
+        ${booksSidebarIcon('filters', '◷', 'Filter')}
+        ${booksSidebarIcon('sort', '↕', 'Sort')}
         ${booksSidebarIcon('view', '▤', 'View')}
         ${booksSidebarIcon('actions', '＋', 'Actions')}
       </div>
