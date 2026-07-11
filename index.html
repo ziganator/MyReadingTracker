@@ -2193,6 +2193,35 @@
   .collection-manager-actions button.danger {
     color: #8a2f13;
   }
+  .collection-editor-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.84rem;
+    margin: -0.25rem 0 0.45rem;
+  }
+  .collection-editor-summary button {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--burnt);
+    padding: 0.35rem 0.55rem;
+    cursor: pointer;
+    font-size: 0.82rem;
+  }
+  .collection-book-choices {
+    max-height: min(44vh, 430px);
+    overflow: auto;
+  }
+  .collection-manager-count {
+    display: inline-block;
+    margin-left: 0.35rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
 
   /* ─── Monthly Recap ───────────────────────────── */
   .monthly-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
@@ -3517,6 +3546,7 @@ let booksBulkSelection = new Set();
 let booksBulkVisible = [];
 let libraryCollections = [];
 let bookCollectionMemberships = new Map();
+let collectionEditorDraft = null;
 let readingLogYear = new Date().getFullYear();
 let tbrSortField = 'author';
 let tbrSortDirection = 'asc';
@@ -6212,32 +6242,29 @@ function checkedCollectionIds(name) {
   return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(input => input.value);
 }
 
+function booksInCollectionCount(collection) {
+  if (!collection) return 0;
+  return allLibraryBooks().filter(book => bookBelongsToCollection(book, collection)).length;
+}
+
 function openCollectionManager() {
   document.getElementById('modal-series-name').textContent = 'Manage Collections';
-  document.getElementById('modal-series-sub').textContent = 'Create collections that can contain any combination of books.';
+  document.getElementById('modal-series-sub').textContent = 'Create collections and choose which books belong in each one.';
   const custom = libraryCollections.filter(collection => !collection.is_system);
   document.getElementById('modal-series-body').innerHTML = `
-    <div class="picker-modal-field">
-      <label for="new-collection-name">New collection</label>
-      <div class="isbn-lookup-row">
-        <input id="new-collection-name" type="text" placeholder="Book Club"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();createLibraryCollection()}">
-        <button class="account-primary" type="button" onclick="createLibraryCollection()">Create</button>
-      </div>
-    </div>
-    <div class="picker-modal-field">
-      <label for="new-collection-description">Definition</label>
-      <textarea id="new-collection-description" rows="3" placeholder="What belongs in this collection?"></textarea>
+    <div class="account-actions">
+      <button class="account-primary" type="button" onclick="openCollectionEditor()">New Collection</button>
     </div>
     <div class="collection-manager-list">
       ${libraryCollections.map(collection => `
         <div class="collection-manager-row">
           <div class="collection-manager-name">${esc(collection.name)}
+            <span class="collection-manager-count">${booksInCollectionCount(collection)} books</span>
             <small>${collection.is_system ? 'Default collection' : 'Custom collection'}${collection.description ? ' · ' + esc(collection.description) : ''}</small>
           </div>
           <div class="collection-manager-actions">
             ${collection.is_system ? '' : `
-              <button type="button" onclick="editLibraryCollection(${jsArg(collection.id)})">Edit</button>
+              <button type="button" onclick="openCollectionEditor(${jsArg(collection.id)})">Edit</button>
               <button class="danger" type="button" onclick="deleteLibraryCollection(${jsArg(collection.id)},${jsArg(collection.name)})">Delete</button>
             `}
           </div>
@@ -6250,62 +6277,172 @@ function openCollectionManager() {
   openModal(null);
 }
 
-async function createLibraryCollection() {
-  const input = document.getElementById('new-collection-name');
-  const descriptionInput = document.getElementById('new-collection-description');
-  const status = document.getElementById('collection-manager-status');
-  const name = input?.value.trim();
-  const description = descriptionInput?.value.trim() || '';
-  if (!name) return status.textContent = 'Enter a collection name.';
-  const slug = collectionSlug(name);
-  if (libraryCollections.some(collection => collection.slug === slug)) {
-    return status.textContent = 'A collection with that name already exists.';
+function openCollectionEditor(id='') {
+  const collection = libraryCollections.find(item => item.id === id);
+  if (collection?.is_system) return;
+  collectionEditorDraft = {
+    id: collection?.id || '',
+    name: collection?.name || '',
+    description: collection?.description || '',
+    selectedBookIds: new Set(allLibraryBooks()
+      .filter(book => book.database_id && collection && explicitCollectionIdsForBook(book).has(collection.id))
+      .map(book => String(book.database_id)))
+  };
+  document.getElementById('modal-series-name').textContent = collection ? 'Edit Collection' : 'New Collection';
+  document.getElementById('modal-series-sub').textContent = 'Set the definition and choose the books included in this collection.';
+  document.getElementById('modal-series-body').innerHTML = `
+    <div class="picker-modal-field">
+      <label for="collection-editor-name">Collection name</label>
+      <input id="collection-editor-name" type="text" value="${esc(collectionEditorDraft.name)}" placeholder="Book Club">
+    </div>
+    <div class="picker-modal-field">
+      <label for="collection-editor-description">Definition</label>
+      <textarea id="collection-editor-description" rows="3" placeholder="What belongs in this collection?">${esc(collectionEditorDraft.description)}</textarea>
+    </div>
+    <div class="picker-modal-field">
+      <label for="collection-book-search">Books in this collection</label>
+      <input id="collection-book-search" type="text" placeholder="Search title, author, series..."
+        oninput="renderCollectionEditorBooks(this.value)">
+      <div class="collection-editor-summary">
+        <span id="collection-editor-count"></span>
+        <span>
+          <button type="button" onclick="setVisibleCollectionBooks(true)">Select Visible</button>
+          <button type="button" onclick="setVisibleCollectionBooks(false)">Clear Visible</button>
+        </span>
+      </div>
+      <div class="picker-book-choices collection-book-choices" id="collection-editor-books"></div>
+    </div>
+    <div class="account-actions">
+      <button class="account-primary" type="button" onclick="saveLibraryCollection()">Save Collection</button>
+      <button class="account-secondary" type="button" onclick="openCollectionManager()">Back to Collections</button>
+      ${collection ? `<button class="account-secondary" type="button" onclick="deleteLibraryCollection(${jsArg(collection.id)},${jsArg(collection.name)})">Delete</button>` : ''}
+    </div>
+    <div class="picker-settings-status" id="collection-manager-status"></div>
+  `;
+  renderCollectionEditorBooks('');
+  openModal(null);
+}
+
+function collectionEditorBookOptions(search='') {
+  const query = normalizedKey(search);
+  return allLibraryBooks()
+    .filter(book => book.database_id)
+    .filter(book => !query || [
+      book.title,
+      book.author_full || book.author || book.author_short,
+      book.series,
+      book.genre,
+      libraryBookStatus(book)
+    ].join(' ').toLowerCase().includes(query))
+    .sort((a, b) => compareBooksByLevel(a, b, 'author', 'asc') || compareBooksByLevel(a, b, 'title', 'asc'));
+}
+
+function renderCollectionEditorBooks(search='') {
+  const container = document.getElementById('collection-editor-books');
+  const count = document.getElementById('collection-editor-count');
+  if (!container || !collectionEditorDraft) return;
+  const books = collectionEditorBookOptions(search);
+  if (count) {
+    count.textContent = `${collectionEditorDraft.selectedBookIds.size} selected · ${books.length} shown`;
   }
-  try {
-    await supabaseTableRequest('collections', {
-      method: 'POST',
-      body: [{user_id: supabaseSession.user.id, name, slug, description, is_system: false}],
-      prefer: 'return=representation'
-    });
-    await loadCollections();
-    buildBooks();
-    openCollectionManager();
-  } catch (error) {
-    status.textContent = String(error.message).includes('collections')
-      ? 'Run the collections definition migration before creating collections with definitions.'
-      : error.message;
+  container.innerHTML = books.map(book => {
+    const id = String(book.database_id);
+    return `
+      <label class="picker-book-choice">
+        <input type="checkbox" value="${esc(id)}" ${collectionEditorDraft.selectedBookIds.has(id) ? 'checked' : ''}
+          onchange="toggleCollectionEditorBook(this.value,this.checked)">
+        <span>${esc(book.title)}<small>${esc(book.author_full || book.author || book.author_short || '')}${book.series ? ' · ' + esc(seriesLabelForBook(book)) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
+      </label>
+    `;
+  }).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
+}
+
+function toggleCollectionEditorBook(bookId, checked) {
+  if (!collectionEditorDraft) return;
+  const id = String(bookId || '');
+  if (!id) return;
+  if (checked) collectionEditorDraft.selectedBookIds.add(id);
+  else collectionEditorDraft.selectedBookIds.delete(id);
+  const count = document.getElementById('collection-editor-count');
+  if (count) {
+    const shown = document.querySelectorAll('#collection-editor-books input[type="checkbox"]').length;
+    count.textContent = `${collectionEditorDraft.selectedBookIds.size} selected · ${shown} shown`;
   }
 }
 
-async function editLibraryCollection(id) {
+function setVisibleCollectionBooks(checked) {
+  if (!collectionEditorDraft) return;
+  document.querySelectorAll('#collection-editor-books input[type="checkbox"]').forEach(input => {
+    input.checked = checked;
+    toggleCollectionEditorBook(input.value, checked);
+  });
+}
+
+async function replaceCollectionBookMemberships(collectionId, selectedBookIds) {
+  await supabaseTableRequest('book_collections', {
+    method: 'DELETE',
+    query: `?collection_id=eq.${encodeURIComponent(collectionId)}&user_id=eq.${encodeURIComponent(supabaseSession.user.id)}`,
+    prefer: 'return=minimal'
+  });
+  const selected = [...new Set(selectedBookIds)].filter(Boolean);
+  for (let index = 0; index < selected.length; index += 100) {
+    const chunk = selected.slice(index, index + 100);
+    await supabaseTableRequest('book_collections', {
+      method: 'POST',
+      body: chunk.map(bookId => ({
+        user_id: supabaseSession.user.id,
+        book_id: bookId,
+        collection_id: collectionId
+      })),
+      prefer: 'return=minimal'
+    });
+  }
+  allLibraryBooks().forEach(book => {
+    if (!book.database_id) return;
+    const ids = new Set(bookCollectionMemberships.get(book.database_id) || []);
+    ids.delete(collectionId);
+    if (selected.includes(String(book.database_id))) ids.add(collectionId);
+    bookCollectionMemberships.set(book.database_id, ids);
+  });
+}
+
+async function saveLibraryCollection() {
   const status = document.getElementById('collection-manager-status');
-  const collection = libraryCollections.find(item => item.id === id);
-  if (!collection || collection.is_system) return;
-  const currentName = collection.name || '';
-  const currentDescription = collection.description || '';
-  const name = prompt('Rename collection', currentName || '')?.trim();
-  if (!name) return;
-  const description = prompt('Collection definition', currentDescription)?.trim() || '';
-  if (name === currentName && description === currentDescription) return;
+  const name = document.getElementById('collection-editor-name')?.value.trim();
+  const description = document.getElementById('collection-editor-description')?.value.trim() || '';
+  if (!collectionEditorDraft) return;
+  if (!name) return status.textContent = 'Enter a collection name.';
   const slug = collectionSlug(name);
-  if (libraryCollections.some(collection => collection.id !== id && collection.slug === slug)) {
+  if (libraryCollections.some(collection => collection.id !== collectionEditorDraft.id && collection.slug === slug)) {
     if (status) status.textContent = 'A collection with that name already exists.';
     return;
   }
-  if (status) status.textContent = `Renaming ${currentName}...`;
+  if (status) status.textContent = 'Saving collection...';
   try {
-    await supabaseTableRequest('collections', {
-      method: 'PATCH',
-      query: `?id=eq.${encodeURIComponent(id)}&is_system=eq.false`,
-      body: {name, slug, description},
-      prefer: 'return=minimal'
-    });
+    let collectionId = collectionEditorDraft.id;
+    if (collectionId) {
+      await supabaseTableRequest('collections', {
+        method: 'PATCH',
+        query: `?id=eq.${encodeURIComponent(collectionId)}&is_system=eq.false`,
+        body: {name, slug, description},
+        prefer: 'return=minimal'
+      });
+    } else {
+      const inserted = await supabaseTableRequest('collections', {
+        method: 'POST',
+        body: [{user_id: supabaseSession.user.id, name, slug, description, is_system: false}],
+        prefer: 'return=representation'
+      });
+      collectionId = inserted?.[0]?.id;
+    }
+    if (!collectionId) throw new Error('The collection was saved, but its ID was not returned.');
+    await replaceCollectionBookMemberships(collectionId, [...collectionEditorDraft.selectedBookIds]);
     await loadCollections();
     buildBooks();
     openCollectionManager();
   } catch (error) {
     if (status) status.textContent = String(error.message).includes('description')
-      ? 'Run the collections definition migration before editing definitions.'
+      ? 'Run the collections definition migration before saving definitions.'
       : error.message;
   }
 }
