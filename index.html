@@ -4265,11 +4265,43 @@ const SYSTEM_COLLECTIONS = [
   ['On Hold', 'on-hold'],
   ['Reread', 'reread']
 ];
+const COLLECTION_YEAR_RULE_PATTERN = /\n?\[publication-year-rule:from=(\d*);to=(\d*)\]\s*$/;
 
 function collectionSlug(value) {
   return normalizedKey(value)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || `collection-${Date.now()}`;
+}
+
+function collectionDisplayDescription(description='') {
+  return String(description || '').replace(COLLECTION_YEAR_RULE_PATTERN, '').trim();
+}
+
+function collectionDescriptionWithYearRule(description='', yearFrom=null, yearTo=null) {
+  const clean = collectionDisplayDescription(description);
+  if (!yearFrom && !yearTo) return clean;
+  return `${clean}${clean ? '\n' : ''}[publication-year-rule:from=${yearFrom || ''};to=${yearTo || ''}]`;
+}
+
+function collectionYearRange(collection) {
+  const columnFrom = Number(collection?.publication_year_from) || null;
+  const columnTo = Number(collection?.publication_year_to) || null;
+  if (columnFrom || columnTo) return {from: columnFrom, to: columnTo};
+  const match = String(collection?.description || '').match(COLLECTION_YEAR_RULE_PATTERN);
+  return {
+    from: match?.[1] ? Number(match[1]) : null,
+    to: match?.[2] ? Number(match[2]) : null
+  };
+}
+
+function collectionYearRuleMatchesBook(collection, book) {
+  const {from, to} = collectionYearRange(collection);
+  if (!from && !to) return false;
+  const year = publicationYearForBook(book);
+  if (!year) return false;
+  if (from && year < from) return false;
+  if (to && year > to) return false;
+  return true;
 }
 
 function collectionBySlug(slug) {
@@ -4301,7 +4333,7 @@ function bookBelongsToCollection(book, collection) {
   if (collection.slug === 'dnf') return libraryBookStatus(book) === 'DNF';
   if (collection.slug === 'on-hold') return libraryBookStatus(book) === 'On Hold';
   if (collection.slug === 'reread' && guestMode) return Boolean(book.reread);
-  return explicitCollectionIdsForBook(book).has(collection.id);
+  return explicitCollectionIdsForBook(book).has(collection.id) || collectionYearRuleMatchesBook(collection, book);
 }
 
 async function loadCollections() {
@@ -6281,10 +6313,18 @@ function openCollectionManager() {
     <div class="collection-manager-list">
       ${libraryCollections.map(collection => `
         <div class="collection-manager-row">
+          ${(() => {
+            const description = collectionDisplayDescription(collection.description);
+            const {from, to} = collectionYearRange(collection);
+            const yearRule = from && to ? `Published ${from}-${to}` : (from ? `Published ${from} or later` : (to ? `Published through ${to}` : ''));
+            const detail = [collection.is_system ? 'Default collection' : 'Custom collection', yearRule, description].filter(Boolean).join(' · ');
+            return `
           <div class="collection-manager-name">${esc(collection.name)}
             <span class="collection-manager-count">${booksInCollectionCount(collection)} books</span>
-            <small>${collection.is_system ? 'Default collection' : 'Custom collection'}${collection.description ? ' · ' + esc(collection.description) : ''}</small>
+            <small>${esc(detail)}</small>
           </div>
+            `;
+          })()}
           <div class="collection-manager-actions">
             ${collection.is_system ? '' : `
               <button type="button" onclick="openCollectionEditor(${jsArg(collection.id)})">Edit</button>
@@ -6303,12 +6343,13 @@ function openCollectionManager() {
 function openCollectionEditor(id='') {
   const collection = libraryCollections.find(item => item.id === id);
   if (collection?.is_system) return;
+  const yearRange = collectionYearRange(collection);
   collectionEditorDraft = {
     id: collection?.id || '',
     name: collection?.name || '',
-    description: collection?.description || '',
-    publication_year_from: Number(collection?.publication_year_from) || null,
-    publication_year_to: Number(collection?.publication_year_to) || null,
+    description: collectionDisplayDescription(collection?.description || ''),
+    publication_year_from: yearRange.from,
+    publication_year_to: yearRange.to,
     selectedBookIds: new Set(allLibraryBooks()
       .filter(book => book.database_id && collection && explicitCollectionIdsForBook(book).has(collection.id))
       .map(book => String(book.database_id)))
@@ -6475,10 +6516,11 @@ async function saveLibraryCollection() {
   if (status) status.textContent = 'Saving collection...';
   try {
     let collectionId = collectionEditorDraft.id;
+    const storedDescription = collectionDescriptionWithYearRule(description, publicationYearFrom, publicationYearTo);
     const payload = {
       name,
       slug,
-      description,
+      description: storedDescription,
       publication_year_from: publicationYearFrom,
       publication_year_to: publicationYearTo
     };
@@ -6495,7 +6537,7 @@ async function saveLibraryCollection() {
         await supabaseTableRequest('collections', {
           method: 'PATCH',
           query: `?id=eq.${encodeURIComponent(collectionId)}&is_system=eq.false`,
-          body: {name, slug, description},
+          body: {name, slug, description: storedDescription},
           prefer: 'return=minimal'
         });
       }
@@ -6511,7 +6553,7 @@ async function saveLibraryCollection() {
         if (!String(error.message || '').includes('publication_year')) throw error;
         inserted = await supabaseTableRequest('collections', {
           method: 'POST',
-          body: [{user_id: supabaseSession.user.id, name, slug, description, is_system: false}],
+          body: [{user_id: supabaseSession.user.id, name, slug, description: storedDescription, is_system: false}],
           prefer: 'return=representation'
         });
       }
