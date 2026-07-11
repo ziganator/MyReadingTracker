@@ -518,14 +518,48 @@
   }
   .books-layout {
     position: relative;
-    display: grid;
-    grid-template-columns: 50px minmax(0, 1fr);
-    gap: 0.95rem;
-    align-items: start;
+    display: block;
     overflow: visible;
   }
   .books-layout.sidebar-open {
-    grid-template-columns: minmax(230px, 282px) minmax(0, 1fr);
+    display: block;
+  }
+  .books-control-button.active {
+    border-color: var(--gold);
+    background: var(--aged);
+    color: var(--deep);
+    box-shadow: inset 0 -2px 0 var(--gold);
+  }
+  .books-control-panel {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.1rem;
+    border-top: 1px solid rgba(200,168,122,0.45);
+    padding-top: 0.65rem;
+  }
+  .books-control-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .books-control-panel-title {
+    color: var(--burnt);
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+  }
+  .books-control-panel-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--burnt);
+    cursor: pointer;
+    font-size: 1rem;
   }
   .books-sidebar {
     position: sticky;
@@ -793,6 +827,7 @@
     padding-left: 0.4rem;
   }
   .books-main {
+    width: 100%;
     min-width: 0;
   }
   .books-sidebar-backdrop {
@@ -2875,7 +2910,7 @@
   }
   .books-layout {
     display: block;
-    padding-left: 56px;
+    padding-left: 0;
   }
   .books-layout.sidebar-open {
     display: block;
@@ -8013,118 +8048,92 @@ function clearBooksBulkSelection() {
   filterBooks();
 }
 
-let booksSidebarOpen = false;
-let booksSidebarPanel = 'search';
+let booksControlPanel = '';
 
 function setBooksSidebarOpen(open, panel='') {
-  booksSidebarOpen = Boolean(open);
-  if (panel) booksSidebarPanel = panel;
-  const layout = document.getElementById('books-layout');
-  const sidebar = document.getElementById('books-sidebar');
-  const backdrop = document.getElementById('books-sidebar-backdrop');
-  layout?.classList.toggle('sidebar-open', booksSidebarOpen);
-  sidebar?.classList.toggle('open', booksSidebarOpen);
-  backdrop?.classList.toggle('open', booksSidebarOpen);
+  booksControlPanel = open ? (panel || booksControlPanel || 'filters') : '';
+  buildBooks();
 }
 
 function toggleBooksSidebar() {
-  setBooksSidebarOpen(!booksSidebarOpen);
+  booksControlPanel = booksControlPanel ? '' : 'filters';
+  buildBooks();
 }
 
 function openBooksSidebarPanel(panel) {
-  booksSidebarPanel = panel || 'search';
-  booksSidebarOpen = true;
+  toggleBooksControlPanel(panel || 'filters');
+}
+
+function toggleBooksControlPanel(panel) {
+  booksControlPanel = booksControlPanel === panel ? '' : panel;
   buildBooks();
-  if (booksSidebarPanel === 'search') {
-    setTimeout(() => document.getElementById('book-search')?.focus(), 0);
-  }
 }
 
-function booksSidebarIcon(panel, icon, label) {
-  const active = booksSidebarOpen && booksSidebarPanel === panel;
-  return `<button class="books-sidebar-icon ${active ? 'active' : ''}" type="button"
-    data-label="${esc(label)}" aria-label="${esc(label)}" title="${esc(label)}"
-    onclick="openBooksSidebarPanel(${jsArg(panel)})">${icon}</button>`;
+function closeBooksControlPanel() {
+  booksControlPanel = '';
+  buildBooks();
 }
 
-function booksSidebarPanelHTML(genres, years) {
-  if (booksSidebarPanel === 'search') {
-    return `<div class="books-sidebar-section">
-      <div class="books-sidebar-label">Search</div>
-      <div class="books-sidebar-search">
-        <input type="text" id="book-search" value="${esc(booksSearchQuery)}"
-          placeholder="Search title, author, series…" oninput="setBooksSearch(this.value)">
-        <button id="book-search-clear" class="${booksSearchQuery ? 'visible' : ''}" type="button"
-          aria-label="Clear book search" title="Clear search"
-          onclick="clearBooksSearch()" style="display:${booksSearchQuery ? 'block' : 'none'}">×</button>
-      </div>
-    </div>`;
-  }
-  if (booksSidebarPanel === 'collection') {
-    return `<div class="books-sidebar-section">
-      <div class="books-sidebar-label">Collection</div>
-      ${booksCollectionSelectHTML()}
-    </div>`;
-  }
-  if (booksSidebarPanel === 'filters') {
-    return `<div class="books-sidebar-section">
-      <div class="books-sidebar-label">Filter</div>
-      ${booksSidebarFilterHTML(genres, years)}
-    </div>`;
-  }
-  if (booksSidebarPanel === 'sort') {
-    return `<div class="books-sidebar-section">
-      <div class="books-sidebar-label">Sort</div>
-      ${booksSidebarSortHTML()}
-    </div>`;
-  }
-  if (booksSidebarPanel === 'view') {
-    return `<div class="books-sidebar-section">
-      <div class="books-sidebar-label">View</div>
-      ${libraryViewSwitcher('books', booksView)}
-    </div>`;
-  }
-  return `<div class="books-sidebar-section">
-    <div class="books-sidebar-label">Actions</div>
-    <button class="picker-command" type="button" onclick="openAddBookDialog('TBR')">+ Add Book</button>
-    <button class="picker-command secondary" type="button" onclick="toggleBooksBulkMode()">${booksBulkMode ? 'Done Selecting' : 'Select Books'}</button>
-  </div>`;
+function booksControlButton(panel, label) {
+  const active = booksControlPanel === panel;
+  return `<button class="picker-command secondary books-control-button ${active ? 'active' : ''}" type="button"
+    onclick="toggleBooksControlPanel(${jsArg(panel)})">${esc(label)}</button>`;
 }
 
-function booksSidebarTitle() {
+function booksControlPanelTitle(panel) {
   return {
-    search: 'Search',
     collection: 'Collections',
     filters: 'Filter',
     sort: 'Sort',
-    view: 'View',
-    actions: 'Actions'
-  }[booksSidebarPanel] || 'Library Controls';
+    view: 'View'
+  }[panel] || 'Controls';
 }
 
-function booksControlsSidebarHTML(genres, years) {
+function booksControlPanelBodyHTML(genres, years) {
+  if (booksControlPanel === 'collection') return booksCollectionSelectHTML();
+  if (booksControlPanel === 'filters') return booksSidebarFilterHTML(genres, years);
+  if (booksControlPanel === 'sort') return booksSidebarSortHTML();
+  if (booksControlPanel === 'view') return libraryViewSwitcher('books', booksView);
+  return '';
+}
+
+function booksControlPanelHTML(genres, years) {
+  if (!booksControlPanel) return '';
+  return `<div class="books-control-panel">
+    <div class="books-control-panel-head">
+      <div class="books-control-panel-title">${esc(booksControlPanelTitle(booksControlPanel))}</div>
+      <button class="books-control-panel-close" type="button" aria-label="Close controls" onclick="closeBooksControlPanel()">×</button>
+    </div>
+    ${booksControlPanelBodyHTML(genres, years)}
+  </div>`;
+}
+
+function booksToolbarHTML(genres, years) {
   return `
-    <aside class="books-sidebar ${booksSidebarOpen ? 'open' : ''}" id="books-sidebar" aria-label="Library controls">
-      <div class="books-sidebar-rail">
-        <button class="books-sidebar-icon" type="button" data-label="${booksSidebarOpen ? 'Collapse' : 'Expand'}"
-          aria-label="${booksSidebarOpen ? 'Collapse library controls' : 'Expand library controls'}"
-          title="${booksSidebarOpen ? 'Collapse controls' : 'Expand controls'}" onclick="toggleBooksSidebar()">${booksSidebarOpen ? '‹' : '›'}</button>
-        ${booksSidebarIcon('search', '⌕', 'Search')}
-        ${booksSidebarIcon('collection', '▣', 'Collections')}
-        ${booksSidebarIcon('filters', '◷', 'Filter')}
-        ${booksSidebarIcon('sort', '↕', 'Sort')}
-        ${booksSidebarIcon('view', '▤', 'View')}
-        ${booksSidebarIcon('actions', '＋', 'Actions')}
-      </div>
-      <div class="books-sidebar-content">
-        <div class="books-sidebar-header">
-          <div class="books-sidebar-title">${esc(booksSidebarTitle())}</div>
-          <button class="books-sidebar-close" type="button" aria-label="Close controls" onclick="setBooksSidebarOpen(false)">×</button>
+    <div class="books-toolbar">
+      <div class="books-toolbar-row">
+        <div class="books-toolbar-search">
+          <input type="text" id="book-search" value="${esc(booksSearchQuery)}"
+            placeholder="Search title, author, series…" oninput="setBooksSearch(this.value)">
+          <button id="book-search-clear" class="${booksSearchQuery ? 'visible' : ''}" type="button"
+            aria-label="Clear book search" title="Clear search"
+            onclick="clearBooksSearch()" style="display:${booksSearchQuery ? 'block' : 'none'}">×</button>
         </div>
-        ${booksSidebarPanelHTML(genres, years)}
       </div>
-    </aside>
-    <div class="books-sidebar-backdrop ${booksSidebarOpen ? 'open' : ''}" id="books-sidebar-backdrop" onclick="setBooksSidebarOpen(false)"></div>
+      <div class="books-toolbar-row">
+        <div class="books-toolbar-actions">
+          <button class="picker-command" type="button" onclick="openAddBookDialog('TBR')">+ Add Book</button>
+          <button class="picker-command secondary" type="button" onclick="toggleBooksBulkMode()">${booksBulkMode ? 'Done Selecting' : 'Select Books'}</button>
+        </div>
+        <div class="books-toolbar-tools">
+          ${booksControlButton('collection', 'Collections')}
+          ${booksControlButton('filters', 'Filter')}
+          ${booksControlButton('sort', 'Sort')}
+          ${booksControlButton('view', 'View')}
+        </div>
+      </div>
+      ${booksControlPanelHTML(genres, years)}
+    </div>
   `;
 }
 
@@ -8244,9 +8253,9 @@ function buildBooks() {
   const years = [...new Set(libraryBooks.map(b=>Math.floor(b.year_read)).filter(Boolean))].sort((a,b)=>b-a);
   
   panel.innerHTML = `
-    <div class="books-layout ${booksSidebarOpen ? 'sidebar-open' : ''}" id="books-layout">
-      ${booksControlsSidebarHTML(genres, years)}
+    <div class="books-layout" id="books-layout">
       <div class="books-main">
+        ${booksToolbarHTML(genres, years)}
         <div class="book-count-line">
           <span id="book-count"></span>
           <span class="book-count-criteria" id="book-count-criteria"></span>
