@@ -2225,6 +2225,8 @@
   .books-collection-panel {
     display: inline-flex;
     align-items: flex-end;
+    justify-content: center;
+    justify-self: center;
     gap: 0.75rem;
     flex-wrap: wrap;
   }
@@ -6369,7 +6371,7 @@ function collectionEditorBookOptions(search='') {
   return allLibraryBooks()
     .filter(book => book.database_id)
     .filter(book => {
-      const year = Number(book.year_pub) || Number(book.publication_year) || null;
+      const year = publicationYearForBook(book);
       if ((yearFrom || yearTo) && !year) return false;
       if (yearFrom && year < yearFrom) return false;
       if (yearTo && year > yearTo) return false;
@@ -8089,7 +8091,24 @@ function compareBooksByLevel(a, b, field, sortDirection) {
 }
 
 function publicationSortYear(book) {
-  return Number(book.year_pub) || Number(book.publication_year) || 999999;
+  return publicationYearForBook(book) || 999999;
+}
+
+function publicationYearForBook(book) {
+  const candidates = [
+    book?.year_pub,
+    book?.publication_year,
+    book?.publication_date,
+    book?.edition?.publication_date
+  ];
+  for (const value of candidates) {
+    if (value === null || value === undefined || value === '') continue;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric >= 1000 && numeric <= 9999) return Math.floor(numeric);
+    const match = String(value).match(/\b(1[0-9]{3}|20[0-9]{2}|2100)\b/);
+    if (match) return Number(match[1]);
+  }
+  return null;
 }
 
 function seriesPositionSortValue(book) {
@@ -10066,7 +10085,7 @@ function pickerPoolForCategory(category) {
       const titleMatch = selectedTitles.has(titleKey);
       const isTBR = DATA.tbr.includes(book);
       const genreMatch = !selectedGenres.size || selectedGenres.has(book.genre || 'Uncategorized');
-      const publicationYear = Number(book.year_pub) || 0;
+      const publicationYear = publicationYearForBook(book);
       const yearMatch = !hasYearRange || (
         publicationYear &&
         (!yearFrom || publicationYear >= yearFrom) &&
