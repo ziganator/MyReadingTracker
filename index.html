@@ -468,9 +468,12 @@
     top: 48px;
     z-index: 90;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.55rem;
-    padding: 0.7rem 0.75rem;
+    grid-template-columns: max-content minmax(280px, 460px) max-content;
+    align-items: center;
+    justify-content: center;
+    column-gap: clamp(1.5rem, 4vw, 4rem);
+    row-gap: 0.55rem;
+    padding: 0.7rem 1rem;
     margin: -0.35rem 0 0.85rem;
     border: 1px solid rgba(200,168,122,0.55);
     border-radius: 7px;
@@ -479,11 +482,7 @@
     backdrop-filter: blur(6px);
   }
   .books-toolbar-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.65rem;
-    flex-wrap: wrap;
+    display: contents;
   }
   .books-toolbar-actions,
   .books-toolbar-tools {
@@ -495,14 +494,17 @@
   .books-toolbar-search {
     position: relative;
     display: flex;
+    justify-self: center;
     width: 100%;
-    min-width: 100%;
+    max-width: 460px;
+    min-width: 280px;
   }
   .books-toolbar-search input {
     width: 100%;
     min-width: 0;
-    min-height: 44px;
-    font-size: 1rem;
+    min-height: 38px;
+    font-size: 0.95rem;
+    padding-left: 1rem;
     padding-right: 2rem;
   }
   .books-toolbar-search button {
@@ -531,6 +533,7 @@
     box-shadow: inset 0 -2px 0 var(--gold);
   }
   .books-control-panel {
+    grid-column: 1 / -1;
     display: grid;
     gap: 0.75rem;
     margin-top: 0.1rem;
@@ -2888,15 +2891,23 @@
   .books-toolbar {
     top: 0;
     z-index: 120;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
     margin: -0.25rem 0 0.75rem;
     padding: 0.6rem;
   }
   .books-toolbar-row {
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
   .books-toolbar-actions,
   .books-toolbar-tools {
     width: 100%;
+  }
+  .books-toolbar-search {
+    max-width: none;
+    min-width: 0;
   }
   .books-toolbar-actions > *,
   .books-toolbar-tools > * {
@@ -8112,18 +8123,16 @@ function booksToolbarHTML(genres, years) {
   return `
     <div class="books-toolbar">
       <div class="books-toolbar-row">
+        <div class="books-toolbar-actions">
+          <button class="picker-command" type="button" onclick="openAddBookDialog('TBR')">+ Add Book</button>
+          <button class="picker-command secondary" type="button" onclick="toggleBooksBulkMode()">${booksBulkMode ? 'Done Selecting' : 'Select Books'}</button>
+        </div>
         <div class="books-toolbar-search">
           <input type="text" id="book-search" value="${esc(booksSearchQuery)}"
             placeholder="Search title, author, series…" oninput="setBooksSearch(this.value)">
           <button id="book-search-clear" class="${booksSearchQuery ? 'visible' : ''}" type="button"
             aria-label="Clear book search" title="Clear search"
             onclick="clearBooksSearch()" style="display:${booksSearchQuery ? 'block' : 'none'}">×</button>
-        </div>
-      </div>
-      <div class="books-toolbar-row">
-        <div class="books-toolbar-actions">
-          <button class="picker-command" type="button" onclick="openAddBookDialog('TBR')">+ Add Book</button>
-          <button class="picker-command secondary" type="button" onclick="toggleBooksBulkMode()">${booksBulkMode ? 'Done Selecting' : 'Select Books'}</button>
         </div>
         <div class="books-toolbar-tools">
           ${booksControlButton('collection', 'Collections')}
