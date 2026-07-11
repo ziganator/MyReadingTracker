@@ -2222,6 +2222,19 @@
     font-size: 0.78rem;
     font-weight: 600;
   }
+  .books-collection-panel {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .books-collection-panel .books-sidebar-field {
+    min-width: 240px;
+    width: auto;
+  }
+  .books-collection-panel .picker-command {
+    flex: 0 0 auto;
+  }
 
   /* ─── Monthly Recap ───────────────────────────── */
   .monthly-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
@@ -4292,7 +4305,7 @@ function bookBelongsToCollection(book, collection) {
 async function loadCollections() {
   if (guestMode || !supabaseSession?.user?.id) {
     libraryCollections = SYSTEM_COLLECTIONS.map(([name, slug]) => ({
-      id: `guest:${slug}`, name, slug, description: '', is_system: true
+      id: `guest:${slug}`, name, slug, description: '', publication_year_from: null, publication_year_to: null, is_system: true
     }));
     if (booksStatusFilter === 'all') booksStatusFilter = collectionBySlug('all-books')?.id || 'all';
     return;
@@ -4301,13 +4314,19 @@ async function loadCollections() {
     let collections;
     try {
       collections = await supabaseTableRequest('collections', {
-        query: '?select=id,name,slug,description,is_system&order=is_system.desc,created_at.asc'
+        query: '?select=id,name,slug,description,publication_year_from,publication_year_to,is_system&order=is_system.desc,created_at.asc'
       });
     } catch (error) {
-      if (!String(error.message || '').includes('description')) throw error;
+      if (!String(error.message || '').includes('description') &&
+          !String(error.message || '').includes('publication_year')) throw error;
       collections = (await supabaseTableRequest('collections', {
         query: '?select=id,name,slug,is_system&order=is_system.desc,created_at.asc'
-      })).map(collection => ({...collection, description: ''}));
+      })).map(collection => ({
+        ...collection,
+        description: '',
+        publication_year_from: null,
+        publication_year_to: null
+      }));
     }
     const existing = new Set(collections.map(collection => collection.slug));
     const missing = SYSTEM_COLLECTIONS
@@ -4317,6 +4336,8 @@ async function loadCollections() {
         name,
         slug,
         description: '',
+        publication_year_from: null,
+        publication_year_to: null,
         is_system: true
       }));
     if (missing.length) {
@@ -4342,7 +4363,7 @@ async function loadCollections() {
   } catch (error) {
     console.warn('Collections are unavailable until the collections migration is applied:', error.message);
     libraryCollections = SYSTEM_COLLECTIONS.map(([name, slug]) => ({
-      id: `fallback:${slug}`, name, slug, description: '', is_system: true
+      id: `fallback:${slug}`, name, slug, description: '', publication_year_from: null, publication_year_to: null, is_system: true
     }));
     if (booksStatusFilter === 'all') booksStatusFilter = collectionBySlug('all-books')?.id || 'all';
     bookCollectionMemberships = new Map();
@@ -6284,6 +6305,8 @@ function openCollectionEditor(id='') {
     id: collection?.id || '',
     name: collection?.name || '',
     description: collection?.description || '',
+    publication_year_from: Number(collection?.publication_year_from) || null,
+    publication_year_to: Number(collection?.publication_year_to) || null,
     selectedBookIds: new Set(allLibraryBooks()
       .filter(book => book.database_id && collection && explicitCollectionIdsForBook(book).has(collection.id))
       .map(book => String(book.database_id)))
@@ -6300,14 +6323,30 @@ function openCollectionEditor(id='') {
       <textarea id="collection-editor-description" rows="3" placeholder="What belongs in this collection?">${esc(collectionEditorDraft.description)}</textarea>
     </div>
     <div class="picker-modal-field">
+      <label>Publication year</label>
+      <div class="picker-year-range">
+        <label>After
+          <input id="collection-year-from" type="number" min="1000" max="2100"
+            value="${collectionEditorDraft.publication_year_from || ''}" placeholder="1990"
+            oninput="renderCollectionEditorBooks(document.getElementById('collection-book-search')?.value || '')">
+        </label>
+        <label>Before
+          <input id="collection-year-to" type="number" min="1000" max="2100"
+            value="${collectionEditorDraft.publication_year_to || ''}" placeholder="1999"
+            oninput="renderCollectionEditorBooks(document.getElementById('collection-book-search')?.value || '')">
+        </label>
+      </div>
+      <div class="picker-field-help">Use these to narrow the books shown below. For the 1990s, enter 1990 after and 1999 before.</div>
+    </div>
+    <div class="picker-modal-field">
       <label for="collection-book-search">Books in this collection</label>
       <input id="collection-book-search" type="text" placeholder="Search title, author, series..."
         oninput="renderCollectionEditorBooks(this.value)">
       <div class="collection-editor-summary">
         <span id="collection-editor-count"></span>
         <span>
-          <button type="button" onclick="setVisibleCollectionBooks(true)">Select Visible</button>
-          <button type="button" onclick="setVisibleCollectionBooks(false)">Clear Visible</button>
+          <button type="button" onclick="setVisibleCollectionBooks(true)">Include Shown</button>
+          <button type="button" onclick="setVisibleCollectionBooks(false)">Exclude Shown</button>
         </span>
       </div>
       <div class="picker-book-choices collection-book-choices" id="collection-editor-books"></div>
@@ -6325,8 +6364,17 @@ function openCollectionEditor(id='') {
 
 function collectionEditorBookOptions(search='') {
   const query = normalizedKey(search);
+  const yearFrom = Number(document.getElementById('collection-year-from')?.value) || null;
+  const yearTo = Number(document.getElementById('collection-year-to')?.value) || null;
   return allLibraryBooks()
     .filter(book => book.database_id)
+    .filter(book => {
+      const year = Number(book.year_pub) || Number(book.publication_year) || null;
+      if ((yearFrom || yearTo) && !year) return false;
+      if (yearFrom && year < yearFrom) return false;
+      if (yearTo && year > yearTo) return false;
+      return true;
+    })
     .filter(book => !query || [
       book.title,
       book.author_full || book.author || book.author_short,
@@ -6343,7 +6391,7 @@ function renderCollectionEditorBooks(search='') {
   if (!container || !collectionEditorDraft) return;
   const books = collectionEditorBookOptions(search);
   if (count) {
-    count.textContent = `${collectionEditorDraft.selectedBookIds.size} selected · ${books.length} shown`;
+    count.textContent = `${collectionEditorDraft.selectedBookIds.size} included · ${books.length} shown`;
   }
   container.innerHTML = books.map(book => {
     const id = String(book.database_id);
@@ -6366,7 +6414,7 @@ function toggleCollectionEditorBook(bookId, checked) {
   const count = document.getElementById('collection-editor-count');
   if (count) {
     const shown = document.querySelectorAll('#collection-editor-books input[type="checkbox"]').length;
-    count.textContent = `${collectionEditorDraft.selectedBookIds.size} selected · ${shown} shown`;
+    count.textContent = `${collectionEditorDraft.selectedBookIds.size} included · ${shown} shown`;
   }
 }
 
@@ -6410,8 +6458,13 @@ async function saveLibraryCollection() {
   const status = document.getElementById('collection-manager-status');
   const name = document.getElementById('collection-editor-name')?.value.trim();
   const description = document.getElementById('collection-editor-description')?.value.trim() || '';
+  const publicationYearFrom = Number(document.getElementById('collection-year-from')?.value) || null;
+  const publicationYearTo = Number(document.getElementById('collection-year-to')?.value) || null;
   if (!collectionEditorDraft) return;
   if (!name) return status.textContent = 'Enter a collection name.';
+  if (publicationYearFrom && publicationYearTo && publicationYearFrom > publicationYearTo) {
+    return status.textContent = 'The after year must be earlier than the before year.';
+  }
   const slug = collectionSlug(name);
   if (libraryCollections.some(collection => collection.id !== collectionEditorDraft.id && collection.slug === slug)) {
     if (status) status.textContent = 'A collection with that name already exists.';
@@ -6420,19 +6473,46 @@ async function saveLibraryCollection() {
   if (status) status.textContent = 'Saving collection...';
   try {
     let collectionId = collectionEditorDraft.id;
+    const payload = {
+      name,
+      slug,
+      description,
+      publication_year_from: publicationYearFrom,
+      publication_year_to: publicationYearTo
+    };
     if (collectionId) {
-      await supabaseTableRequest('collections', {
-        method: 'PATCH',
-        query: `?id=eq.${encodeURIComponent(collectionId)}&is_system=eq.false`,
-        body: {name, slug, description},
-        prefer: 'return=minimal'
-      });
+      try {
+        await supabaseTableRequest('collections', {
+          method: 'PATCH',
+          query: `?id=eq.${encodeURIComponent(collectionId)}&is_system=eq.false`,
+          body: payload,
+          prefer: 'return=minimal'
+        });
+      } catch (error) {
+        if (!String(error.message || '').includes('publication_year')) throw error;
+        await supabaseTableRequest('collections', {
+          method: 'PATCH',
+          query: `?id=eq.${encodeURIComponent(collectionId)}&is_system=eq.false`,
+          body: {name, slug, description},
+          prefer: 'return=minimal'
+        });
+      }
     } else {
-      const inserted = await supabaseTableRequest('collections', {
-        method: 'POST',
-        body: [{user_id: supabaseSession.user.id, name, slug, description, is_system: false}],
-        prefer: 'return=representation'
-      });
+      let inserted;
+      try {
+        inserted = await supabaseTableRequest('collections', {
+          method: 'POST',
+          body: [{user_id: supabaseSession.user.id, ...payload, is_system: false}],
+          prefer: 'return=representation'
+        });
+      } catch (error) {
+        if (!String(error.message || '').includes('publication_year')) throw error;
+        inserted = await supabaseTableRequest('collections', {
+          method: 'POST',
+          body: [{user_id: supabaseSession.user.id, name, slug, description, is_system: false}],
+          prefer: 'return=representation'
+        });
+      }
       collectionId = inserted?.[0]?.id;
     }
     if (!collectionId) throw new Error('The collection was saved, but its ID was not returned.');
@@ -7745,7 +7825,7 @@ function booksCollectionSelectHTML() {
   const options = libraryCollections.map(collection =>
     `<option value="${esc(collection.id)}" ${collection.id === selected?.id ? 'selected' : ''}>${esc(collection.name)}</option>`
   ).join('');
-  return `<div class="books-sidebar-select-grid">
+  return `<div class="books-collection-panel">
     ${booksSidebarSelect('Collection', `<select onchange="selectBooksCollection(this.value)">${options}</select>`)}
     <button class="picker-command secondary" type="button" onclick="openCollectionManager()">Manage Collections</button>
   </div>`;
