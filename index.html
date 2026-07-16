@@ -3595,6 +3595,56 @@
     border-color: #2f6f5e !important;
     color: #fff;
   }
+  .summary-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(118px, 1fr));
+    gap: 0.8rem;
+    margin: 1.5rem 0;
+  }
+  .summary-stat-card {
+    min-width: 0;
+    background:
+      linear-gradient(150deg, rgba(255,255,255,0.98), rgba(47,111,94,0.05) 55%, rgba(213,155,76,0.08)),
+      var(--card-bg);
+    border: 1px solid var(--border);
+    border-top: 3px solid rgba(213,155,76,0.72);
+    border-radius: 8px;
+    padding: 0.8rem 0.7rem;
+    box-shadow: 0 10px 28px rgba(20,31,28,0.07);
+    text-align: center;
+  }
+  .summary-stat-icon { font-size: 1.25rem; line-height: 1.1; }
+  .summary-stat-value {
+    color: var(--deep);
+    font-family: inherit;
+    font-size: clamp(1.15rem, 1.7vw, 1.65rem);
+    font-weight: 850;
+    line-height: 1.05;
+    margin-top: 0.15rem;
+  }
+  .summary-stat-label {
+    color: var(--muted);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    line-height: 1.35;
+    margin-top: 0.22rem;
+    text-transform: uppercase;
+  }
+  .summary-stat-subtitle {
+    display: -webkit-box;
+    margin-top: 0.16rem;
+    color: var(--muted);
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+    overflow: hidden;
+    text-transform: uppercase;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  @media (max-width: 1100px) {
+    .summary-stat-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  }
   .library-book-card:hover,
   .library-list-row:hover,
   .author-row:hover,
@@ -5742,20 +5792,21 @@ function buildLog() {
       ${yearReadSyncPromptHTML()}
 
       <!-- ── Hero Stats ── -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin:1.5rem 0">
+      <div class="summary-stat-grid">
         ${[
           ['📚', summaryBooks.length, 'Books Read'],
           ['📄', pageMetric(pageStats.pages), 'Pages Read'],
           ['📄', pageStats.avgPagesPerMonth ? pageMetric(pageStats.avgPagesPerMonth) : '—', 'Avg Pages / Month'],
           ['⭐', avgRating, 'Avg Rating'],
           ['⚡', avgDays, 'Avg Days / Book'],
-          ['🐇', fastest ? fastest.days+'d' : '—', 'Fastest Read' + (fastest?'<div style="font-size:0.7rem;color:var(--muted);margin-top:2px">'+esc(fastest.title)+'</div>':'')],
-          ['🐢', slowest ? slowest.days+'d' : '—', 'Slowest Read' + (slowest?'<div style="font-size:0.7rem;color:var(--muted);margin-top:2px">'+esc(slowest.title)+'</div>':'')],
-        ].map(([icon,val,label]) => `
-          <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:1rem 1.1rem;box-shadow:0 2px 8px var(--shadow);text-align:center">
-            <div style="font-size:1.5rem">${icon}</div>
-            <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--deep);line-height:1.1">${val}</div>
-            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-top:0.2rem">${label}</div>
+          ['🐇', fastest ? fastest.days+'d' : '—', 'Fastest Read', fastest ? fastest.title : ''],
+          ['🐢', slowest ? slowest.days+'d' : '—', 'Slowest Read', slowest ? slowest.title : ''],
+        ].map(([icon,val,label,subtitle='']) => `
+          <div class="summary-stat-card">
+            <div class="summary-stat-icon">${icon}</div>
+            <div class="summary-stat-value">${val}</div>
+            <div class="summary-stat-label">${label}</div>
+            ${subtitle ? `<div class="summary-stat-subtitle">${esc(subtitle)}</div>` : ''}
           </div>`).join('')}
       </div>
 
@@ -5882,8 +5933,24 @@ function readingLogBooks() {
 }
 
 function pageCountForBook(book) {
-  const pages = Number.parseInt(book?.page_count, 10);
-  return Number.isFinite(pages) && pages > 0 ? pages : 0;
+  const candidates = [
+    book?.page_count,
+    book?.pages,
+    book?.number_of_pages,
+    book?.number_of_pages_median,
+    book?.edition?.page_count,
+    book?.selected_edition?.page_count,
+    Array.isArray(book?.editions)
+      ? (book.editions.find(edition => edition.id === book.selected_edition_id)?.page_count ||
+         book.editions.find(edition => edition.is_selected)?.page_count ||
+         book.editions[0]?.page_count)
+      : null
+  ];
+  for (const candidate of candidates) {
+    const pages = Number.parseInt(candidate, 10);
+    if (Number.isFinite(pages) && pages > 0) return pages;
+  }
+  return 0;
 }
 
 function pagesReadStats(books) {
