@@ -1103,6 +1103,7 @@
   .generated-book-cover.list-cover .generated-cover-title { -webkit-line-clamp: 5; }
   .generated-book-cover.list-cover .generated-cover-author { font-size: 0.4rem; }
   .generated-book-cover.card-cover { width: 76px; height: 110px; }
+  .generated-book-cover.minimal-cover { width: 100%; height: 100%; }
   .generated-book-cover.picker-cover { width: 72px; height: 104px; flex-shrink: 0; }
   .generated-book-cover.header-cover { width: 56px; height: 80px; flex-shrink: 0; }
   .generated-book-cover.modal-cover { width: 84px; height: 120px; flex-shrink: 0; }
@@ -1264,6 +1265,70 @@
   }
   .library-list-title { color: var(--deep); font-weight: 700; }
   .library-list-author, .library-list-detail { color: var(--muted); font-size: 0.86rem; }
+  .library-list-minimal .library-list-row {
+    grid-template-columns: minmax(220px, 2fr) minmax(140px, 1.35fr) minmax(110px, 1fr) minmax(90px, auto);
+    min-height: 52px;
+    padding: 0.5rem 0.75rem;
+  }
+  .library-cover-minimal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+  .library-cover-minimal-card {
+    position: relative;
+    min-width: 0;
+    padding: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.92);
+    box-shadow: 0 10px 28px rgba(20,31,28,0.07);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .library-cover-minimal-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 16px 34px rgba(20,31,28,0.12);
+  }
+  .library-minimal-cover {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--aged);
+    box-shadow: 0 8px 18px rgba(20,31,28,0.14);
+  }
+  .library-minimal-rating {
+    min-height: 20px;
+    margin-top: 0.45rem;
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+  .library-minimal-title {
+    display: -webkit-box;
+    margin-top: 0.15rem;
+    color: var(--deep);
+    font-size: 0.86rem;
+    font-weight: 760;
+    line-height: 1.18;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .library-minimal-author {
+    display: -webkit-box;
+    margin-top: 0.18rem;
+    color: var(--muted);
+    font-size: 0.76rem;
+    line-height: 1.16;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
   .library-bookcase {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
@@ -3325,8 +3390,9 @@
     background: #f6f7f4;
     background-image:
       linear-gradient(180deg, rgba(255,255,255,0.88), rgba(246,247,244,0.96)),
-      radial-gradient(circle at 18% 8%, rgba(213,155,76,0.12), transparent 30%),
-      radial-gradient(circle at 88% 16%, rgba(47,111,94,0.10), transparent 34%);
+      radial-gradient(circle at 18% 8%, rgba(213,155,76,0.18), transparent 30%),
+      radial-gradient(circle at 88% 16%, rgba(47,111,94,0.16), transparent 34%),
+      linear-gradient(90deg, rgba(47,111,94,0.05), rgba(213,155,76,0.05));
     color: var(--ink);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
@@ -3339,7 +3405,8 @@
     color: var(--ink);
     padding: 0.9rem clamp(1rem, 2.2vw, 2rem);
     text-align: left;
-    border-bottom: 1px solid rgba(216,222,215,0.96);
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(90deg, #2f6f5e, #d59b4c, #9a6542) 1;
     box-shadow: 0 1px 20px rgba(20,31,28,0.07);
     backdrop-filter: blur(14px);
   }
@@ -3382,7 +3449,9 @@
     padding: 0.45rem 0.65rem;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: #f9faf8;
+    background:
+      linear-gradient(135deg, rgba(47,111,94,0.08), rgba(213,155,76,0.05)),
+      #f9faf8;
     text-align: left;
   }
   .stat-num {
@@ -3431,8 +3500,8 @@
     color: var(--ink);
   }
   nav button.active {
-    background: var(--deep);
-    border-color: var(--deep);
+    background: linear-gradient(135deg, #10231f, #2f6f5e);
+    border-color: #2f6f5e;
     color: #fff;
   }
   main {
@@ -3444,7 +3513,9 @@
     top: 52px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: rgba(255,255,255,0.88);
+    background:
+      linear-gradient(90deg, rgba(47,111,94,0.08), rgba(255,255,255,0.88) 32%, rgba(213,155,76,0.08)),
+      rgba(255,255,255,0.88);
     box-shadow: 0 8px 24px rgba(20,31,28,0.06);
     padding: 0.7rem 0.85rem;
     backdrop-filter: blur(14px);
@@ -3478,6 +3549,12 @@
     background: rgba(255,255,255,0.92);
     box-shadow: 0 10px 28px rgba(20,31,28,0.07);
   }
+  .library-book-card,
+  .library-cover-minimal-card,
+  .month-card,
+  .year-card {
+    border-top-color: rgba(213,155,76,0.72);
+  }
   .library-book-card {
     background: rgba(255,255,255,0.94);
   }
@@ -3500,8 +3577,8 @@
   }
   .account-primary,
   .picker-command {
-    background: var(--deep);
-    border-color: var(--deep) !important;
+    background: linear-gradient(135deg, #10231f, #2f6f5e);
+    border-color: #2f6f5e !important;
     color: #fff;
   }
   .picker-command.secondary,
@@ -6126,14 +6203,14 @@ function libraryViewStorageKey(scope) {
 function loadLibraryView(scope) {
   try {
     const saved = localStorage.getItem(libraryViewStorageKey(scope));
-    return ['cards', 'list', 'bookcase'].includes(saved) ? saved : 'cards';
+    return ['cards', 'cover-minimal', 'list', 'list-minimal', 'bookcase'].includes(saved) ? saved : 'cards';
   } catch (_) {
     return 'cards';
   }
 }
 
 function setLibraryView(scope, view) {
-  if (!['cards', 'list', 'bookcase'].includes(view)) return;
+  if (!['cards', 'cover-minimal', 'list', 'list-minimal', 'bookcase'].includes(view)) return;
   if (scope === 'books') booksView = view;
   if (scope === 'tbr') tbrView = view;
   try { localStorage.setItem(libraryViewStorageKey(scope), view); } catch (_) {}
@@ -6147,7 +6224,9 @@ function setLibraryView(scope, view) {
 function libraryViewSwitcher(scope, currentView) {
   return `<div class="view-switcher" role="group" aria-label="Choose book view">
     <button class="view-button ${currentView==='cards'?'active':''}" type="button" data-view-scope="${scope}" data-view="cards" onclick="setLibraryView('${scope}','cards')" title="Card view">▦ Cards</button>
+    <button class="view-button ${currentView==='cover-minimal'?'active':''}" type="button" data-view-scope="${scope}" data-view="cover-minimal" onclick="setLibraryView('${scope}','cover-minimal')" title="Minimal cover view">▥ Covers</button>
     <button class="view-button ${currentView==='list'?'active':''}" type="button" data-view-scope="${scope}" data-view="list" onclick="setLibraryView('${scope}','list')" title="List view">☷ List</button>
+    <button class="view-button ${currentView==='list-minimal'?'active':''}" type="button" data-view-scope="${scope}" data-view="list-minimal" onclick="setLibraryView('${scope}','list-minimal')" title="Minimal list view">☰ Minimal</button>
     <button class="view-button ${currentView==='bookcase'?'active':''}" type="button" data-view-scope="${scope}" data-view="bookcase" onclick="setLibraryView('${scope}','bookcase')" title="Bookcase view">▥ Bookcase</button>
   </div>`;
 }
@@ -7866,8 +7945,9 @@ function renderLibraryCollection(books, scope, view) {
     return;
   }
 
-  if (view === 'list') {
-    target.innerHTML = `<div class="library-list">${books.map(book => {
+  if (view === 'list' || view === 'list-minimal') {
+    const minimal = view === 'list-minimal';
+    target.innerHTML = `<div class="library-list ${minimal ? 'library-list-minimal' : ''}">${books.map(book => {
       const seriesLabel = seriesLabelForBook(book);
       const bulkKey = bulkBookKey(book);
       const isSelected = booksBulkSelection.has(bulkKey);
@@ -7877,7 +7957,7 @@ function renderLibraryCollection(books, scope, view) {
             <input class="bulk-select-check" type="checkbox" data-bulk-key="${esc(bulkKey)}" ${isSelected ? 'checked' : ''}
               onchange="setBooksBulkSelected(this.dataset.bulkKey,this.checked)" aria-label="Select ${esc(book.title || 'book')}">
           </label>` : ''}
-          ${coverImageHTML(book, 'list-cover', 'library-list-cover')}
+          ${minimal ? '' : coverImageHTML(book, 'list-cover', 'library-list-cover')}
           <div class="library-list-copy">
             ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
             <div class="library-list-title">${esc(book.title || 'Untitled')}</div>
@@ -7889,6 +7969,24 @@ function renderLibraryCollection(books, scope, view) {
             ? esc(seriesLabel || book.genre || 'Standalone')
             : (book._currentlyReading ? 'Reading' : (book.rating ? ratingDisplay(book.rating) : '—'))}</div>
         </div>`;
+    }).join('')}</div>`;
+    return;
+  }
+
+  if (view === 'cover-minimal') {
+    target.innerHTML = `<div class="library-cover-minimal-grid">${books.map(book => {
+      const bulkKey = bulkBookKey(book);
+      const isSelected = booksBulkSelection.has(bulkKey);
+      return `<div class="library-cover-minimal-card ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book))}>
+        ${booksBulkMode ? `<label class="library-card-select" onclick="event.stopPropagation()">
+          <input class="bulk-select-check" type="checkbox" data-bulk-key="${esc(bulkKey)}" ${isSelected ? 'checked' : ''}
+            onchange="setBooksBulkSelected(this.dataset.bulkKey,this.checked)" aria-label="Select ${esc(book.title || 'book')}">
+        </label>` : ''}
+        ${coverImageHTML(book, 'minimal-cover', 'library-minimal-cover')}
+        <div class="library-minimal-rating">${scope === 'books' && !book._currentlyReading && book.rating ? ratingDisplay(book.rating) : ''}</div>
+        <div class="library-minimal-title">${esc(book.title || 'Untitled')}</div>
+        <div class="library-minimal-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
+      </div>`;
     }).join('')}</div>`;
     return;
   }
@@ -8526,7 +8624,7 @@ function setBooksBulkSelected(key, selected) {
   document.querySelectorAll('[data-bulk-key]').forEach(input => {
     if (input.dataset.bulkKey !== key) return;
     input.checked = selected;
-    input.closest('.library-list-row,.library-book-card')?.classList.toggle('bulk-selected', selected);
+    input.closest('.library-list-row,.library-book-card,.library-cover-minimal-card')?.classList.toggle('bulk-selected', selected);
   });
   updateBooksBulkBar();
 }
