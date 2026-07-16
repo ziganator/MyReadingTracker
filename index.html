@@ -3304,56 +3304,189 @@
   }
 }
 
-  /* ─── Visible Refresh Overrides ───────────────────────────── */
+  /* ─── Modern App Shell Overrides ───────────────────────────── */
+  :root {
+    --ink: #17211f;
+    --parchment: #f6f7f4;
+    --aged: #e7ece5;
+    --burnt: #36524a;
+    --gold: #d59b4c;
+    --gold-light: #f0c37a;
+    --rust: #9a6542;
+    --deep: #10231f;
+    --green: #2f6f5e;
+    --accent: #d59b4c;
+    --card-bg: #ffffff;
+    --border: #d8ded7;
+    --muted: #697670;
+    --shadow: rgba(20, 31, 28, 0.1);
+  }
+  body {
+    background: #f6f7f4;
+    background-image:
+      linear-gradient(180deg, rgba(255,255,255,0.88), rgba(246,247,244,0.96)),
+      radial-gradient(circle at 18% 8%, rgba(213,155,76,0.12), transparent 30%),
+      radial-gradient(circle at 88% 16%, rgba(47,111,94,0.10), transparent 34%);
+    color: var(--ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
   header {
-    background:
-      linear-gradient(135deg, rgba(44,24,16,0.98), rgba(30,18,13,0.98)),
-      var(--deep);
-    padding-bottom: 2.25rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255,255,255,0.86);
+    color: var(--ink);
+    padding: 0.9rem clamp(1rem, 2.2vw, 2rem);
+    text-align: left;
+    border-bottom: 1px solid rgba(216,222,215,0.96);
+    box-shadow: 0 1px 20px rgba(20,31,28,0.07);
+    backdrop-filter: blur(14px);
+  }
+  header::before,
+  .header-ornament,
+  .header-sub {
+    display: none;
+  }
+  header h1 {
+    color: var(--ink);
+    font-family: inherit;
+    font-size: clamp(1.2rem, 2vw, 1.65rem);
+    font-weight: 780;
+    letter-spacing: 0;
+    line-height: 1.1;
+    text-shadow: none;
+  }
+  .account-button,
+  .standalone-button {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--ink);
+    box-shadow: 0 8px 20px rgba(20,31,28,0.08);
+  }
+  .account-button:hover,
+  .standalone-button:hover {
+    background: #f9faf8;
+    color: var(--deep);
+  }
+  .stats-row {
+    justify-content: flex-end;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .stat-item {
+    min-width: 76px;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f9faf8;
+    text-align: left;
+  }
+  .stat-num {
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 1.1rem;
+    font-weight: 780;
+  }
+  .stat-label {
+    color: var(--muted);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+  }
+  .current-reading-widget {
+    border-color: rgba(47,111,94,0.24) !important;
+    border-radius: 8px !important;
+    background: #eef6f2 !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
   }
   nav {
+    top: 0;
     justify-content: center;
-    background: #743912;
-    box-shadow: 0 4px 18px rgba(26,18,9,0.16);
+    gap: 0.35rem;
+    padding: 0.45rem clamp(0.75rem, 1.5vw, 1.25rem);
+    background: rgba(246,247,244,0.9);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(20,31,28,0.06);
+    backdrop-filter: blur(14px);
   }
   nav button {
-    min-height: 46px;
-    border-right-color: rgba(255,255,255,0.14);
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    padding: 0.45rem 0.85rem;
+    text-transform: none;
+  }
+  nav button:hover {
+    background: #fff;
+    border-color: var(--border);
+    color: var(--ink);
+  }
+  nav button.active {
+    background: var(--deep);
+    border-color: var(--deep);
+    color: #fff;
   }
   main {
     max-width: none;
     width: 100%;
-    padding: 1.75rem clamp(0.75rem, 1.4vw, 1.5rem) 2.5rem;
+    padding: 1.1rem clamp(0.75rem, 1.5vw, 1.5rem) 2.5rem;
   }
   .section-head {
-    border: 1px solid rgba(200,168,122,0.5);
-    border-radius: 6px;
-    background: rgba(253,248,240,0.86);
-    box-shadow: 0 6px 18px rgba(26,18,9,0.06);
-    padding: 0.65rem 0.85rem;
+    top: 52px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.88);
+    box-shadow: 0 8px 24px rgba(20,31,28,0.06);
+    padding: 0.7rem 0.85rem;
+    backdrop-filter: blur(14px);
+  }
+  .section-head h2,
+  .book-detail-title,
+  .library-card-title,
+  .series-title,
+  .author-name,
+  .month-name {
+    font-family: inherit;
+    letter-spacing: 0;
   }
   .library-toolbar,
   .controls {
-    border-radius: 6px;
+    border-radius: 8px;
   }
   .library-book-card,
+  .library-list-row,
   .book-detail-page .book-card,
   .modal-box,
   .account-dialog,
   .app-dialog-box,
   .picker-item,
-  .author-row {
-    border-color: rgba(200,168,122,0.72);
-    box-shadow: 0 10px 26px rgba(26,18,9,0.09);
+  .author-row,
+  .month-card,
+  .year-card,
+  .books-toolbar {
+    border-color: var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.92);
+    box-shadow: 0 10px 28px rgba(20,31,28,0.07);
   }
   .library-book-card {
-    background: rgba(253,248,240,0.94);
+    background: rgba(255,255,255,0.94);
   }
   .library-book-card:hover,
+  .library-list-row:hover,
   .author-row:hover,
   .picker-item:hover {
     transform: translateY(-1px);
-    box-shadow: 0 14px 30px rgba(26,18,9,0.14);
+    box-shadow: 0 16px 34px rgba(20,31,28,0.12);
   }
   .account-primary,
   .account-secondary,
@@ -3362,11 +3495,94 @@
   .cascade-menu-toggle,
   .view-button,
   .month-navigation button {
-    border-radius: 5px;
+    border-radius: 8px;
+    font-family: inherit;
   }
   .account-primary,
   .picker-command {
-    background: #9a4f18;
+    background: var(--deep);
+    border-color: var(--deep) !important;
+    color: #fff;
+  }
+  .picker-command.secondary,
+  .account-secondary,
+  .cascade-menu-toggle,
+  .view-button {
+    background: #fff;
+    border-color: var(--border) !important;
+    color: var(--ink);
+  }
+  input,
+  select,
+  textarea {
+    border-radius: 8px !important;
+    border-color: var(--border) !important;
+    font-family: inherit !important;
+  }
+  .books-toolbar {
+    top: 52px;
+    border-radius: 8px;
+  }
+  .books-control-panel {
+    border-top-color: var(--border);
+  }
+  .cascade-menu-panel,
+  .cascade-submenu,
+  .collection-select-menu {
+    border-color: var(--border);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 16px 34px rgba(20,31,28,0.16);
+  }
+  .rating-up { color: #16a34a; }
+  .rating-down { color: #dc2626; }
+
+  @media (max-width: 700px) {
+    header {
+      display: block;
+      padding: max(0.75rem, env(safe-area-inset-top)) 0.85rem 0.75rem;
+    }
+    header h1 {
+      font-size: 1.2rem;
+      padding-right: 3rem;
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.4rem;
+      margin-top: 0.65rem;
+    }
+    .stat-item {
+      min-width: 0;
+      padding: 0.42rem 0.5rem;
+    }
+    nav {
+      position: fixed;
+      inset: auto 0 0;
+      z-index: 450;
+      justify-content: flex-start;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 0.35rem 0.45rem calc(0.35rem + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border);
+      border-bottom: 0;
+      box-shadow: 0 -10px 30px rgba(20,31,28,0.13);
+      scrollbar-width: none;
+    }
+    nav button {
+      min-width: 78px;
+      min-height: 44px;
+      padding: 0.38rem 0.6rem;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+    main {
+      padding: 0.75rem 0.65rem calc(5.75rem + env(safe-area-inset-bottom));
+    }
+    .section-head,
+    .books-toolbar {
+      top: 0;
+    }
   }
 
 </style>
@@ -5166,11 +5382,11 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log','📊 Summary'],['log-detail','📅 Reading Log'],['search','🔎 Search'],['books','📚 Books'],['series','📖 Series'],
-    ['authors','✍️ Authors'],['picker','🎲 Book Picker']
+    ['log','Summary'],['log-detail','Reading Log'],['search','Search'],['books','Books'],['series','Series'],
+    ['authors','Authors'],['picker','Picker']
   ];
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
-    `<button onclick="switchTab('${id}')" id="nav-${id}">${label}</button>`
+    `<button onclick="switchTab('${id}')" id="nav-${id}" type="button">${label}</button>`
   ).join('');
 }
 function pageContentTop(panel) {
