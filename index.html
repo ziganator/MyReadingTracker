@@ -3503,8 +3503,50 @@
     justify-self: center;
   }
   .site-logo {
-    width: clamp(132px, 18vw, 252px);
+    width: clamp(108px, 14vw, 190px);
     filter: drop-shadow(0 7px 13px rgba(20,31,28,0.1));
+  }
+  .site-title-banner {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0.42rem clamp(1.3rem, 3vw, 2.4rem);
+    border: 2px solid #24170f;
+    border-radius: 999px / 58%;
+    background:
+      linear-gradient(180deg, #ffe8b5, #f5c978 58%, #e2ad55);
+    color: #24170f;
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,0.65),
+      0 8px 18px rgba(20,31,28,0.11);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(1.25rem, 2.55vw, 2.05rem);
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    white-space: nowrap;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .site-title-banner::before,
+  .site-title-banner::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    width: 42px;
+    height: 30px;
+    border: 2px solid #24170f;
+    background: linear-gradient(180deg, #f8d88e, #e0aa4f);
+    transform: translateY(-50%);
+  }
+  .site-title-banner::before {
+    right: calc(100% - 12px);
+    clip-path: polygon(0 0, 100% 18%, 100% 82%, 0 100%, 28% 50%);
+  }
+  .site-title-banner::after {
+    left: calc(100% - 12px);
+    clip-path: polygon(0 18%, 100% 0, 72% 50%, 100% 100%, 0 82%);
   }
   .account-button,
   .standalone-button {
@@ -3783,9 +3825,22 @@
       padding: 0 2.75rem;
     }
     .site-logo {
-      width: min(171px, 44vw);
-      max-height: 64px;
+      width: min(132px, 34vw);
+      max-height: 86px;
       object-fit: contain;
+    }
+    .site-title-banner {
+      min-height: 38px;
+      padding: 0.32rem 1rem;
+      font-size: 1.1rem;
+      max-width: 100%;
+      white-space: normal;
+      text-align: center;
+    }
+    .site-title-banner::before,
+    .site-title-banner::after {
+      width: 28px;
+      height: 22px;
     }
     .stats-row {
       display: grid;
@@ -3834,8 +3889,8 @@
   <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
   <div class="header-ornament">✦ ✦ ✦</div>
   <div class="site-brand">
-    <img class="site-logo" src="assets/mrt-logo.png" alt="My Reading Tracker">
-    <h1>My Reading Tracker</h1>
+    <img class="site-logo" src="assets/mrt-logo-no-banner.png" alt="MRT">
+    <h1 class="site-title-banner">My Reading Tracker</h1>
   </div>
   <p class="header-sub">A lifetime of stories</p>
   <div class="stats-row" id="headerStats"></div>
