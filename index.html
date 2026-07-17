@@ -3489,18 +3489,22 @@
   header h1 {
     color: var(--ink);
     font-family: inherit;
-    font-size: clamp(1.2rem, 2vw, 1.65rem);
+    font-size: clamp(1.55rem, 3vw, 2.25rem);
     font-weight: 780;
     letter-spacing: 0;
     line-height: 1.1;
     text-shadow: none;
   }
   .site-brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.8rem, 1.6vw, 1.25rem);
     justify-self: center;
   }
   .site-logo {
-    width: clamp(264px, 36vw, 504px);
-    filter: drop-shadow(0 10px 18px rgba(20,31,28,0.1));
+    width: clamp(132px, 18vw, 252px);
+    filter: drop-shadow(0 7px 13px rgba(20,31,28,0.1));
   }
   .account-button,
   .standalone-button {
@@ -3767,18 +3771,20 @@
       text-align: center;
     }
     header h1 {
-      font-size: 1.2rem;
+      font-size: 1.35rem;
       padding-right: 0;
     }
     .site-brand {
       display: flex;
+      flex-direction: column;
       justify-content: center;
+      gap: 0.35rem;
       width: 100%;
       padding: 0 2.75rem;
     }
     .site-logo {
-      width: min(342px, 82vw);
-      max-height: 116px;
+      width: min(171px, 44vw);
+      max-height: 64px;
       object-fit: contain;
     }
     .stats-row {
@@ -3829,7 +3835,7 @@
   <div class="header-ornament">✦ ✦ ✦</div>
   <div class="site-brand">
     <img class="site-logo" src="assets/mrt-logo.png" alt="My Reading Tracker">
-    <h1 class="visually-hidden">My Reading Tracker</h1>
+    <h1>My Reading Tracker</h1>
   </div>
   <p class="header-sub">A lifetime of stories</p>
   <div class="stats-row" id="headerStats"></div>
