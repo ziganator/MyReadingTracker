@@ -4149,6 +4149,8 @@ const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
+const DEFAULT_BOOK_LANGUAGE = 'English';
+const DEFAULT_LANGUAGE_CLEANUP_VERSION = 'english-2026-07-17';
 let supabaseSession = null;
 let guestMode = false;
 let trackerStarted = false;
@@ -5157,6 +5159,14 @@ function defaultTimesReadForStatus(status, value) {
   return isReadStatusValue(status) && timesRead === null ? 1 : timesRead;
 }
 
+function normalizeBookLanguage(value, fallback=DEFAULT_BOOK_LANGUAGE) {
+  const language = String(value || '').trim();
+  if (!language) return fallback;
+  const key = language.toLowerCase();
+  if (key === 'en' || key === 'eng' || key === 'english') return DEFAULT_BOOK_LANGUAGE;
+  return language;
+}
+
 function importedBookFromCSV(row) {
   const finished = safeDate(csvImportValue(row, 'Finished'));
   const started = safeDate(csvImportValue(row, 'Started'));
@@ -5264,7 +5274,7 @@ async function importLibraryCSV(file) {
         publisher: '',
         binding: book.format,
         page_count: null,
-        language: '',
+        language: DEFAULT_BOOK_LANGUAGE,
         publication_date: book.publication_year ? `${book.publication_year}-01-01` : '',
         cover_url: book.cover_url
       });
@@ -5403,7 +5413,7 @@ async function importCurrentLibrary() {
         publisher: b.publisher,
         binding: b.format,
         page_count: b.page_count,
-        language: b.language,
+        language: normalizeBookLanguage(b.language),
         publication_date: b.publication_date || (b.year_pub ? `${b.year_pub}-01-01` : ''),
         cover_url: b.cover_url
       }, b.edition || {});
@@ -6774,7 +6784,7 @@ function databaseBookToLocal(book) {
     format: book.format || edition?.binding || '',
     publisher: book.publisher || edition?.publisher || '',
     page_count: book.page_count || edition?.page_count || null,
-    language: book.language || edition?.language || '',
+    language: normalizeBookLanguage(book.language || edition?.language),
     publication_date: publicationDate,
     edition_id: edition?.id || null,
     edition: edition || null,
@@ -6901,6 +6911,7 @@ async function loadDatabaseBooks() {
     }
     if (!books) throw lastError || new Error('Could not load books from Supabase.');
     await ensureReadBooksHaveTimesRead(books);
+    await ensureBooksUseDefaultLanguage(books);
     books.forEach(book => mergeDatabaseBook(databaseBookToLocal(book)));
     return books.length;
   } catch (error) {
@@ -6930,6 +6941,40 @@ async function ensureReadBooksHaveTimesRead(books=[]) {
   });
   const failed = results.length - updated;
   if (failed) console.warn(`Could not default Times Read for ${failed} read book${failed === 1 ? '' : 's'}.`);
+}
+
+function defaultLanguageCleanupKey() {
+  return `reading-tracker-default-language-${DEFAULT_LANGUAGE_CLEANUP_VERSION}-${supabaseSession?.user?.id || 'local'}`;
+}
+
+async function ensureBooksUseDefaultLanguage(books=[]) {
+  if (!supabaseSession?.user?.id) return;
+  const cleanupKey = defaultLanguageCleanupKey();
+  if (localStorage.getItem(cleanupKey) === 'done') return;
+  const targets = books.filter(book =>
+    book?.id &&
+    normalizeBookLanguage(book.language, '') !== DEFAULT_BOOK_LANGUAGE
+  );
+  if (!targets.length) {
+    localStorage.setItem(cleanupKey, 'done');
+    return;
+  }
+  const results = await Promise.allSettled(targets.map(book =>
+    patchBookRow(book.id, {language: DEFAULT_BOOK_LANGUAGE})
+  ));
+  let updated = 0;
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      targets[index].language = DEFAULT_BOOK_LANGUAGE;
+      updated++;
+    }
+  });
+  const failed = results.length - updated;
+  if (failed) {
+    console.warn(`Could not set language to English for ${failed} book${failed === 1 ? '' : 's'}.`);
+    return;
+  }
+  localStorage.setItem(cleanupKey, 'done');
 }
 
 let addBookMode = 'manual';
@@ -7341,7 +7386,7 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       <div class="add-book-field"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
       <div class="add-book-field"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
-      <div class="add-book-field"><label for="add-book-language">Language</label><input id="add-book-language" type="text" placeholder="en"></div>
+      <div class="add-book-field"><label for="add-book-language">Language</label><input id="add-book-language" type="text" value="${esc(DEFAULT_BOOK_LANGUAGE)}"></div>
       <div class="add-book-field"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
       <div class="add-book-field"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
       <label class="add-book-check"><input id="add-book-owned" type="checkbox"> Owned</label>
@@ -7658,7 +7703,7 @@ async function populateAddBookFromEdition(edition) {
   document.getElementById('add-book-publisher').value = edition.publisher || '';
   document.getElementById('add-book-publication-date').value = edition.publication_date || '';
   document.getElementById('add-book-page-count').value = edition.page_count || '';
-  document.getElementById('add-book-language').value = edition.language || '';
+  document.getElementById('add-book-language').value = normalizeBookLanguage(edition.language);
   addBookCoverUrl = edition.cover_url || edition.cover_small_url || '';
   const coverInput = document.getElementById('add-book-cover-url');
   if (coverInput) coverInput.value = addBookCoverUrl;
@@ -8119,7 +8164,7 @@ function bookFieldsFromEditionValues(values, sourceEdition={}) {
     publisher: values.publisher || sourceEdition.publisher || null,
     publication_date: publicationDate,
     page_count: Number(values.page_count || sourceEdition.page_count) || null,
-    language: values.language || sourceEdition.language || null
+    language: normalizeBookLanguage(values.language || sourceEdition.language)
   };
 }
 
@@ -8220,7 +8265,7 @@ async function saveAddedBook() {
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
       binding: document.getElementById('add-book-format')?.value.trim(),
       page_count: document.getElementById('add-book-page-count')?.value,
-      language: document.getElementById('add-book-language')?.value.trim(),
+      language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
       publication_date: document.getElementById('add-book-publication-date')?.value
         || (document.getElementById('add-book-year')?.value
           ? `${document.getElementById('add-book-year').value}-01-01`
@@ -9917,6 +9962,10 @@ function setBookEditorValue(id, value) {
     setSupportedBookFormat(id, value);
     return;
   }
+  if (id === 'book-editor-language') {
+    input.value = normalizeBookLanguage(value);
+    return;
+  }
   input.value = value;
 }
 
@@ -10020,7 +10069,7 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
       </div>
       <div class="book-editor-row status-row">
-        <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(book.language || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(normalizeBookLanguage(book.language))}"></div>
         <div class="book-editor-field"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
         <div class="book-editor-field"><label for="book-editor-event">Event</label><input id="book-editor-event" value="${esc(book.event || '')}"></div>
       </div>
@@ -10161,7 +10210,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     publisher: keepText('book-editor-publisher', original.publisher),
     publication_date: keepText('book-editor-publication-date', original.publication_date),
     page_count: keepNumber('book-editor-page-count', original.page_count),
-    language: keepText('book-editor-language', original.language),
+    language: normalizeBookLanguage(bookEditorValue('book-editor-language') || original.language),
     synopsis: bookEditorValue('book-editor-synopsis'),
     thoughts: bookEditorValue('book-editor-thoughts'),
     signed: bookEditorValue('book-editor-signed'),
