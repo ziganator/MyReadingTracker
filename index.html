@@ -58,6 +58,29 @@
     pointer-events: none;
   }
   .header-ornament { font-size: 1.2rem; color: var(--gold); letter-spacing: 0.5em; margin-bottom: 0.5rem; }
+  .site-brand {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .site-logo {
+    display: block;
+    width: min(420px, 82vw);
+    height: auto;
+  }
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
   header h1 {
     font-family: 'Playfair Display', serif;
     font-size: clamp(2rem, 5vw, 3.5rem);
@@ -2913,6 +2936,9 @@
     font-size: 1.55rem;
     line-height: 1.15;
   }
+  .site-logo {
+    width: min(300px, 72vw);
+  }
 
   .stats-row {
     display: grid;
@@ -3417,7 +3443,7 @@
   }
   header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(210px, 430px) minmax(0, 1fr);
     align-items: center;
     gap: 1rem;
     background: rgba(255,255,255,0.86);
@@ -3442,6 +3468,13 @@
     letter-spacing: 0;
     line-height: 1.1;
     text-shadow: none;
+  }
+  .site-brand {
+    justify-self: start;
+  }
+  .site-logo {
+    width: clamp(220px, 30vw, 420px);
+    filter: drop-shadow(0 10px 18px rgba(20,31,28,0.1));
   }
   .account-button,
   .standalone-button {
@@ -3705,10 +3738,22 @@
     header {
       display: block;
       padding: max(0.75rem, env(safe-area-inset-top)) 0.85rem 0.75rem;
+      text-align: center;
     }
     header h1 {
       font-size: 1.2rem;
-      padding-right: 3rem;
+      padding-right: 0;
+    }
+    .site-brand {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      padding: 0 2.75rem;
+    }
+    .site-logo {
+      width: min(285px, 78vw);
+      max-height: 96px;
+      object-fit: contain;
     }
     .stats-row {
       display: grid;
@@ -3756,7 +3801,10 @@
   <a class="standalone-button" id="standalone-link" href="#" onclick="openStandalonePage(event)">Open Full Page</a>
   <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
   <div class="header-ornament">✦ ✦ ✦</div>
-  <h1>My Reading Tracker</h1>
+  <div class="site-brand">
+    <img class="site-logo" src="assets/mrt-logo.png" alt="My Reading Tracker">
+    <h1 class="visually-hidden">My Reading Tracker</h1>
+  </div>
   <p class="header-sub">A lifetime of stories</p>
   <div class="stats-row" id="headerStats"></div>
 </header>
