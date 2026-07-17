@@ -2695,16 +2695,16 @@
     grid-template-columns: minmax(280px, 1fr) 6.25rem;
   }
   .book-editor-row.core-row {
-    grid-template-columns: minmax(118px, 0.7fr) minmax(180px, 1.2fr) minmax(178px, 1fr) minmax(206px, 1.12fr);
+    grid-template-columns: minmax(200px, 1.2fr) minmax(178px, 1fr) minmax(206px, 1.12fr);
   }
   .book-editor-row.publish-row {
-    grid-template-columns: minmax(112px, 0.6fr) minmax(132px, 0.7fr) minmax(190px, 1fr) minmax(160px, 0.85fr);
+    grid-template-columns: minmax(132px, 0.72fr) minmax(118px, 0.66fr) minmax(168px, 0.95fr) minmax(168px, 0.95fr) minmax(126px, 0.72fr);
   }
   .book-editor-row.reading-row {
-    grid-template-columns: minmax(168px, 0.9fr) minmax(168px, 0.9fr) minmax(126px, 0.65fr) minmax(260px, 1.3fr);
+    grid-template-columns: minmax(112px, 0.55fr) minmax(230px, 1.35fr) minmax(190px, 1fr) minmax(170px, 0.9fr);
   }
   .book-editor-row.status-row {
-    grid-template-columns: minmax(170px, 0.9fr) minmax(260px, 1.35fr) minmax(260px, 1.5fr);
+    grid-template-columns: minmax(160px, 0.8fr) minmax(260px, 1.35fr) minmax(260px, 1.5fr);
   }
   .book-editor-cover-rating {
     grid-column: 1;
@@ -9998,7 +9998,6 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-series-position">Book #</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
       </div>
       <div class="book-editor-row core-row">
-        <div class="book-editor-field"><label for="book-editor-year">Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status">
           ${['TBR','Wishlist','Currently Reading','Read','DNF','On Hold'].map(status =>
@@ -10008,20 +10007,21 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || '', true)}</select></div>
       </div>
       <div class="book-editor-row publish-row">
-        <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(book.language || '')}"></div>
-      </div>
-      <div class="book-editor-row reading-row">
+        <div class="book-editor-field"><label for="book-editor-year">Pub Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" placeholder="YYYY" title="Summary year" value="${esc(readYearForBook(book) || '')}"><small class="book-editor-hint">Summary year</small></div>
-        <div class="book-editor-field"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
+      </div>
+      <div class="book-editor-row reading-row">
+        <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
       </div>
       <div class="book-editor-row status-row">
-        <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(book.language || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
         <div class="book-editor-field"><label for="book-editor-event">Event</label><input id="book-editor-event" value="${esc(book.event || '')}"></div>
       </div>
       <div class="book-editor-checks">
