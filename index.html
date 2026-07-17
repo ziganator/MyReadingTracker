@@ -2644,10 +2644,11 @@
   }
   .book-editor-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.9rem 1rem;
+    grid-template-columns: 112px repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
   }
-  .book-editor-grid .full { grid-column: 1 / -1; }
+  .book-editor-grid .full { grid-column: 2 / -1; }
   .book-editor-field {
     min-width: 0;
   }
@@ -2673,6 +2674,29 @@
   .book-editor-grid textarea {
     line-height: 1.45;
     resize: vertical;
+  }
+  .book-editor-cover-tile {
+    grid-row: span 4;
+    width: 112px;
+    min-height: 164px;
+    border: 2px dashed var(--border);
+    border-radius: 5px;
+    background: var(--aged);
+    color: var(--muted);
+    cursor: pointer;
+    overflow: hidden;
+    padding: 0;
+  }
+  .book-editor-cover-preview,
+  .book-editor-cover-preview img {
+    display: block;
+    width: 100%;
+    height: 164px;
+    object-fit: cover;
+  }
+  .book-editor-cover-preview .generated-book-cover {
+    width: 100%;
+    height: 164px;
   }
   .book-editor-checks {
     display: flex;
@@ -2785,15 +2809,11 @@
     font-weight: 700;
     padding: 0.4rem 0.65rem;
   }
-  .book-editor-cover {
-    display: grid;
-    grid-template-columns: 84px minmax(0, 1fr);
-    gap: 0.8rem;
-    align-items: start;
-  }
-  .book-editor-cover-preview {
-    width: 84px;
-    min-height: 120px;
+  .book-editor-cover-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.45rem;
   }
   /* Styling for the table tracking accent bars */
 .cr-bar {
@@ -3384,9 +3404,21 @@
     border-top: 1px solid var(--aged);
     padding: 0.8rem 0 0;
   }
-  .book-editor-grid { grid-template-columns: 1fr; }
+  .book-editor-grid { grid-template-columns: 82px minmax(0, 1fr); }
   .account-field-grid { grid-template-columns: 1fr; }
-  .book-editor-grid .full { grid-column: auto; }
+  .book-editor-grid .full { grid-column: 1 / -1; }
+  .book-editor-field { grid-column: 2; }
+  .book-editor-cover-tile {
+    width: 82px;
+    min-height: 120px;
+    grid-row: span 3;
+  }
+  .book-editor-cover-preview,
+  .book-editor-cover-preview img,
+  .book-editor-cover-preview .generated-book-cover {
+    height: 120px;
+    min-height: 120px;
+  }
   .account-password-fields { grid-template-columns: 1fr; }
   .book-detail-page .book-card {
     padding: 0.85rem;
@@ -9707,7 +9739,7 @@ function updateBookEditorCoverPreview() {
   if (!preview) return;
   const url = bookEditorValue('book-editor-cover');
   preview.innerHTML = url
-    ? `<img src="${esc(url)}" alt="" style="width:84px;height:120px;object-fit:cover;border-radius:3px" onerror="this.style.display='none'">`
+    ? `<img src="${esc(url)}" alt="" onerror="this.style.display='none'">`
     : genericBookCoverHTML(localBookByTitle(activeBookDetailTitle) || {title: activeBookDetailTitle}, 'modal-cover', '');
 }
 
@@ -9817,8 +9849,21 @@ function openBookEditor(title, source='', key='') {
   document.getElementById('modal-series-sub').textContent = book.title || title;
   document.getElementById('modal-series-body').innerHTML = `
     <div class="book-editor-grid">
+      <button class="book-editor-cover-tile" type="button"
+        onclick="document.getElementById('book-editor-cover')?.focus()">
+        <span class="book-editor-cover-preview" id="book-editor-cover-preview"></span>
+      </button>
+      <div class="book-editor-field full"><label for="book-editor-title">Title</label><input id="book-editor-title" value="${esc(book.title || '')}"></div>
+      <div class="book-editor-field full"><label for="book-editor-author">Author</label><input id="book-editor-author" value="${esc(book.author_full || book.author || '')}"></div>
       <div class="book-editor-field full">
-        <label for="book-editor-isbn">ISBN</label>
+        <label for="book-editor-cover">Cover Image URL</label>
+        <input id="book-editor-cover" value="${esc(book.cover_url || '')}" placeholder="Paste an image URL" oninput="updateBookEditorCoverPreview()">
+        <div class="book-editor-cover-actions">
+          <button class="editor-button" type="button" onclick="useISBNForEditorCover()">Use ISBN Cover</button>
+        </div>
+      </div>
+      <div class="book-editor-field full">
+        <label for="book-editor-isbn">ISBN / Online lookup</label>
         <div class="isbn-lookup-row">
           <input id="book-editor-isbn" value="${esc(book.isbn || '')}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookInfoForEditor()}">
@@ -9826,8 +9871,6 @@ function openBookEditor(title, source='', key='') {
         </div>
         <div class="edition-picker" id="book-editor-edition-picker"></div>
       </div>
-      <div class="book-editor-field full"><label for="book-editor-title">Title</label><input id="book-editor-title" value="${esc(book.title || '')}"></div>
-      <div class="book-editor-field full"><label for="book-editor-author">Author</label><input id="book-editor-author" value="${esc(book.author_full || book.author || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-series">Series</label><input id="book-editor-series" value="${esc(book.series || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-series-position">Book in Series</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
       <div class="book-editor-field"><label for="book-editor-year">Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
@@ -9853,17 +9896,6 @@ function openBookEditor(title, source='', key='') {
       <div class="book-editor-checks">
         <label class="book-editor-check" for="book-editor-owned"><input id="book-editor-owned" type="checkbox" ${ownedValue(book.own)?'checked':''}><span>Owned</span></label>
         <label class="book-editor-check" for="book-editor-reread"><input id="book-editor-reread" type="checkbox" ${isReread ? 'checked' : ''}><span>Reread</span></label>
-      </div>
-      <div class="book-editor-field full">
-        <label for="book-editor-cover">Cover Image URL</label>
-        <div class="book-editor-cover">
-          <div class="book-editor-cover-preview" id="book-editor-cover-preview"></div>
-          <div>
-            <input id="book-editor-cover" value="${esc(book.cover_url || '')}" placeholder="Paste an image URL" oninput="updateBookEditorCoverPreview()">
-            <button class="editor-button" type="button" style="margin-top:0.45rem" onclick="useISBNForEditorCover()">Use ISBN Cover</button>
-            <p style="color:var(--muted);font-size:0.78rem;margin-top:0.4rem">This is independent from the ISBN field.</p>
-          </div>
-        </div>
       </div>
       <div class="book-editor-field full">
         <label for="book-editor-synopsis">Synopsis</label>
