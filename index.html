@@ -9971,7 +9971,7 @@ function openBookEditor(title, source='', key='') {
       </button>
       <div class="book-editor-field full"><label for="book-editor-title">Title</label><input id="book-editor-title" value="${esc(book.title || '')}"></div>
       <div class="book-editor-field full"><label for="book-editor-author">Author</label><input id="book-editor-author" value="${esc(book.author_full || book.author || '')}"></div>
-      <div class="book-editor-field edit-all">
+      <div class="book-editor-field full">
         <label for="book-editor-cover">Cover Image URL</label>
         <input id="book-editor-cover" value="${esc(book.cover_url || '')}" placeholder="Paste an image URL" oninput="updateBookEditorCoverPreview()">
         <div class="book-editor-cover-actions">
