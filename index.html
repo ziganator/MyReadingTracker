@@ -2695,16 +2695,20 @@
     grid-template-columns: minmax(280px, 1fr) 6.25rem;
   }
   .book-editor-row.core-row {
-    grid-template-columns: minmax(118px, 0.7fr) minmax(180px, 1.2fr) minmax(178px, 1fr) minmax(206px, 1.12fr) minmax(112px, 0.6fr);
+    grid-template-columns: minmax(118px, 0.7fr) minmax(180px, 1.2fr) minmax(178px, 1fr) minmax(206px, 1.12fr);
   }
   .book-editor-row.publish-row {
-    grid-template-columns: minmax(260px, 1.35fr) minmax(190px, 0.95fr) minmax(160px, 0.8fr);
+    grid-template-columns: minmax(112px, 0.6fr) minmax(132px, 0.7fr) minmax(190px, 1fr) minmax(160px, 0.85fr);
   }
   .book-editor-row.reading-row {
     grid-template-columns: minmax(168px, 0.9fr) minmax(168px, 0.9fr) minmax(126px, 0.65fr) minmax(260px, 1.3fr);
   }
   .book-editor-row.status-row {
-    grid-template-columns: minmax(112px, 0.65fr) minmax(132px, 0.7fr) minmax(170px, 0.95fr) minmax(260px, 1.5fr);
+    grid-template-columns: minmax(170px, 0.9fr) minmax(260px, 1.35fr) minmax(260px, 1.5fr);
+  }
+  .book-editor-cover-rating {
+    grid-column: 1;
+    min-width: 0;
   }
   .book-editor-field {
     min-width: 0;
@@ -2744,7 +2748,7 @@
     min-width: max-content;
   }
   .book-editor-cover-tile {
-    grid-row: span 4;
+    grid-row: span 2;
     width: 112px;
     min-height: 164px;
     border: 2px dashed var(--border);
@@ -3507,6 +3511,7 @@
   .book-editor-grid .edit-span-7,
   .book-editor-grid .edit-span-8 { grid-column: 1 / -1; }
   .book-editor-field { grid-column: 2; }
+  .book-editor-cover-rating { grid-column: 1; }
   .book-editor-row .book-editor-field { grid-column: auto; }
   .book-editor-cover-tile {
     width: 82px;
@@ -9971,6 +9976,7 @@ function openBookEditor(title, source='', key='') {
       </button>
       <div class="book-editor-field full"><label for="book-editor-title">Title</label><input id="book-editor-title" value="${esc(book.title || '')}"></div>
       <div class="book-editor-field full"><label for="book-editor-author">Author</label><input id="book-editor-author" value="${esc(book.author_full || book.author || '')}"></div>
+      <div class="book-editor-field book-editor-cover-rating"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(isDNFStatusValue(book.status) ? '' : (book.rating || ''))}"></div>
       <div class="book-editor-field full">
         <label for="book-editor-cover">Cover Image URL</label>
         <input id="book-editor-cover" value="${esc(book.cover_url || '')}" placeholder="Paste an image URL" oninput="updateBookEditorCoverPreview()">
@@ -10000,10 +10006,10 @@ function openBookEditor(title, source='', key='') {
           ).join('')}
         </select></div>
         <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || '', true)}</select></div>
-        <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
       </div>
       <div class="book-editor-row publish-row">
-        <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(book.language || '')}"></div>
       </div>
@@ -10014,9 +10020,8 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
       </div>
       <div class="book-editor-row status-row">
-        <div class="book-editor-field"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(isDNFStatusValue(book.status) ? '' : (book.rating || ''))}"></div>
-        <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-event">Event</label><input id="book-editor-event" value="${esc(book.event || '')}"></div>
       </div>
       <div class="book-editor-checks">
