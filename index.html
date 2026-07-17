@@ -1938,6 +1938,23 @@
 }
 .add-book-field { min-width: 0; }
 .add-book-field.full { grid-column: 2 / -1; }
+.add-book-field.series-name,
+.book-editor-field.series-name { grid-column: span 1; }
+.add-book-field.series-position,
+.book-editor-field.series-position {
+  width: 6.5rem;
+  max-width: 100%;
+}
+.series-field-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  gap: 0.75rem;
+  align-items: start;
+}
+.series-field-pair > .add-book-field,
+.series-field-pair > .book-editor-field {
+  grid-column: auto;
+}
 .add-book-field label {
   display: block;
   margin-bottom: 0.18rem;
@@ -1959,6 +1976,11 @@
   .add-book-cover img, .add-book-cover span { height: 120px; min-height: 120px; }
   .add-book-field { grid-column: 2; }
   .add-book-field.full { grid-column: 1 / -1; }
+  .add-book-field.series-position,
+  .book-editor-field.series-position { width: 5.75rem; }
+  .series-field-pair {
+    grid-template-columns: minmax(0, 1fr) 5.75rem;
+  }
 }
 .custom-category-modal .modal-header {
   padding: 0.8rem 1rem;
@@ -7211,8 +7233,10 @@ function openAddBookDialog(defaultStatus='TBR') {
         <input id="add-book-cover-url" type="url" placeholder="https://..."
           oninput="setAddBookCoverUrl(this.value)">
       </div>
-      <div class="add-book-field"><label for="add-book-series">Series</label><input id="add-book-series" type="text"></div>
-      <div class="add-book-field"><label for="add-book-series-position">Book in series</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
+      <div class="add-book-field full series-field-pair">
+        <div class="add-book-field"><label for="add-book-series">Series</label><input id="add-book-series" type="text"></div>
+        <div class="add-book-field series-position"><label for="add-book-series-position">Book #</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
+      </div>
       <div class="add-book-field"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text"></div>
       <div class="add-book-field"><label for="add-book-status">Status</label>
@@ -9871,8 +9895,10 @@ function openBookEditor(title, source='', key='') {
         </div>
         <div class="edition-picker" id="book-editor-edition-picker"></div>
       </div>
-      <div class="book-editor-field"><label for="book-editor-series">Series</label><input id="book-editor-series" value="${esc(book.series || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-series-position">Book in Series</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
+      <div class="book-editor-field full series-field-pair">
+        <div class="book-editor-field"><label for="book-editor-series">Series</label><input id="book-editor-series" value="${esc(book.series || '')}"></div>
+        <div class="book-editor-field series-position"><label for="book-editor-series-position">Book #</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
+      </div>
       <div class="book-editor-field"><label for="book-editor-year">Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status">
