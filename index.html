@@ -1685,9 +1685,9 @@
   height: min(700px, calc(100vh - 2rem));
 }
 .modal-box.book-editor-modal {
-  width: min(920px, calc(100% - 2rem));
-  max-width: 920px;
-  height: min(780px, calc(100vh - 2rem));
+  width: min(860px, calc(100% - 2rem));
+  max-width: 860px;
+  height: min(760px, calc(100vh - 2rem));
 }
 .add-book-modal .modal-body {
   min-height: 0;
@@ -9971,7 +9971,7 @@ function openBookEditor(title, source='', key='') {
       </button>
       <div class="book-editor-field full"><label for="book-editor-title">Title</label><input id="book-editor-title" value="${esc(book.title || '')}"></div>
       <div class="book-editor-field full"><label for="book-editor-author">Author</label><input id="book-editor-author" value="${esc(book.author_full || book.author || '')}"></div>
-      <div class="book-editor-field full">
+      <div class="book-editor-field edit-all">
         <label for="book-editor-cover">Cover Image URL</label>
         <input id="book-editor-cover" value="${esc(book.cover_url || '')}" placeholder="Paste an image URL" oninput="updateBookEditorCoverPreview()">
         <div class="book-editor-cover-actions">
