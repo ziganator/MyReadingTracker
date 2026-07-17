@@ -3487,13 +3487,24 @@
     display: none;
   }
   header h1 {
-    color: var(--ink);
-    font-family: inherit;
+    position: relative;
+    color: #17211f;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: clamp(1.55rem, 3vw, 2.25rem);
-    font-weight: 780;
-    letter-spacing: 0;
+    font-weight: 900;
+    letter-spacing: 0.015em;
     line-height: 1.1;
-    text-shadow: none;
+    text-shadow: 0 2px 0 rgba(255,255,255,0.86), 0 10px 22px rgba(20,31,28,0.11);
+  }
+  header h1::after {
+    content: '';
+    display: block;
+    width: min(100%, 260px);
+    height: 4px;
+    margin: 0.38rem auto 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, #2f6f5e 16%, #d59b4c 50%, #9a6542 84%, transparent);
+    box-shadow: 0 3px 10px rgba(213,155,76,0.24);
   }
   .site-brand {
     display: inline-flex;
@@ -3503,50 +3514,8 @@
     justify-self: center;
   }
   .site-logo {
-    width: clamp(108px, 14vw, 190px);
+    width: clamp(132px, 18vw, 252px);
     filter: drop-shadow(0 7px 13px rgba(20,31,28,0.1));
-  }
-  .site-title-banner {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    min-height: 48px;
-    padding: 0.42rem clamp(1.3rem, 3vw, 2.4rem);
-    border: 2px solid #24170f;
-    border-radius: 999px / 58%;
-    background:
-      linear-gradient(180deg, #ffe8b5, #f5c978 58%, #e2ad55);
-    color: #24170f;
-    box-shadow:
-      inset 0 2px 0 rgba(255,255,255,0.65),
-      0 8px 18px rgba(20,31,28,0.11);
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: clamp(1.25rem, 2.55vw, 2.05rem);
-    font-weight: 900;
-    letter-spacing: 0.01em;
-    line-height: 1;
-    white-space: nowrap;
-    text-shadow: 0 1px 0 rgba(255,255,255,0.45);
-  }
-  .site-title-banner::before,
-  .site-title-banner::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    top: 50%;
-    width: 42px;
-    height: 30px;
-    border: 2px solid #24170f;
-    background: linear-gradient(180deg, #f8d88e, #e0aa4f);
-    transform: translateY(-50%);
-  }
-  .site-title-banner::before {
-    right: calc(100% - 12px);
-    clip-path: polygon(0 0, 100% 18%, 100% 82%, 0 100%, 28% 50%);
-  }
-  .site-title-banner::after {
-    left: calc(100% - 12px);
-    clip-path: polygon(0 18%, 100% 0, 72% 50%, 100% 100%, 0 82%);
   }
   .account-button,
   .standalone-button {
@@ -3825,22 +3794,9 @@
       padding: 0 2.75rem;
     }
     .site-logo {
-      width: min(132px, 34vw);
-      max-height: 86px;
+      width: min(171px, 44vw);
+      max-height: 64px;
       object-fit: contain;
-    }
-    .site-title-banner {
-      min-height: 38px;
-      padding: 0.32rem 1rem;
-      font-size: 1.1rem;
-      max-width: 100%;
-      white-space: normal;
-      text-align: center;
-    }
-    .site-title-banner::before,
-    .site-title-banner::after {
-      width: 28px;
-      height: 22px;
     }
     .stats-row {
       display: grid;
@@ -3889,8 +3845,8 @@
   <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
   <div class="header-ornament">✦ ✦ ✦</div>
   <div class="site-brand">
-    <img class="site-logo" src="assets/mrt-logo-no-banner.png" alt="MRT">
-    <h1 class="site-title-banner">My Reading Tracker</h1>
+    <img class="site-logo" src="assets/mrt-logo.png" alt="MRT">
+    <h1>My Reading Tracker</h1>
   </div>
   <p class="header-sub">A lifetime of stories</p>
   <div class="stats-row" id="headerStats"></div>
@@ -5041,6 +4997,14 @@ function isReadStatusValue(status) {
   return String(status || '').trim() === 'Read';
 }
 
+function isDNFStatusValue(status) {
+  return String(status || '').trim() === 'DNF';
+}
+
+function ratingForStatus(status, rating) {
+  return isDNFStatusValue(status) ? 'DNF' : (rating ?? null);
+}
+
 function hasTimesReadValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== '';
 }
@@ -5062,6 +5026,7 @@ function importedBookFromCSV(row) {
   const yearRead = safeInt(csvImportValue(row, 'Year Read')) ||
     (finished ? Number(finished.slice(0, 4)) : null);
   const status = normalizeImportedStatus(csvImportValue(row, 'Status'));
+  const rating = safeNum(csvImportValue(row, 'Rating'));
   return {
     title: csvImportValue(row, 'Title'),
     author: csvImportValue(row, 'Author'),
@@ -5079,7 +5044,7 @@ function importedBookFromCSV(row) {
     year_read: yearRead,
     started,
     finished,
-    rating: safeNum(csvImportValue(row, 'Rating')),
+    rating: ratingForStatus(status, rating),
     times_read: defaultTimesReadForStatus(status, safeInt(csvImportValue(row, 'Times Read'))),
     signed: csvImportValue(row, 'Signed'),
     received_date: csvImportValue(row, 'Received') || csvImportValue(row, 'Year Received'),
@@ -5202,7 +5167,7 @@ async function importLibraryCSV(file) {
         finished_on: source.finished || null,
         month_read: source.finished ? `${source.finished.slice(0, 7)}-01` : null,
         year_read: source.year_read || source.read_year || (source.finished ? Number(source.finished.slice(0, 4)) : null),
-        rating: source.rating,
+        rating: isDNFStatusValue(source.status) ? null : source.rating,
         status: source.status === 'DNF' ? 'DNF'
           : source.status === 'Currently Reading' ? 'Currently Reading' : 'Read',
         notes: source.notes || null
@@ -5356,7 +5321,7 @@ async function importCurrentLibrary() {
         finished_on: source.end || null,
         month_read: monthDateForBook(source),
         year_read: source.year_read || source.read_year || null,
-        rating: source.rating ?? null,
+        rating: isDNFStatusValue(book.status) ? null : (source.rating ?? null),
         status: book.status === 'Currently Reading' ? 'Currently Reading'
           : book.status === 'DNF' ? 'DNF'
           : 'Read',
@@ -5438,7 +5403,7 @@ async function syncLegacyYearReadsToDatabase() {
         finished_on: source.end || existing?.finished_on || null,
         month_read: monthDateForBook(source) || existing?.month_read || null,
         year_read: yearRead,
-        rating: source.rating ?? existing?.rating ?? null,
+        rating: isDNFStatusValue(source.status) ? null : (source.rating ?? existing?.rating ?? null),
         status: source.status === 'DNF' ? 'DNF'
           : source.status === 'Currently Reading' ? 'Currently Reading'
           : 'Read',
@@ -6513,6 +6478,7 @@ function currentReadingBook() {
 
 function libraryRatingOrStatus(book) {
   if (book?._currentlyReading) return '<span class="library-status-pill">Reading</span>';
+  if (isDNFStatusValue(book?.status)) return ratingDisplay('DNF');
   if (book?.rating) return ratingDisplay(book.rating);
   const status = libraryBookStatus(book);
   if (status === 'TBR') return '<span class="library-status-pill">TBR</span>';
@@ -6689,7 +6655,7 @@ function databaseBookToLocal(book) {
       ? new Date(`${finishedDate}T12:00:00`).toLocaleString('en-US', {month:'long'})
       : sessionMonthRead,
     year_read: derivedYearRead,
-    rating: session.rating ?? null,
+    rating: ratingForStatus(book.status || session.status, session.rating),
     short_stories: Array.isArray(book.short_stories) ? book.short_stories : [],
     previous_title: book.previous_title || '',
     deleted_at: book.deleted_at || null
@@ -8109,7 +8075,7 @@ async function saveAddedBook() {
     const finished = document.getElementById('add-book-finished')?.value || '';
     const yearRead = safeInt(document.getElementById('add-book-year-read')?.value) ||
       (finished ? Number(finished.slice(0, 4)) : null);
-    const rating = Number.parseFloat(document.getElementById('add-book-rating')?.value) || null;
+    const rating = ratingForStatus(status, Number.parseFloat(document.getElementById('add-book-rating')?.value) || null);
     const editionFields = bookFieldsFromEditionValues({
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
@@ -8151,7 +8117,7 @@ async function saveAddedBook() {
         finished_on: finished || null,
         month_read: monthDateForBook({start: started, end: finished, year_read: yearRead}),
         year_read: yearRead,
-        rating,
+        rating: isDNFStatusValue(status) ? null : rating,
         status: status === 'DNF' ? 'DNF' : status,
         notes: row.notes || null
       };
@@ -9879,7 +9845,7 @@ function openBookEditor(title, source='', key='') {
       <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" value="${esc(readYearForBook(book) || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(book.rating || '')}"></div>
+      <div class="book-editor-field"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(isDNFStatusValue(book.status) ? '' : (book.rating || ''))}"></div>
       <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
       <div class="book-editor-field"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
@@ -10043,7 +10009,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     end: finished,
     year_read: editedYearRead,
     month_read: monthDateForBook({start: started, end: finished, year_read: editedYearRead}) || original.month_read,
-    rating: Number.parseFloat(bookEditorValue('book-editor-rating')) || null,
+    rating: ratingForStatus(statusValue, Number.parseFloat(bookEditorValue('book-editor-rating')) || null),
     previous_title: changedTitle ? original.title : original.previous_title || ''
   };
   try {
@@ -10110,7 +10076,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
         finished_on: finished || null,
         month_read: monthDateForBook({start: started, end: finished, year_read: updated.year_read}),
         year_read: updated.year_read || null,
-        rating: updated.rating,
+        rating: isDNFStatusValue(statusValue) ? null : updated.rating,
         status: statusValue === 'DNF' ? 'DNF' : statusValue,
         notes: updated.thoughts || null
       };
@@ -10333,6 +10299,7 @@ async function updateBookStatus(title, status) {
   const shouldDefaultTimesRead = isReadStatusValue(status) && !hasTimesReadValue(book.times_read);
   book.status = status;
   if (shouldDefaultTimesRead) book.times_read = 1;
+  if (isDNFStatusValue(status)) book.rating = 'DNF';
   DATA.books = DATA.books.filter(item => bookIdentity(item) !== identity);
   DATA.tbr = DATA.tbr.filter(item => bookIdentity(item) !== identity);
   DATA.wishlist = DATA.wishlist.filter(item => bookIdentity(item) !== identity);
@@ -12260,7 +12227,7 @@ if (dnf || endDNF) status = 'DNF';
       series,
       series_position: getNum('Series Position', -1) || getNum('Book in Series', -1) || null,
       year_pub:     getNum('Year Pub', 5),
-      rating,
+      rating: ratingForStatus(status, rating),
       format:       fmt,
       start,
       end,
