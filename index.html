@@ -1842,11 +1842,13 @@
 .search-page-pagination button {
   min-height: 36px;
 }
-@media (max-width: 600px) {
-  .search-page-row { grid-template-columns: 1fr; }
-  .book-search-result { grid-template-columns: 42px minmax(0, 1fr); }
-  .book-search-result-badge { grid-column: 2; justify-self: start; }
-}
+  @media (max-width: 600px) {
+    .search-page-row { grid-template-columns: 1fr; }
+    .book-search-result { grid-template-columns: 42px minmax(0, 1fr); }
+    .book-search-result-badge { grid-column: 2; justify-self: start; }
+    .book-edition-row { grid-template-columns: 42px minmax(0, 1fr); }
+    .book-edition-actions { grid-column: 2; justify-content: flex-start; }
+  }
 .add-book-status-message {
   margin: 0.45rem 0 0.85rem;
 }
@@ -1892,11 +1894,88 @@
   object-fit: cover;
 }
 .edition-option strong { display: block; }
-.edition-option-meta {
-  color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
+  .edition-option-meta {
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+  .book-editions-section,
+  .book-editor-editions {
+    border-top: 1px solid var(--aged);
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+  }
+  .book-editions-head,
+  .book-editor-editions-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+  }
+  .book-editions-head h4,
+  .book-editor-editions-head h4 {
+    margin: 0;
+    color: var(--burnt);
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+  }
+  .book-edition-list {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .book-edition-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 0.7rem;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.68);
+    padding: 0.55rem;
+  }
+  .book-edition-row.active {
+    border-color: var(--gold);
+    background: #fff8eb;
+  }
+  .book-edition-row img,
+  .book-edition-cover {
+    width: 42px;
+    height: 62px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--aged);
+    object-fit: cover;
+  }
+  .book-edition-title {
+    color: var(--deep);
+    font-weight: 700;
+  }
+  .book-edition-meta {
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    margin-top: 0.12rem;
+  }
+  .book-edition-actions {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .book-edition-active-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border-radius: 999px;
+    background: rgba(47,111,94,0.12);
+    color: #225549;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 0.1rem 0.5rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
 .isbn-lookup-row button {
   min-height: 40px;
   font: 600 0.9rem 'Crimson Pro', serif;
@@ -6786,8 +6865,10 @@ function databaseBookToLocal(book) {
     page_count: book.page_count || edition?.page_count || null,
     language: normalizeBookLanguage(book.language || edition?.language),
     publication_date: publicationDate,
+    selected_edition_id: book.selected_edition_id || edition?.id || null,
     edition_id: edition?.id || null,
     edition: edition || null,
+    editions: Array.isArray(book.editions) ? book.editions : [],
     synopsis: book.synopsis || '',
     thoughts: book.notes || '',
     signed: book.signed || '',
@@ -8105,7 +8186,7 @@ function editionPayloadFromValues(values, sourceEdition={}) {
     publisher: values.publisher || null,
     binding: values.binding || null,
     page_count: Number(values.page_count) || null,
-    language: values.language || null,
+    language: normalizeBookLanguage(values.language || sourceEdition.language),
     publication_date: values.publication_date || null,
     cover_url: values.cover_url || null,
     cover_small_url: sourceEdition.cover_small_url || null,
@@ -8114,6 +8195,33 @@ function editionPayloadFromValues(values, sourceEdition={}) {
     google_books_volume_id: sourceEdition.google_books_volume_id || null,
     provider_data: sourceEdition.provider_data || {}
   };
+}
+
+function hasEditionDetails(edition={}) {
+  return Boolean(
+    edition.isbn_10 || edition.isbn_13 ||
+    edition.publisher || edition.binding ||
+    edition.page_count || edition.publication_date ||
+    edition.cover_url || edition.cover_small_url ||
+    edition.open_library_edition_id || edition.google_books_volume_id
+  );
+}
+
+function bookPatchFromEditionPayload(edition={}) {
+  const patch = {};
+  const isbn = edition.isbn_13 || edition.isbn_10 || '';
+  if (isbn) patch.isbn = isbn;
+  if (edition.cover_url || edition.cover_small_url) patch.cover_url = edition.cover_url || edition.cover_small_url;
+  if (edition.binding) patch.format = edition.binding;
+  if (edition.publisher) patch.publisher = edition.publisher;
+  if (edition.publication_date) {
+    patch.publication_date = edition.publication_date;
+    const year = Number(String(edition.publication_date).slice(0, 4));
+    if (year) patch.publication_year = year;
+  }
+  if (edition.page_count) patch.page_count = edition.page_count;
+  if (edition.language) patch.language = normalizeBookLanguage(edition.language);
+  return patch;
 }
 
 async function saveSelectedEdition(bookId, edition, existingEditionId=null) {
@@ -8148,7 +8256,7 @@ async function saveSelectedEdition(bookId, edition, existingEditionId=null) {
   await supabaseTableRequest('books', {
     method: 'PATCH',
     query: `?id=eq.${encodeURIComponent(bookId)}`,
-    body: {selected_edition_id: editionId},
+    body: {selected_edition_id: editionId, ...bookPatchFromEditionPayload(edition)},
     prefer: 'return=minimal'
   });
   return editionId;
@@ -8292,6 +8400,19 @@ async function saveAddedBook() {
     };
     const inserted = await insertBookRow(row);
     insertedBookId = inserted[0]?.id || null;
+    let insertedEditionId = null;
+    const initialEdition = editionPayloadFromValues({
+      isbn: document.getElementById('add-book-isbn')?.value.trim(),
+      publisher: document.getElementById('add-book-publisher')?.value.trim(),
+      binding: document.getElementById('add-book-format')?.value.trim(),
+      page_count: document.getElementById('add-book-page-count')?.value,
+      language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
+      publication_date: document.getElementById('add-book-publication-date')?.value,
+      cover_url: addBookCoverUrl
+    }, selectedAddBookEdition || {});
+    if (insertedBookId && hasEditionDetails(initialEdition)) {
+      insertedEditionId = await saveSelectedEdition(insertedBookId, initialEdition);
+    }
     let addedReadingSession = null;
     if (!['TBR', 'Wishlist', 'On Hold'].includes(status) && (yearRead || started || finished || rating !== null)) {
       addedReadingSession = {
@@ -8314,6 +8435,8 @@ async function saveAddedBook() {
     mergeDatabaseBook(databaseBookToLocal({
       ...inserted[0],
       ...row,
+      selected_edition_id: insertedEditionId,
+      editions: insertedEditionId ? [{id: insertedEditionId, ...initialEdition, is_selected: true}] : [],
       reading_sessions: addedReadingSession ? [addedReadingSession] : [],
       authors: {name: author},
       series: seriesName ? {name: seriesName} : null
@@ -9505,6 +9628,146 @@ function bookStoriesHTML(book) {
   </section>`;
 }
 
+function editionBookKey(book) {
+  return bookRouteKey(book);
+}
+
+function editionCoverHTML(edition) {
+  const url = edition.cover_small_url || edition.cover_url || '';
+  return url
+    ? `<img src="${esc(url)}" alt="">`
+    : '<span class="book-edition-cover"></span>';
+}
+
+function editionRowTitle(book, edition) {
+  const year = String(edition.publication_date || '').slice(0, 4);
+  return [
+    edition.binding || book.format || 'Edition',
+    year,
+    edition.publisher
+  ].filter(Boolean).join(' · ') || 'Owned Edition';
+}
+
+function editionRowMeta(edition) {
+  return [
+    edition.isbn_13 || edition.isbn_10 ? `ISBN ${edition.isbn_13 || edition.isbn_10}` : '',
+    edition.page_count ? `${edition.page_count} pages` : '',
+    edition.language ? normalizeBookLanguage(edition.language) : '',
+    edition.open_library_edition_id ? 'Open Library' : '',
+    edition.google_books_volume_id ? 'Google Books' : ''
+  ].filter(Boolean).join(' · ');
+}
+
+function bookEditionsHTML(book, mode='detail') {
+  const editions = Array.isArray(book.editions) ? book.editions : [];
+  const activeId = String(book.selected_edition_id || book.edition_id || book.edition?.id || '');
+  const bookKey = editionBookKey(book);
+  const rows = editions.length
+    ? editions.map(edition => {
+      const isActive = activeId && String(edition.id || '') === activeId;
+      return `<div class="book-edition-row ${isActive ? 'active' : ''}">
+        ${editionCoverHTML(edition)}
+        <div>
+          <div class="book-edition-title">${esc(editionRowTitle(book, edition))}</div>
+          <div class="book-edition-meta">${esc(editionRowMeta(edition) || 'No edition details saved.')}</div>
+        </div>
+        <div class="book-edition-actions">
+          ${isActive ? '<span class="book-edition-active-badge">Active</span>' : `<button class="editor-button" type="button" onclick="selectOwnedEdition(${jsArg(bookKey)},${jsArg(edition.id)})">Set Active</button>`}
+          ${mode === 'editor' && !isActive ? `<button class="editor-button" type="button" onclick="deleteOwnedEdition(${jsArg(bookKey)},${jsArg(edition.id)})">Remove</button>` : ''}
+        </div>
+      </div>`;
+    }).join('')
+    : '<p style="color:var(--muted);font-style:italic">No owned editions have been saved for this book yet.</p>';
+  return `<section class="${mode === 'editor' ? 'book-editor-editions' : 'book-editions-section'}">
+    <div class="${mode === 'editor' ? 'book-editor-editions-head' : 'book-editions-head'}">
+      <h4>Owned Editions</h4>
+      ${mode === 'editor'
+        ? `<button class="editor-button" type="button" onclick="saveCurrentBookEditorEdition()">Add Current Edition</button>`
+        : ''}
+    </div>
+    <div class="book-edition-list">${rows}</div>
+  </section>`;
+}
+
+function currentBookEditorEditionPayload() {
+  return editionPayloadFromValues({
+    isbn: bookEditorValue('book-editor-isbn'),
+    publisher: bookEditorValue('book-editor-publisher'),
+    binding: bookEditorValue('book-editor-format'),
+    page_count: bookEditorValue('book-editor-page-count'),
+    language: normalizeBookLanguage(bookEditorValue('book-editor-language')),
+    publication_date: bookEditorValue('book-editor-publication-date'),
+    cover_url: bookEditorValue('book-editor-cover')
+  }, selectedBookEditorEdition || {});
+}
+
+async function refreshBookAfterEditionChange(bookKey, fallbackTitle='') {
+  await loadDatabaseBooks();
+  const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(fallbackTitle);
+  if (document.getElementById('series-modal')?.classList.contains('open')) closeTrackedModal();
+  if (refreshed) renderBookDetailPage(refreshed.title, activeBookDetailSource, bookRouteKey(refreshed));
+  return refreshed;
+}
+
+async function saveCurrentBookEditorEdition() {
+  const status = document.getElementById('book-editor-status-message');
+  const bookId = document.getElementById('book-editor-database-id')?.value || '';
+  const bookKey = document.getElementById('book-editor-route-key')?.value || activeBookDetailKey || '';
+  const title = document.getElementById('book-editor-title')?.value || activeBookDetailTitle || '';
+  if (!bookId) {
+    if (status) status.textContent = 'Save the book before adding owned editions.';
+    return;
+  }
+  const payload = currentBookEditorEditionPayload();
+  if (!hasEditionDetails(payload)) {
+    if (status) status.textContent = 'Add an ISBN, cover, publisher, format, pages, or publication date before saving an edition.';
+    return;
+  }
+  if (status) status.textContent = 'Saving edition...';
+  try {
+    await saveSelectedEdition(bookId, payload);
+    if (status) status.textContent = 'Edition saved and set active.';
+    await refreshBookAfterEditionChange(bookKey, title);
+  } catch (error) {
+    if (status) status.textContent = bookEditorMigrationMessage(error);
+  }
+}
+
+async function selectOwnedEdition(bookKey='', editionId='') {
+  const book = findBookByRouteKey(bookKey);
+  const edition = (book?.editions || []).find(item => String(item.id || '') === String(editionId));
+  if (!book?.database_id || !edition) return;
+  try {
+    await saveSelectedEdition(book.database_id, editionPayloadFromValues({
+      isbn: edition.isbn_13 || edition.isbn_10,
+      publisher: edition.publisher,
+      binding: edition.binding,
+      page_count: edition.page_count,
+      language: normalizeBookLanguage(edition.language),
+      publication_date: edition.publication_date,
+      cover_url: edition.cover_url || edition.cover_small_url
+    }, edition), edition.id);
+    await refreshBookAfterEditionChange(bookKey, book.title);
+  } catch (error) {
+    showEditError(bookEditorMigrationMessage(error));
+  }
+}
+
+async function deleteOwnedEdition(bookKey='', editionId='') {
+  const book = findBookByRouteKey(bookKey);
+  if (!book?.database_id || !editionId) return;
+  try {
+    await supabaseTableRequest('editions', {
+      method: 'DELETE',
+      query: `?id=eq.${encodeURIComponent(editionId)}&book_id=eq.${encodeURIComponent(book.database_id)}`,
+      prefer: 'return=minimal'
+    });
+    await refreshBookAfterEditionChange(bookKey, book.title);
+  } catch (error) {
+    showEditError(bookEditorMigrationMessage(error));
+  }
+}
+
 function openStoryEditor(bookKey='', storyId='') {
   const book = findBookByRouteKey(bookKey);
   if (!book) return;
@@ -9704,6 +9967,8 @@ function renderBookDetailPage(title, source='', key='') {
         </div>
 
       </div>
+
+      ${bookEditionsHTML(b)}
 
       ${bookStoriesHTML(b)}
 
@@ -10015,10 +10280,13 @@ function openBookEditor(title, source='', key='') {
   bookEditorEditionCandidates = [];
   const isReread = explicitCollectionIdsForBook(book).has(collectionBySlug('reread')?.id || '');
   const readStatus = book.status || libraryBookStatus(book);
+  const editorBookKey = bookRouteKey(book);
   document.getElementById('modal-series-name').textContent = 'Edit Book';
   document.getElementById('modal-series-sub').textContent = book.title || title;
   document.getElementById('modal-series-body').innerHTML = `
     <div class="book-editor-grid">
+      <input id="book-editor-database-id" type="hidden" value="${esc(book.database_id || '')}">
+      <input id="book-editor-route-key" type="hidden" value="${esc(editorBookKey)}">
       <button class="book-editor-cover-tile" type="button"
         onclick="document.getElementById('book-editor-cover')?.focus()">
         <span class="book-editor-cover-preview" id="book-editor-cover-preview"></span>
@@ -10076,6 +10344,9 @@ function openBookEditor(title, source='', key='') {
       <div class="book-editor-checks">
         <label class="book-editor-check" for="book-editor-owned"><input id="book-editor-owned" type="checkbox" ${ownedValue(book.own)?'checked':''}><span>Owned</span></label>
         <label class="book-editor-check" for="book-editor-reread"><input id="book-editor-reread" type="checkbox" ${isReread ? 'checked' : ''}><span>Reread</span></label>
+      </div>
+      <div class="book-editor-field edit-all">
+        ${bookEditionsHTML(book, 'editor')}
       </div>
       <div class="book-editor-field edit-all">
         <label for="book-editor-synopsis">Synopsis</label>
@@ -10272,6 +10543,12 @@ async function saveBookEditor(originalTitle, source='', key='') {
         delete bookPatch.previous_title;
         await patchBookRow(databaseId, bookPatch);
       }
+    }
+    const activeEditionPayload = currentBookEditorEditionPayload();
+    if (hasEditionDetails(activeEditionPayload)) {
+      const existingEditionId = selectedBookEditorEdition?.id || original.edition_id || null;
+      updated.edition_id = await saveSelectedEdition(databaseId, activeEditionPayload, existingEditionId);
+      updated.selected_edition_id = updated.edition_id;
     }
     if (mergeRetiredDatabaseId) {
       await patchBookRow(mergeRetiredDatabaseId, {deleted_at: new Date().toISOString()});
