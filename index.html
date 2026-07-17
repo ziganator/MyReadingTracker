@@ -4014,6 +4014,7 @@ let booksBulkMode = false;
 let booksBulkSelection = new Set();
 let booksBulkVisible = [];
 let bookDetailNavigationContexts = {books: [], tbr: []};
+let readTimesReadCleanupAttempted = false;
 let libraryCollections = [];
 let bookCollectionMemberships = new Map();
 let collectionEditorDraft = null;
@@ -4975,11 +4976,31 @@ function normalizeImportedStatus(value) {
   return 'TBR';
 }
 
+function isReadStatusValue(status) {
+  return String(status || '').trim() === 'Read';
+}
+
+function hasTimesReadValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function normalizedTimesRead(value) {
+  if (!hasTimesReadValue(value)) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function defaultTimesReadForStatus(status, value) {
+  const timesRead = normalizedTimesRead(value);
+  return isReadStatusValue(status) && timesRead === null ? 1 : timesRead;
+}
+
 function importedBookFromCSV(row) {
   const finished = safeDate(csvImportValue(row, 'Finished'));
   const started = safeDate(csvImportValue(row, 'Started'));
   const yearRead = safeInt(csvImportValue(row, 'Year Read')) ||
     (finished ? Number(finished.slice(0, 4)) : null);
+  const status = normalizeImportedStatus(csvImportValue(row, 'Status'));
   return {
     title: csvImportValue(row, 'Title'),
     author: csvImportValue(row, 'Author'),
@@ -4989,7 +5010,7 @@ function importedBookFromCSV(row) {
     genre: csvImportValue(row, 'Genre'),
     isbn: csvImportValue(row, 'ISBN').replace(/\.0+$/, ''),
     cover_url: csvImportValue(row, 'Cover URL'),
-    status: normalizeImportedStatus(csvImportValue(row, 'Status')),
+    status,
     owned: ownedValue(csvImportValue(row, 'Owned')),
     format: csvImportValue(row, 'Format'),
     synopsis: csvImportValue(row, 'Synopsis'),
@@ -4998,7 +5019,7 @@ function importedBookFromCSV(row) {
     started,
     finished,
     rating: safeNum(csvImportValue(row, 'Rating')),
-    times_read: safeInt(csvImportValue(row, 'Times Read')),
+    times_read: defaultTimesReadForStatus(status, safeInt(csvImportValue(row, 'Times Read'))),
     signed: csvImportValue(row, 'Signed'),
     received_date: csvImportValue(row, 'Received') || csvImportValue(row, 'Year Received'),
     event: csvImportValue(row, 'Event'),
@@ -5098,7 +5119,7 @@ async function importLibraryCSV(file) {
         signed: book.signed || null,
         received_date_text: book.received_date || null,
         event: book.event || null,
-        times_read: book.times_read,
+        times_read: defaultTimesReadForStatus(book.status, book.times_read),
         notes: book.notes || null,
         ...editionFields
       };
@@ -5239,7 +5260,12 @@ async function importCurrentLibrary() {
         signed: b.signed || null,
         received_date_text: b.received_date || b.year_received || null,
         event: b.event || null,
-        times_read: b.times_read || null,
+        times_read: defaultTimesReadForStatus(
+          DATA.wishlist.includes(b) ? 'Wishlist'
+            : DATA.tbr.includes(b) ? 'TBR'
+            : (b.status === 'Abandoned' ? 'DNF' : (b.status || 'Read')),
+          b.times_read
+        ),
         notes: b.thoughts || null,
         ...editionFields
       };
@@ -6594,7 +6620,7 @@ function databaseBookToLocal(book) {
     received_date: book.received_date_text || (book.year_received ? String(book.year_received) : ''),
     year_received: book.year_received || null,
     event: book.event || '',
-    times_read: book.times_read || null,
+    times_read: normalizedTimesRead(book.times_read),
     start: startedDate,
     end: finishedDate,
     days: dayCount,
@@ -6710,12 +6736,36 @@ async function loadDatabaseBooks() {
       if (books) break;
     }
     if (!books) throw lastError || new Error('Could not load books from Supabase.');
+    await ensureReadBooksHaveTimesRead(books);
     books.forEach(book => mergeDatabaseBook(databaseBookToLocal(book)));
     return books.length;
   } catch (error) {
     console.warn('Could not merge books saved in Supabase:', error.message);
     return 0;
   }
+}
+
+async function ensureReadBooksHaveTimesRead(books=[]) {
+  if (readTimesReadCleanupAttempted || !supabaseSession?.user?.id) return;
+  readTimesReadCleanupAttempted = true;
+  const targets = books.filter(book =>
+    book?.id &&
+    isReadStatusValue(book.status) &&
+    !hasTimesReadValue(book.times_read)
+  );
+  if (!targets.length) return;
+  const results = await Promise.allSettled(targets.map(book =>
+    patchBookRow(book.id, {times_read: 1})
+  ));
+  let updated = 0;
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      targets[index].times_read = 1;
+      updated++;
+    }
+  });
+  const failed = results.length - updated;
+  if (failed) console.warn(`Could not default Times Read for ${failed} read book${failed === 1 ? '' : 's'}.`);
 }
 
 let addBookMode = 'manual';
@@ -8021,6 +8071,7 @@ async function saveAddedBook() {
         || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
       genre: document.getElementById('add-book-genre')?.value.trim() || null,
       status,
+      times_read: defaultTimesReadForStatus(status, null),
       owned: Boolean(document.getElementById('add-book-owned')?.checked),
       synopsis: document.getElementById('add-book-synopsis')?.value.trim() || null,
       received_date_text: document.getElementById('add-book-received')?.value.trim() || null,
@@ -9015,7 +9066,10 @@ async function saveBulkBookEdits() {
   if (status) status.textContent = `Saving ${databaseBooks.length} book${databaseBooks.length === 1 ? '' : 's'}...`;
   try {
     for (const book of databaseBooks) {
-      await patchBookRow(book.database_id, patch);
+      await patchBookRow(book.database_id, {
+        ...patch,
+        ...(isReadStatusValue(patch.status) && !hasTimesReadValue(book.times_read) ? {times_read: 1} : {})
+      });
     }
     booksBulkSelection.clear();
     booksBulkMode = false;
@@ -9923,7 +9977,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     signed: bookEditorValue('book-editor-signed'),
     received_date: bookEditorValue('book-editor-received'),
     event: bookEditorValue('book-editor-event'),
-    times_read: Number(bookEditorValue('book-editor-times-read')) || null,
+    times_read: defaultTimesReadForStatus(statusValue, bookEditorValue('book-editor-times-read')),
     start: started,
     end: finished,
     year_read: editedYearRead,
@@ -10215,7 +10269,9 @@ async function updateBookStatus(title, status) {
   if (!book) return;
 
   const identity = bookIdentity(book);
+  const shouldDefaultTimesRead = isReadStatusValue(status) && !hasTimesReadValue(book.times_read);
   book.status = status;
+  if (shouldDefaultTimesRead) book.times_read = 1;
   DATA.books = DATA.books.filter(item => bookIdentity(item) !== identity);
   DATA.tbr = DATA.tbr.filter(item => bookIdentity(item) !== identity);
   DATA.wishlist = DATA.wishlist.filter(item => bookIdentity(item) !== identity);
@@ -10233,7 +10289,10 @@ async function updateBookStatus(title, status) {
       await supabaseTableRequest('books', {
         method: 'PATCH',
         query: `?id=eq.${encodeURIComponent(book.database_id)}`,
-        body: {status},
+        body: {
+          status,
+          ...(shouldDefaultTimesRead ? {times_read: 1} : {})
+        },
         prefer: 'return=minimal'
       });
       return;
@@ -12124,7 +12183,7 @@ if (['current', 'in progress', 'currently reading'].includes(status.toLowerCase(
 if (dnf || endDNF) status = 'DNF';
 
     // Times read — col S=18
-    const timesRead = safeInt(get('#', 18)) || 1;
+    const rawTimesRead = safeInt(get('#', 18));
 
     // Series — col J=9 (use display name)
     const series = get('Series', 9);
@@ -12152,7 +12211,7 @@ if (dnf || endDNF) status = 'DNF';
       signed:       get('Signed', 21),
       thoughts:     get('Thoughts', 25),
       status,
-      times_read:   timesRead,
+      times_read:   defaultTimesReadForStatus(status, rawTimesRead),
       synopsis:     get('Synopsis', -1) || get('Description', -1),
       reread:       String(get('Reread', -1) || '').trim().toLowerCase() === 'x',
       month_read: get('Month',15),
