@@ -1942,12 +1942,12 @@
 .book-editor-field.series-name { grid-column: span 1; }
 .add-book-field.series-position,
 .book-editor-field.series-position {
-  width: 6.5rem;
+  width: 5.5rem;
   max-width: 100%;
 }
 .series-field-pair {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
   gap: 0.75rem;
   align-items: start;
 }
@@ -2666,11 +2666,19 @@
   }
   .book-editor-grid {
     display: grid;
-    grid-template-columns: 112px repeat(2, minmax(0, 1fr));
+    grid-template-columns: 112px repeat(12, minmax(0, 1fr));
     gap: 0.75rem;
     align-items: start;
   }
   .book-editor-grid .full { grid-column: 2 / -1; }
+  .book-editor-grid .edit-all { grid-column: 1 / -1; }
+  .book-editor-grid .edit-span-2 { grid-column: span 2; }
+  .book-editor-grid .edit-span-3 { grid-column: span 3; }
+  .book-editor-grid .edit-span-4 { grid-column: span 4; }
+  .book-editor-grid .edit-span-5 { grid-column: span 5; }
+  .book-editor-grid .edit-span-6 { grid-column: span 6; }
+  .book-editor-grid .edit-span-7 { grid-column: span 7; }
+  .book-editor-grid .edit-span-8 { grid-column: span 8; }
   .book-editor-field {
     min-width: 0;
   }
@@ -3428,7 +3436,15 @@
   }
   .book-editor-grid { grid-template-columns: 82px minmax(0, 1fr); }
   .account-field-grid { grid-template-columns: 1fr; }
-  .book-editor-grid .full { grid-column: 1 / -1; }
+  .book-editor-grid .full,
+  .book-editor-grid .edit-all,
+  .book-editor-grid .edit-span-2,
+  .book-editor-grid .edit-span-3,
+  .book-editor-grid .edit-span-4,
+  .book-editor-grid .edit-span-5,
+  .book-editor-grid .edit-span-6,
+  .book-editor-grid .edit-span-7,
+  .book-editor-grid .edit-span-8 { grid-column: 1 / -1; }
   .book-editor-field { grid-column: 2; }
   .book-editor-cover-tile {
     width: 82px;
@@ -9886,7 +9902,7 @@ function openBookEditor(title, source='', key='') {
           <button class="editor-button" type="button" onclick="useISBNForEditorCover()">Use ISBN Cover</button>
         </div>
       </div>
-      <div class="book-editor-field full">
+      <div class="book-editor-field edit-all">
         <label for="book-editor-isbn">ISBN / Online lookup</label>
         <div class="isbn-lookup-row">
           <input id="book-editor-isbn" value="${esc(book.isbn || '')}"
@@ -9899,36 +9915,36 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-series">Series</label><input id="book-editor-series" value="${esc(book.series || '')}"></div>
         <div class="book-editor-field series-position"><label for="book-editor-series-position">Book #</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
       </div>
-      <div class="book-editor-field"><label for="book-editor-year">Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status">
+      <div class="book-editor-field edit-span-2"><label for="book-editor-year">Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
+      <div class="book-editor-field edit-span-4"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
+      <div class="book-editor-field edit-span-2"><label for="book-editor-status">Status</label><select id="book-editor-status">
         ${['TBR','Wishlist','Currently Reading','Read','DNF','On Hold'].map(status =>
           `<option value="${status}" ${readStatus===status?'selected':''}>${status}</option>`
         ).join('')}
       </select></div>
-      <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || '', true)}</select></div>
-      <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(book.language || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" value="${esc(readYearForBook(book) || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(isDNFStatusValue(book.status) ? '' : (book.rating || ''))}"></div>
-      <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
-      <div class="book-editor-field"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
-      <div class="book-editor-field full"><label for="book-editor-event">Event</label><input id="book-editor-event" value="${esc(book.event || '')}"></div>
+      <div class="book-editor-field edit-span-2"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || '', true)}</select></div>
+      <div class="book-editor-field edit-span-2"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
+      <div class="book-editor-field edit-span-5"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
+      <div class="book-editor-field edit-span-4"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(book.language || '')}"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}"></div>
+      <div class="book-editor-field edit-span-6"><label for="book-editor-received">Received</label><input id="book-editor-received" type="text" value="${esc(book.received_date || book.year_received || '')}" placeholder="June 2026, 2026, or 6/14/2026"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" value="${esc(readYearForBook(book) || '')}"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(isDNFStatusValue(book.status) ? '' : (book.rating || ''))}"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
+      <div class="book-editor-field edit-span-3"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
+      <div class="book-editor-field edit-all"><label for="book-editor-event">Event</label><input id="book-editor-event" value="${esc(book.event || '')}"></div>
       <div class="book-editor-checks">
         <label class="book-editor-check" for="book-editor-owned"><input id="book-editor-owned" type="checkbox" ${ownedValue(book.own)?'checked':''}><span>Owned</span></label>
         <label class="book-editor-check" for="book-editor-reread"><input id="book-editor-reread" type="checkbox" ${isReread ? 'checked' : ''}><span>Reread</span></label>
       </div>
-      <div class="book-editor-field full">
+      <div class="book-editor-field edit-all">
         <label for="book-editor-synopsis">Synopsis</label>
         <textarea id="book-editor-synopsis" rows="7">${esc(book.synopsis || '')}</textarea>
         <button class="editor-button" type="button" style="margin-top:0.45rem" onclick="lookupSynopsisForEditor()">Find Synopsis Online</button>
       </div>
-      <div class="book-editor-field full"><label for="book-editor-thoughts">Thoughts</label><textarea id="book-editor-thoughts" rows="6">${esc(book.thoughts || '')}</textarea></div>
+      <div class="book-editor-field edit-all"><label for="book-editor-thoughts">Thoughts</label><textarea id="book-editor-thoughts" rows="6">${esc(book.thoughts || '')}</textarea></div>
     </div>
     <div class="account-actions" style="margin-top:1rem">
       <button class="account-secondary" type="button" onclick="openBookDetailByTitle(${jsArg(title)},${jsArg(source)})">Cancel</button>
