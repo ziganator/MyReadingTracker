@@ -2442,6 +2442,17 @@
   .year-tab.active { background: var(--burnt); border-color: var(--burnt); color: var(--parchment); }
 
   @media (max-width: 700px) {
+    .book-detail-toolbar {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .book-detail-nav {
+      order: 3;
+      flex-basis: 100%;
+    }
+    .book-detail-nav button {
+      flex: 1;
+    }
     .library-cover-minimal-grid {
       grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
     }
@@ -2514,6 +2525,17 @@
     justify-content: space-between;
     gap: 0.75rem;
     margin-bottom: 1rem;
+  }
+  .book-detail-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex: 1;
+  }
+  .book-detail-nav button:disabled {
+    cursor: default;
+    opacity: 0.45;
   }
   .book-detail-toolbar button {
     min-height: 40px;
@@ -3991,6 +4013,7 @@ let booksSearchQuery = '';
 let booksBulkMode = false;
 let booksBulkSelection = new Set();
 let booksBulkVisible = [];
+let bookDetailNavigationContexts = {books: [], tbr: []};
 let libraryCollections = [];
 let bookCollectionMemberships = new Map();
 let collectionEditorDraft = null;
@@ -6410,8 +6433,8 @@ function libraryRatingOrStatus(book) {
   return '—';
 }
 
-function bookClickAttributes(book, source='') {
-  return `onclick="openBookDetail(this,event)" data-title="${esc(book.title || '').replace(/"/g,'&quot;')}" data-book-key="${esc(bookRouteKey(book)).replace(/"/g,'&quot;')}"${source ? ` data-source="${source}"` : ''}`;
+function bookClickAttributes(book, source='', navScope='') {
+  return `onclick="openBookDetail(this,event)" data-title="${esc(book.title || '').replace(/"/g,'&quot;')}" data-book-key="${esc(bookRouteKey(book)).replace(/"/g,'&quot;')}"${source ? ` data-source="${source}"` : ''}${navScope ? ` data-nav-scope="${navScope}"` : ''}`;
 }
 
 function authorLastNameKey(name) {
@@ -8105,6 +8128,13 @@ function renderLibraryCollection(books, scope, view) {
   const sourceForBook = book => libraryBookStatus(book) === 'TBR'
     ? 'tbr'
     : (libraryBookStatus(book) === 'Wishlist' ? 'wishlist' : '');
+  if (scope === 'books' || scope === 'tbr') {
+    bookDetailNavigationContexts[scope] = books.map(book => ({
+      key: bookRouteKey(book),
+      title: book.title || '',
+      source: sourceForBook(book)
+    })).filter(item => item.key && item.title);
+  }
   if (!books.length) {
     target.innerHTML = '<p style="color:var(--muted);font-style:italic;padding:1rem 0">No books match these filters.</p>';
     return;
@@ -8117,7 +8147,7 @@ function renderLibraryCollection(books, scope, view) {
       const bulkKey = bulkBookKey(book);
       const isSelected = booksBulkSelection.has(bulkKey);
       return `
-        <div class="library-list-row ${booksBulkMode ? 'bulk-selecting' : ''} ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book))}>
+        <div class="library-list-row ${booksBulkMode ? 'bulk-selecting' : ''} ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book), scope)}>
           ${booksBulkMode ? `<label class="library-list-select" onclick="event.stopPropagation()">
             <input class="bulk-select-check" type="checkbox" data-bulk-key="${esc(bulkKey)}" ${isSelected ? 'checked' : ''}
               onchange="setBooksBulkSelected(this.dataset.bulkKey,this.checked)" aria-label="Select ${esc(book.title || 'book')}">
@@ -8140,7 +8170,7 @@ function renderLibraryCollection(books, scope, view) {
     target.innerHTML = `<div class="library-cover-minimal-grid">${books.map(book => {
       const bulkKey = bulkBookKey(book);
       const isSelected = booksBulkSelection.has(bulkKey);
-      return `<div class="library-cover-minimal-card ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book))}>
+      return `<div class="library-cover-minimal-card ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book), scope)}>
         ${booksBulkMode ? `<label class="library-card-select" onclick="event.stopPropagation()">
           <input class="bulk-select-check" type="checkbox" data-bulk-key="${esc(bulkKey)}" ${isSelected ? 'checked' : ''}
             onchange="setBooksBulkSelected(this.dataset.bulkKey,this.checked)" aria-label="Select ${esc(book.title || 'book')}">
@@ -8157,7 +8187,7 @@ function renderLibraryCollection(books, scope, view) {
   if (view === 'bookcase') {
     target.innerHTML = `<div class="library-bookcase">${books.map(book => {
       const spine = spineAppearance(book);
-      return `<div class="book-spine" ${bookClickAttributes(book, sourceForBook(book))}
+      return `<div class="book-spine" ${bookClickAttributes(book, sourceForBook(book), scope)}
         style="--spine-height:${spine.height}px;--spine-color:${spine.color};--spine-width:${spine.width}px;--spine-columns:${spine.columns}"
         title="${esc(`${book.title || 'Untitled'} — ${book.author_full || book.author || 'Unknown Author'}`).replace(/"/g,'&quot;')}">
         <div class="book-spine-copy">
@@ -8180,7 +8210,7 @@ function renderLibraryCollection(books, scope, view) {
     const seriesLabel = seriesLabelForBook(book);
     const bulkKey = bulkBookKey(book);
     const isSelected = booksBulkSelection.has(bulkKey);
-    return `<div class="library-book-card ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book))}>
+    return `<div class="library-book-card ${isSelected ? 'bulk-selected' : ''}" ${libraryItemActionAttributes(book, sourceForBook(book), scope)}>
       ${booksBulkMode ? `<label class="library-card-select" onclick="event.stopPropagation()">
         <input class="bulk-select-check" type="checkbox" data-bulk-key="${esc(bulkKey)}" ${isSelected ? 'checked' : ''}
           onchange="setBooksBulkSelected(this.dataset.bulkKey,this.checked)" aria-label="Select ${esc(book.title || 'book')}">
@@ -8797,11 +8827,11 @@ function toggleBooksBulkSelected(key) {
   setBooksBulkSelected(key, !booksBulkSelection.has(key));
 }
 
-function libraryItemActionAttributes(book, source='') {
+function libraryItemActionAttributes(book, source='', navScope='') {
   const key = bulkBookKey(book);
   return booksBulkMode
     ? `onclick="toggleBooksBulkSelected(${jsArg(key)})" role="button" aria-label="Toggle selection for ${esc(book.title || 'book')}"`
-    : bookClickAttributes(book, source);
+    : bookClickAttributes(book, source, navScope);
 }
 
 function selectAllVisibleBooks() {
@@ -9039,12 +9069,14 @@ function buildBooks() {
 let activeBookDetailTitle = '';
 let activeBookDetailSource = '';
 let activeBookDetailKey = '';
+let activeBookDetailNavScope = '';
 
 function openBookDetail(rowEl, evt) {
   evt?.stopPropagation();
   const title = rowEl?.dataset?.title || '';
   const source = rowEl?.dataset?.source || '';
   const key = rowEl?.dataset?.bookKey || '';
+  activeBookDetailNavScope = rowEl?.dataset?.navScope || '';
   if (!title) return;
   document.getElementById('series-modal')?.classList.remove('open');
   const route = bookDetailHash(title, source, key);
@@ -9097,6 +9129,47 @@ function findBookForDetail(title, source='', key='') {
       ? (wishlistBook || tbrBook || readBook || calendarBook || {})
       : (readBook || calendarBook || tbrBook || wishlistBook || {});
   return b;
+}
+
+function bookDetailNavigationScope(source='') {
+  if (activeBookDetailNavScope && bookDetailNavigationContexts[activeBookDetailNavScope]?.length) {
+    return activeBookDetailNavScope;
+  }
+  if (source === 'tbr' && bookDetailNavigationContexts.tbr.length) return 'tbr';
+  return bookDetailNavigationContexts.books.length ? 'books' : '';
+}
+
+function bookDetailNavigationState(book, source='') {
+  const scope = bookDetailNavigationScope(source);
+  const items = scope ? bookDetailNavigationContexts[scope] || [] : [];
+  const currentKey = bookRouteKey(book);
+  const index = items.findIndex(item => item.key === currentKey);
+  return {
+    scope,
+    items,
+    index,
+    previous: index > 0 ? items[index - 1] : null,
+    next: index >= 0 && index < items.length - 1 ? items[index + 1] : null
+  };
+}
+
+function navigateBookDetail(direction) {
+  const current = findBookByRouteKey(activeBookDetailKey) || findBookForDetail(activeBookDetailTitle, activeBookDetailSource, activeBookDetailKey);
+  if (!current?.title) return;
+  const nav = bookDetailNavigationState(current, activeBookDetailSource);
+  const target = direction < 0 ? nav.previous : nav.next;
+  if (!target) return;
+  activeBookDetailNavScope = nav.scope;
+  const route = bookDetailHash(target.title, target.source, target.key);
+  history.replaceState(
+    appHistoryState({
+      readingTrackerPreviousHash: history.state?.readingTrackerPreviousHash || '#books',
+      readingTrackerPreviousScroll: history.state?.readingTrackerPreviousScroll || 0
+    }),
+    '',
+    route
+  );
+  renderBookDetailPage(target.title, target.source, target.key);
 }
 
 function storyDateLabel(story) {
@@ -9294,11 +9367,16 @@ function renderBookDetailPage(title, source='', key='') {
   activeBookDetailTitle = b.title || title;
   activeBookDetailSource = source;
   activeBookDetailKey = bookRouteKey(b);
+  const detailNav = bookDetailNavigationState(b, source);
 
   panel.innerHTML = `
     <div class="book-detail-page">
       <div class="book-detail-toolbar">
         <button type="button" onclick="goBackFromBookDetail()">← Back</button>
+        <div class="book-detail-nav" aria-label="Book navigation">
+          <button type="button" onclick="navigateBookDetail(-1)" ${detailNav.previous ? '' : 'disabled'}>← Previous</button>
+          <button type="button" onclick="navigateBookDetail(1)" ${detailNav.next ? '' : 'disabled'}>Next →</button>
+        </div>
         ${guestMode ? '' : `<button class="book-detail-edit" type="button" title="Edit book" aria-label="Edit book"
           onclick="openBookEditor(${jsArg(activeBookDetailTitle)},${jsArg(activeBookDetailSource)},${jsArg(activeBookDetailKey)})">⚙</button>`}
       </div>
