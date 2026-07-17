@@ -1295,7 +1295,7 @@
   }
   .library-cover-minimal-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
     gap: 1rem;
     align-items: start;
   }
@@ -2442,6 +2442,9 @@
   .year-tab.active { background: var(--burnt); border-color: var(--burnt); color: var(--parchment); }
 
   @media (max-width: 700px) {
+    .library-cover-minimal-grid {
+      grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+    }
     .picker-grid { grid-template-columns: 1fr; }
     .author-row { grid-template-columns: 100px 1fr 50px; }
     .author-avg { display: none; }
