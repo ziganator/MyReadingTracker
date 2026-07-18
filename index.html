@@ -5770,12 +5770,11 @@ function bookFormatKey(value) {
   return key;
 }
 
-function bookFormatOptionsHTML(selected='', includeBlank=false) {
-  const current = String(selected || '').trim();
-  const options = includeBlank ? [''] : [];
-  options.push(...BOOK_FORMAT_OPTIONS);
+function bookFormatOptionsHTML(selected='Book') {
+  const current = String(selected || 'Book').trim() || 'Book';
+  const options = [...BOOK_FORMAT_OPTIONS];
   if (current && !BOOK_FORMAT_OPTIONS.includes(current)) options.push(current);
-  return options.map(format => `<option value="${esc(format)}" ${format === current ? 'selected' : ''}>${esc(format || 'No Format')}</option>`).join('');
+  return options.map(format => `<option value="${esc(format)}" ${format === current ? 'selected' : ''}>${esc(format)}</option>`).join('');
 }
 
 function setSupportedBookFormat(id, value) {
@@ -10497,7 +10496,7 @@ function openBookEditor(title, source='', key='') {
             `<option value="${status}" ${readStatus===status?'selected':''}>${status}</option>`
           ).join('')}
         </select></div>
-        <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || '', true)}</select></div>
+        <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
       </div>
       <div class="book-editor-row publish-row">
         <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
@@ -10653,7 +10652,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     cover_url: coverUrl || original.cover_url || '',
     status: statusValue,
     own: document.getElementById('book-editor-owned')?.checked ? 'Yes' : '',
-    format: keepText('book-editor-format', original.format),
+    format: bookEditorValue('book-editor-format') || original.format || 'Book',
     publisher: keepText('book-editor-publisher', original.publisher),
     publication_date: keepText('book-editor-publication-date', original.publication_date),
     page_count: keepNumber('book-editor-page-count', original.page_count),
