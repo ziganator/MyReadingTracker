@@ -5193,6 +5193,21 @@ function csvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function spreadsheetText(value) {
+  const text = value === null || value === undefined ? '' : String(value).trim();
+  return text ? `="${text.replace(/"/g, '""')}"` : '';
+}
+
+function exportISBN(value) {
+  const isbn = cleanISBN(value);
+  return [10, 13].includes(isbn.length) ? spreadsheetText(isbn) : '';
+}
+
+function validCleanISBN(value) {
+  const isbn = cleanISBN(value);
+  return [10, 13].includes(isbn.length) ? isbn : '';
+}
+
 function downloadCSV(filename, rows) {
   const csv = rows.map(row => row.map(csvCell).join(',')).join('\r\n');
   const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], {type: 'text/csv;charset=utf-8'}));
@@ -5209,7 +5224,7 @@ function downloadLibraryCSVTemplate() {
   downloadCSV('reading-tracker-template.csv', [
     LIBRARY_CSV_COLUMNS,
     ['Pride and Prejudice', 'Jane Austen', '', '', '1813', 'Classic Romance',
-      '9780141439518', '', 'Read', 'Yes', 'Paperback', '', '', '2026', '', '', '8.5', '1', '', 'June 2026', '', '']
+      spreadsheetText('9780141439518'), '', 'Read', 'Yes', 'Paperback', '', '', '2026', '', '', '8.5', '1', '', 'June 2026', '', '']
   ]);
   setAccountStatus('CSV template downloaded.');
 }
@@ -5221,7 +5236,7 @@ function exportLibraryCSV() {
       String(a.title).localeCompare(String(b.title)))
     .map(book => [
       book.title, book.author_full || book.author || book.author_short, book.series, book.series_position,
-      book.year_pub, book.genre, book.isbn, book.cover_url,
+      book.year_pub, book.genre, exportISBN(book.isbn || book.isbn_13 || book.isbn_10), book.cover_url,
       libraryBookStatus(book),
       ownedValue(book.own) ? 'Yes' : '', book.format, book.synopsis,
       bookBelongsToCollection(book, collectionBySlug('reread')) ? 'X' : '',
@@ -5235,7 +5250,7 @@ function exportLibraryCSV() {
 function missingPageCountBooks() {
   return allLibraryBooks()
     .filter(book =>
-      cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
+      validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
       !(Number(book.page_count) > 0)
     )
     .sort((a, b) => authorLastNameKey(a.author_full || a.author || a.author_short)
@@ -5256,7 +5271,7 @@ function missingPageCountRows() {
   return missingPageCountBooks().map(book => [
     book.title || '',
     book.author_full || book.author || book.author_short || '',
-    cleanISBN(book.isbn || book.isbn_13 || book.isbn_10),
+    validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10),
     libraryBookStatus(book),
     book.format || '',
     book.publisher || '',
@@ -5269,7 +5284,7 @@ function exportMissingPageCountCSV() {
   const rows = missingPageCountRows();
   downloadCSV(`reading-tracker-missing-page-counts-${localDateKey()}.csv`, [
     ['Title', 'Author', 'ISBN', 'Status', 'Format', 'Publisher', 'Publication Year', 'Lookup Status'],
-    ...rows
+    ...rows.map(row => row.map((cell, index) => index === 2 ? spreadsheetText(cell) : cell))
   ]);
   setAccountStatus(`Exported ${rows.length} books with ISBNs and missing page counts.`);
 }
@@ -7451,7 +7466,7 @@ async function syncMissingPageCountsFromISBNs() {
   const progress = loadPageCountSyncProgress();
   const books = allLibraryBooks().filter(book =>
     book.database_id &&
-    cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
+    validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
     !(Number(book.page_count) > 0) &&
     !progress[String(book.database_id)]
   );
@@ -7464,7 +7479,8 @@ async function syncMissingPageCountsFromISBNs() {
   try {
     for (const [index, book] of books.entries()) {
       const id = String(book.database_id);
-      const isbn = cleanISBN(book.isbn || book.isbn_13 || book.isbn_10);
+      const isbn = validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10);
+      if (!isbn) continue;
       try {
         const editions = await fetchEditionCandidatesByISBN(isbn);
         const pages = bestPageCountFromEditions(editions, isbn);
