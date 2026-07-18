@@ -8285,12 +8285,7 @@ async function saveSelectedEdition(bookId, edition, existingEditionId=null) {
     editionId = inserted?.[0]?.id || null;
   }
   if (!editionId) throw new Error('The selected edition could not be saved.');
-  await supabaseTableRequest('books', {
-    method: 'PATCH',
-    query: `?id=eq.${encodeURIComponent(bookId)}`,
-    body: {selected_edition_id: editionId, ...bookPatchFromEditionPayload(edition)},
-    prefer: 'return=minimal'
-  });
+  await patchBookRow(bookId, {selected_edition_id: editionId, ...bookPatchFromEditionPayload(edition)});
   return editionId;
 }
 
