@@ -6824,10 +6824,43 @@ function selectedEditionFromDatabase(book) {
     || null;
 }
 
+function editionIdentityKey(edition={}) {
+  const isbn = cleanISBN(edition.isbn_13 || edition.isbn_10 || '');
+  if (isbn) return `isbn:${isbn}`;
+  if (edition.open_library_edition_id) return `ol:${normalizedKey(edition.open_library_edition_id)}`;
+  if (edition.google_books_volume_id) return `gb:${normalizedKey(edition.google_books_volume_id)}`;
+  return [
+    normalizedKey(edition.binding),
+    normalizedKey(edition.publisher),
+    String(edition.publication_date || '').slice(0, 10),
+    Number(edition.page_count) || '',
+    normalizedKey(edition.cover_url || edition.cover_small_url)
+  ].join('|');
+}
+
+function uniqueBookEditions(editions=[], selectedEditionId='') {
+  const selectedId = String(selectedEditionId || '');
+  const byKey = new Map();
+  editions.filter(Boolean).forEach(edition => {
+    const key = editionIdentityKey(edition);
+    if (!key) return;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, edition);
+      return;
+    }
+    const currentSelected = selectedId && String(edition.id || '') === selectedId;
+    const existingSelected = selectedId && String(existing.id || '') === selectedId;
+    if (currentSelected && !existingSelected) byKey.set(key, edition);
+  });
+  return [...byKey.values()];
+}
+
 function databaseBookToLocal(book) {
   const author = databaseRelationName(book.authors);
   const series = databaseRelationName(book.series);
   const edition = selectedEditionFromDatabase(book);
+  const editions = uniqueBookEditions(book.editions, book.selected_edition_id || edition?.id || '');
   const publicationDate = book.publication_date || edition?.publication_date || '';
   const sessions = Array.isArray(book.reading_sessions) ? book.reading_sessions : [];
   const session = [...sessions].sort((a, b) =>
@@ -6868,7 +6901,7 @@ function databaseBookToLocal(book) {
     selected_edition_id: book.selected_edition_id || edition?.id || null,
     edition_id: edition?.id || null,
     edition: edition || null,
-    editions: Array.isArray(book.editions) ? book.editions : [],
+    editions,
     synopsis: book.synopsis || '',
     thoughts: book.notes || '',
     signed: book.signed || '',
@@ -6994,6 +7027,7 @@ async function loadDatabaseBooks() {
     await ensureReadBooksHaveTimesRead(books);
     await ensureBooksUseDefaultLanguage(books);
     await ensureBookEditionPageCounts(books);
+    await ensureUniqueEditions(books);
     books.forEach(book => mergeDatabaseBook(databaseBookToLocal(book)));
     return books.length;
   } catch (error) {
@@ -7087,6 +7121,46 @@ async function ensureBookEditionPageCounts(books=[]) {
   const results = await Promise.allSettled(tasks);
   const failed = results.filter(result => result.status === 'rejected').length;
   if (failed) console.warn(`Could not reconcile page counts for ${failed} edition record${failed === 1 ? '' : 's'}.`);
+}
+
+async function ensureUniqueEditions(books=[]) {
+  if (!supabaseSession?.user?.id) return;
+  const deleteIds = [];
+  books.forEach(book => {
+    const editions = Array.isArray(book.editions) ? book.editions : [];
+    if (editions.length < 2) return;
+    const selectedId = String(book.selected_edition_id || '');
+    const byKey = new Map();
+    editions.forEach(edition => {
+      const key = editionIdentityKey(edition);
+      if (!key) return;
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, edition);
+        return;
+      }
+      const editionIsSelected = selectedId && String(edition.id || '') === selectedId;
+      const existingIsSelected = selectedId && String(existing.id || '') === selectedId;
+      if (editionIsSelected && !existingIsSelected) {
+        deleteIds.push(existing.id);
+        byKey.set(key, edition);
+      } else {
+        deleteIds.push(edition.id);
+      }
+    });
+    book.editions = uniqueBookEditions(editions, selectedId);
+  });
+  const ids = [...new Set(deleteIds.filter(Boolean))];
+  if (!ids.length) return;
+  const results = await Promise.allSettled(ids.map(id =>
+    supabaseTableRequest('editions', {
+      method: 'DELETE',
+      query: `?id=eq.${encodeURIComponent(id)}`,
+      prefer: 'return=minimal'
+    })
+  ));
+  const failed = results.filter(result => result.status === 'rejected').length;
+  if (failed) console.warn(`Could not remove ${failed} duplicate edition row${failed === 1 ? '' : 's'}.`);
 }
 
 let addBookMode = 'manual';
@@ -8256,6 +8330,15 @@ function bookPatchFromEditionPayload(edition={}) {
   return patch;
 }
 
+async function findMatchingEditionId(bookId, edition={}) {
+  const existing = await supabaseTableRequest('editions', {
+    query: `?select=id,isbn_10,isbn_13,open_library_edition_id,google_books_volume_id,binding,publisher,publication_date,page_count,cover_url,cover_small_url&book_id=eq.${encodeURIComponent(bookId)}`
+  });
+  const targetKey = editionIdentityKey(edition);
+  const match = existing.find(row => editionIdentityKey(row) === targetKey);
+  return match?.id || null;
+}
+
 async function saveSelectedEdition(bookId, edition, existingEditionId=null) {
   await supabaseTableRequest('editions', {
     method: 'PATCH',
@@ -8263,7 +8346,7 @@ async function saveSelectedEdition(bookId, edition, existingEditionId=null) {
     body: {is_selected: false},
     prefer: 'return=minimal'
   });
-  let editionId = existingEditionId;
+  let editionId = existingEditionId || await findMatchingEditionId(bookId, edition);
   if (editionId) {
     await supabaseTableRequest('editions', {
       method: 'PATCH',
@@ -9709,7 +9792,7 @@ function bookEditionsHTML(book, mode='detail') {
     <div class="${mode === 'editor' ? 'book-editor-editions-head' : 'book-editions-head'}">
       <h4>Editions</h4>
       ${mode === 'editor'
-        ? `<button class="editor-button" type="button" onclick="saveCurrentBookEditorEdition()">Add Current Edition</button>`
+        ? `<button class="editor-button" type="button" onclick="saveCurrentBookEditorEdition()">Save Current Edition</button>`
         : ''}
     </div>
     <div class="book-edition-list">${rows}</div>
