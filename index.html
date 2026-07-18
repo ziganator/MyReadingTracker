@@ -4176,6 +4176,7 @@
             <button class="account-primary" type="button" onclick="document.getElementById('account-csv-file')?.click()">Import CSV</button>
             <button class="account-secondary" type="button" onclick="downloadLibraryCSVTemplate()">Download Template</button>
             <button class="account-secondary" type="button" onclick="exportLibraryCSV()">Export CSV</button>
+            <button class="account-secondary" type="button" onclick="openMissingPageCountReport()">Missing Page Report</button>
           </div>
         </section>
         <section class="account-settings-section import-box">
@@ -5219,6 +5220,75 @@ function exportLibraryCSV() {
     ]);
   downloadCSV(`reading-tracker-library-${localDateKey()}.csv`, [LIBRARY_CSV_COLUMNS, ...rows]);
   setAccountStatus(`Exported ${rows.length} books.`);
+}
+
+function missingPageCountBooks() {
+  return allLibraryBooks()
+    .filter(book =>
+      cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
+      !(Number(book.page_count) > 0)
+    )
+    .sort((a, b) => authorLastNameKey(a.author_full || a.author || a.author_short)
+      .localeCompare(authorLastNameKey(b.author_full || b.author || b.author_short)) ||
+      String(a.title || '').localeCompare(String(b.title || '')));
+}
+
+function pageCountLookupStatus(book, progress=loadPageCountSyncProgress()) {
+  const item = progress[String(book.database_id || '')];
+  if (!item) return 'Not checked in this browser';
+  if (item.status === 'updated') return `Updated to ${item.pages} pages`;
+  if (item.status === 'no-pages-found') return 'No page count found';
+  return item.status || 'Checked';
+}
+
+function missingPageCountRows() {
+  const progress = loadPageCountSyncProgress();
+  return missingPageCountBooks().map(book => [
+    book.title || '',
+    book.author_full || book.author || book.author_short || '',
+    cleanISBN(book.isbn || book.isbn_13 || book.isbn_10),
+    libraryBookStatus(book),
+    book.format || '',
+    book.publisher || '',
+    book.year_pub || '',
+    pageCountLookupStatus(book, progress)
+  ]);
+}
+
+function exportMissingPageCountCSV() {
+  const rows = missingPageCountRows();
+  downloadCSV(`reading-tracker-missing-page-counts-${localDateKey()}.csv`, [
+    ['Title', 'Author', 'ISBN', 'Status', 'Format', 'Publisher', 'Publication Year', 'Lookup Status'],
+    ...rows
+  ]);
+  setAccountStatus(`Exported ${rows.length} books with ISBNs and missing page counts.`);
+}
+
+function openMissingPageCountReport() {
+  const rows = missingPageCountRows();
+  document.getElementById('modal-series-name').textContent = 'Missing Page Counts';
+  document.getElementById('modal-series-sub').textContent =
+    rows.length
+      ? `${rows.length} book${rows.length === 1 ? '' : 's'} have an ISBN but no page count.`
+      : 'Every book with an ISBN currently has a page count.';
+  document.getElementById('modal-series-body').innerHTML = rows.length ? `
+    <div class="account-actions" style="margin:0 0 0.8rem">
+      <button class="account-primary" type="button" onclick="exportMissingPageCountCSV()">Export CSV</button>
+    </div>
+    <div class="modal-book-list">
+      ${rows.map(([title, author, isbn, status, format, publisher, year, lookupStatus]) => `
+        <div class="modal-book-row">
+          <div class="modal-book-info">
+            <div class="modal-book-title">${esc(title)}</div>
+            <div class="modal-book-meta">${esc(author)} · ISBN ${esc(isbn)}</div>
+            <div class="modal-book-meta">${esc([status, format, publisher, year].filter(Boolean).join(' · '))}</div>
+            <div class="modal-book-meta" style="margin-top:0.15rem;color:var(--burnt)">${esc(lookupStatus)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '<p style="color:var(--muted);font-style:italic;margin:0">No missing page counts found.</p>';
+  openModal(null);
 }
 
 function csvImportValue(row, name) {
