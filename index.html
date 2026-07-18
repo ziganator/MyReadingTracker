@@ -5251,6 +5251,7 @@ function missingPageCountBooks() {
   return allLibraryBooks()
     .filter(book =>
       validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
+      !isAudiobookFormat(book.format) &&
       !(Number(book.page_count) > 0)
     )
     .sort((a, b) => authorLastNameKey(a.author_full || a.author || a.author_short)
@@ -5888,6 +5889,10 @@ function bookFormatKey(value) {
   if (key === 'graphicnovel' || key === 'graphic-novel' || key === 'comic' || key === 'comics') return 'graphicnovel';
   if (key === 'book' || key === 'physicalbook' || key === 'hardcover' || key === 'paperback') return 'book';
   return key;
+}
+
+function isAudiobookFormat(value) {
+  return bookFormatKey(value) === 'audiobook';
 }
 
 function bookFormatOptionsHTML(selected='Book') {
@@ -6772,6 +6777,7 @@ function showYear(year) {
     const coverUrl = b.cover_url || (b.isbn ? `https://covers.openlibrary.org/b/isbn/${b.isbn}-M.jpg` : '');
     const coverEl = coverImageHTML({...b, cover_url: coverUrl}, 'log-cover', 'card-cover');
     const tags = [];
+    const pages = pageCountForBook(b);
     if (b.genre) tags.push(`<span class="tag" style="color:${genreColor(b.genre)}">${esc(b.genre)}</span>`);
     if (b.format) tags.push(formatBadge(b.format));
     if (b.days) tags.push(`<span class="tag days">${b.days} day${b.days!==1?'s':''}</span>`);
@@ -6782,9 +6788,10 @@ function showYear(year) {
           <div class="card-title">${esc(b.title)}</div>
           <div class="card-author">${esc(b.author)}</div>
           <div style="margin-top:0.3rem">${ratingDisplay(b.rating)}</div>
+          ${seriesLabelForBook(b) ? `<div class="book-series" style="margin-top:0.2rem">${esc(seriesLabelForBook(b))}</div>` : ''}
+          ${pages ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.2rem">${pageMetric(pages)} pages</div>` : ''}
         </div>
       </div>
-      ${b.series ? `<div class="book-series">${esc(b.series)}</div>` : ''}
       <div class="card-meta">${tags.join('')}</div>
       ${b.start ? `<div class="card-dates">${b.start}${b.end&&b.end!==b.start?' → '+b.end:''}</div>` : ''}
     </div>`;
@@ -7467,6 +7474,7 @@ async function syncMissingPageCountsFromISBNs() {
   const books = allLibraryBooks().filter(book =>
     book.database_id &&
     validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
+    !isAudiobookFormat(book.format) &&
     !(Number(book.page_count) > 0) &&
     !progress[String(book.database_id)]
   );
@@ -12940,6 +12948,7 @@ return `<div style="background:${barBackground};color:#fff;font-size:0.7rem;font
             <div class="library-list-author">${esc(b.author_full || b.author || 'Unknown Author')}</div>
           </div>
           <div class="library-list-detail">${esc(b.genre || '—')}</div>
+          <div class="library-list-detail">${pageCountForBook(b) ? `${pageMetric(pageCountForBook(b))} pages` : '—'}</div>
           <div class="library-list-detail">${b.start || b.end ? esc(`${b.start || ''}${b.end && b.end !== b.start ? ' → ' + b.end : ''}`) : '—'}</div>
           <div class="library-list-detail">${b.rating ? ratingDisplay(b.rating) : '—'}</div>
         </div>
