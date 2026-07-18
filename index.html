@@ -1596,7 +1596,7 @@
 
   /* Modal */
   .modal-overlay {
-    display: none; position: fixed; inset: 0; z-index: 500;
+    display: none; position: fixed; inset: 0; z-index: 1500;
     background: rgba(26,18,9,0.65); backdrop-filter: blur(3px);
     align-items: flex-start; justify-content: center;
     overflow: hidden; padding: 1rem 0;
@@ -2702,11 +2702,13 @@
     font-size: 1rem;
     margin-bottom: 0.45rem;
   }
+  .book-reading-sessions-section,
   .book-stories-section {
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border);
   }
+  .book-reading-sessions-head,
   .book-stories-head {
     display: flex;
     align-items: center;
@@ -2714,12 +2716,15 @@
     gap: 0.75rem;
     margin-bottom: 0.65rem;
   }
+  .book-reading-sessions-head h4,
   .book-stories-head h4 {
     color: var(--burnt);
     font-family: 'Playfair Display', serif;
     margin: 0;
   }
+  .reading-session-list,
   .story-list { display: grid; gap: 0.45rem; }
+  .reading-session-row,
   .story-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -2730,18 +2735,23 @@
     border-radius: 6px;
     background: rgba(253,248,240,0.72);
   }
+  .reading-session-title,
   .story-title { color: var(--deep); font-weight: 700; }
+  .reading-session-meta,
   .story-meta { color: var(--muted); font-size: 0.82rem; }
+  .reading-session-actions,
   .story-actions {
     display: grid;
     justify-items: end;
     gap: 0.35rem;
   }
+  .reading-session-actions .editor-button,
   .story-actions .editor-button {
     min-height: 28px;
     padding: 0.18rem 0.48rem;
     font-size: 0.78rem;
   }
+  .reading-session-notes,
   .story-notes {
     margin-top: 0.2rem;
     color: var(--muted);
@@ -6191,7 +6201,7 @@ function yearReadSyncPromptHTML() {
 
 function buildLog() {
   const panel = document.getElementById('tab-log');
-  const summaryBooks = allReadBooks();
+  const summaryBooks = readingLogBooks();
   const yearCounts = summaryYearCounts();
   const yearRows = availableReadingYears()
     .map(year => {
@@ -6374,10 +6384,64 @@ function allReadBooks() {
     .map(book => ({...book, author: book.author_full || book.author || book.author_short || ''}));
 }
 
+function sortedReadingSessions(book) {
+  return [...(Array.isArray(book?.reading_sessions) ? book.reading_sessions : [])]
+    .filter(session => session && (session.year_read || session.read_year || session.started_on || session.finished_on || session.month_read || session.rating || session.status))
+    .sort((a, b) =>
+      String(a.finished_on || a.started_on || a.month_read || a.created_at || '').localeCompare(
+        String(b.finished_on || b.started_on || b.month_read || b.created_at || ''),
+        undefined,
+        {numeric: true}
+      )
+    );
+}
+
+function readingSessionEntry(book, session, index=0) {
+  const started = session.started_on || '';
+  const finished = session.finished_on || '';
+  const monthRead = session.month_read || monthDateForBook({
+    start: started,
+    end: finished,
+    year_read: session.year_read || session.read_year
+  });
+  const yearRead = Number(session.year_read) || Number(session.read_year) ||
+    (finished ? Number(finished.slice(0, 4)) : null) ||
+    (monthRead ? Number(String(monthRead).slice(0, 4)) : null);
+  const dayCount = started && finished
+    ? Math.round((new Date(finished) - new Date(started)) / 86400000) + 1
+    : null;
+  return {
+    ...book,
+    author: book.author_full || book.author || book.author_short || '',
+    start: started,
+    end: finished,
+    days: dayCount,
+    month_read: finished
+      ? new Date(`${finished}T12:00:00`).toLocaleString('en-US', {month:'long'})
+      : monthRead,
+    year_read: yearRead,
+    rating: ratingForStatus(session.status || book.status, session.rating),
+    thoughts: session.notes || book.thoughts || '',
+    status: session.status || book.status,
+    _reading_session_id: session.id || '',
+    _reading_session_index: index,
+    _is_reread_session: index > 0
+  };
+}
+
+function readingSessionEntries() {
+  return allReadBooks().flatMap(book => {
+    const sessions = sortedReadingSessions(book);
+    return sessions.length
+      ? sessions.map((session, index) => readingSessionEntry(book, session, index))
+      : [{...book, author: book.author_full || book.author || book.author_short || ''}];
+  });
+}
+
 function readingLogBooks() {
   const seen = new Set();
   return [
-    ...allReadBooks(),
+    ...readingSessionEntries(),
     ...(DATA.ratings_2026 || []),
     ...(DATA.ratings_2025 || []),
     ...(DATA.ratings_2024 || [])
@@ -6385,6 +6449,7 @@ function readingLogBooks() {
     const year = readYearForBook(book);
     const monthKey = monthKeyFromBook(book) || '';
     const key = [
+      book._reading_session_id || '',
       book.database_id || bookIdentity(book),
       year || '',
       monthKey,
@@ -6437,7 +6502,7 @@ function rebuildReadYearBuckets() {
   DATA.ratings_2024 = [];
   DATA.ratings_2025 = [];
   DATA.ratings_2026 = [];
-  allReadBooks().forEach(book => {
+  readingLogBooks().forEach(book => {
     const year = readYearForBook(book);
     if (year === 2024) DATA.ratings_2024.push(book);
     if (year === 2025) DATA.ratings_2025.push(book);
@@ -7020,7 +7085,8 @@ function databaseBookToLocal(book) {
     received_date: book.received_date_text || (book.year_received ? String(book.year_received) : ''),
     year_received: book.year_received || null,
     event: book.event || '',
-    times_read: normalizedTimesRead(book.times_read),
+    times_read: normalizedTimesRead(book.times_read) ?? (sessions.length ? sessions.length : null),
+    reading_sessions: sessions,
     start: startedDate,
     end: finishedDate,
     days: dayCount,
@@ -9937,6 +10003,182 @@ function navigateBookDetail(direction) {
   renderBookDetailPage(target.title, target.source, target.key);
 }
 
+function readingSessionDateLabel(session) {
+  const started = session?.started_on || '';
+  const finished = session?.finished_on || '';
+  const month = session?.month_read || '';
+  const year = session?.year_read || session?.read_year || '';
+  if (started && finished && started !== finished) return `${started} to ${finished}`;
+  return finished || started || (month ? monthYearLabelFromKey(String(month).slice(0, 7)) : '') || year || '';
+}
+
+function readingSessionLabel(index) {
+  return index === 0 ? 'First Read' : `Reread #${index + 1}`;
+}
+
+function bookReadingSessionsHTML(book) {
+  const sessions = sortedReadingSessions(book);
+  const rows = sessions.length
+    ? sessions.map((session, index) => {
+        const meta = [
+          readingSessionDateLabel(session),
+          session.rating ? ratingDisplay(session.rating).replace(/<[^>]+>/g, '') : '',
+          session.status && session.status !== 'Read' ? session.status : ''
+        ].filter(Boolean).join(' · ');
+        return `<div class="reading-session-row">
+          <div>
+            <div class="reading-session-title">${esc(readingSessionLabel(index))}</div>
+            ${meta ? `<div class="reading-session-meta">${esc(meta)}</div>` : ''}
+            ${session.notes ? `<div class="reading-session-notes">${esc(session.notes)}</div>` : ''}
+          </div>
+          <div class="reading-session-actions">
+            ${session.rating ? `<div>${ratingDisplay(session.rating)}</div>` : ''}
+            ${guestMode || !session.id ? '' : `<button class="editor-button" type="button" onclick="openReadingSessionEditor(${jsArg(bookRouteKey(book))},${jsArg(session.id)})">Edit</button>`}
+          </div>
+        </div>`;
+      }).join('')
+    : '<p style="color:var(--muted);font-style:italic">No reading sessions have been saved for this book yet.</p>';
+  return `<section class="book-reading-sessions-section">
+    <div class="book-reading-sessions-head">
+      <h4>Reading Sessions</h4>
+      ${guestMode ? '' : `<button class="editor-button" type="button" onclick="openReadingSessionEditor(${jsArg(bookRouteKey(book))})">Add Read</button>`}
+    </div>
+    <div class="reading-session-list">${rows}</div>
+  </section>`;
+}
+
+function openReadingSessionEditor(bookKey, sessionId='') {
+  if (guestMode) return;
+  const book = findBookByRouteKey(bookKey);
+  if (!book?.database_id) return;
+  const sessions = sortedReadingSessions(book);
+  const session = sessions.find(item => String(item.id || '') === String(sessionId || '')) || {};
+  const index = sessionId ? Math.max(0, sessions.findIndex(item => String(item.id || '') === String(sessionId))) : sessions.length;
+  document.getElementById('modal-series-name').textContent = sessionId ? `Edit ${readingSessionLabel(index)}` : 'Add Reading Session';
+  document.getElementById('modal-series-sub').textContent = book.title || '';
+  document.getElementById('modal-series-body').innerHTML = `
+    <div class="book-editor-grid">
+      <input id="reading-session-book-key" type="hidden" value="${esc(bookKey)}">
+      <input id="reading-session-id" type="hidden" value="${esc(sessionId || '')}">
+      <div class="book-editor-row publish-row">
+        <div class="book-editor-field"><label for="reading-session-started">Started</label><input id="reading-session-started" type="date" value="${esc(session.started_on || '')}" onchange="syncReadingSessionYearFromDates()"></div>
+        <div class="book-editor-field"><label for="reading-session-finished">Finished</label><input id="reading-session-finished" type="date" value="${esc(session.finished_on || '')}" onchange="syncReadingSessionYearFromDates()"></div>
+        <div class="book-editor-field"><label for="reading-session-year">Year Read</label><input id="reading-session-year" type="number" min="1000" max="9999" value="${esc(session.year_read || session.read_year || '')}"></div>
+        <div class="book-editor-field"><label for="reading-session-rating">Rating</label><input id="reading-session-rating" type="number" min="0" max="10" step="0.1" value="${esc(session.rating || '')}"></div>
+      </div>
+      <div class="book-editor-row status-row">
+        <div class="book-editor-field"><label for="reading-session-status">Status</label><select id="reading-session-status">
+          ${['Read','Currently Reading','DNF','On Hold'].map(status => `<option value="${status}" ${(session.status || 'Read') === status ? 'selected' : ''}>${status}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="book-editor-field edit-all"><label for="reading-session-notes">Notes</label><textarea id="reading-session-notes" rows="6">${esc(session.notes || '')}</textarea></div>
+    </div>
+    <div class="account-actions" style="margin-top:1rem">
+      ${sessionId ? `<button class="account-secondary" style="color:#9b2020" type="button" onclick="deleteReadingSession(${jsArg(bookKey)},${jsArg(sessionId)})">Delete Session</button>` : ''}
+      <button class="account-secondary" type="button" onclick="closeTrackedModal();renderBookDetailPage(${jsArg(book.title)},${jsArg(activeBookDetailSource)},${jsArg(bookKey)})">Cancel</button>
+      <button class="account-primary" type="button" onclick="saveReadingSessionEditor()">Save Session</button>
+    </div>
+    <div class="picker-settings-status" id="reading-session-status-message"></div>
+  `;
+  openModal(null, 'book-editor');
+}
+
+function syncReadingSessionYearFromDates() {
+  const yearInput = document.getElementById('reading-session-year');
+  if (!yearInput || String(yearInput.value || '').trim()) return;
+  const finishedYear = dateInputYear(document.getElementById('reading-session-finished')?.value);
+  const startedYear = dateInputYear(document.getElementById('reading-session-started')?.value);
+  const year = finishedYear || startedYear;
+  if (year) yearInput.value = year;
+}
+
+function readingSessionMigrationMessage(error) {
+  const message = String(error?.message || '');
+  return message.includes('reading_sessions') || message.includes('schema cache')
+    ? 'Reading session storage is not enabled yet. Run the reading session SQL migrations, then try again.'
+    : (message || 'The reading session could not be saved.');
+}
+
+async function saveReadingSessionEditor() {
+  const status = document.getElementById('reading-session-status-message');
+  const bookKey = document.getElementById('reading-session-book-key')?.value || '';
+  const sessionId = document.getElementById('reading-session-id')?.value || '';
+  const book = findBookByRouteKey(bookKey);
+  if (!book?.database_id) return;
+  const started = document.getElementById('reading-session-started')?.value || '';
+  const finished = document.getElementById('reading-session-finished')?.value || '';
+  const yearRead = safeInt(document.getElementById('reading-session-year')?.value) ||
+    (finished ? Number(finished.slice(0, 4)) : (started ? Number(started.slice(0, 4)) : null));
+  const statusValue = document.getElementById('reading-session-status')?.value || 'Read';
+  const ratingValue = Number.parseFloat(document.getElementById('reading-session-rating')?.value || '');
+  const body = {
+    user_id: supabaseSession.user.id,
+    book_id: book.database_id,
+    started_on: started || null,
+    finished_on: finished || null,
+    month_read: monthDateForBook({start: started, end: finished, year_read: yearRead}),
+    year_read: yearRead || null,
+    rating: isDNFStatusValue(statusValue) || Number.isNaN(ratingValue) ? null : ratingValue,
+    status: statusValue,
+    notes: document.getElementById('reading-session-notes')?.value || null
+  };
+  if (status) status.textContent = 'Saving session...';
+  try {
+    await saveReadingSessions({
+      method: sessionId ? 'PATCH' : 'POST',
+      query: sessionId ? `?id=eq.${encodeURIComponent(sessionId)}` : '',
+      body: sessionId ? body : [body],
+      prefer: 'return=minimal'
+    });
+    const nextTimesRead = sessionId ? sortedReadingSessions(book).length : sortedReadingSessions(book).length + 1;
+    await patchBookRow(book.database_id, {times_read: nextTimesRead || null});
+    await loadDatabaseBooks();
+    rebuildReadYearBuckets();
+    buildHeaderStats();
+    buildLog();
+    buildLogDetail();
+    buildBooks();
+    buildSeries();
+    buildAuthors();
+    buildPicker();
+    const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(book.title);
+    closeTrackedModal();
+    renderBookDetailPage(refreshed?.title || book.title, activeBookDetailSource, bookKey);
+  } catch (error) {
+    if (status) status.textContent = readingSessionMigrationMessage(error);
+  }
+}
+
+async function deleteReadingSession(bookKey, sessionId) {
+  const status = document.getElementById('reading-session-status-message');
+  const book = findBookByRouteKey(bookKey);
+  if (!book?.database_id || !sessionId) return;
+  if (status) status.textContent = 'Deleting session...';
+  try {
+    await supabaseTableRequest('reading_sessions', {
+      method: 'DELETE',
+      query: `?id=eq.${encodeURIComponent(sessionId)}`,
+      prefer: 'return=minimal'
+    });
+    const nextTimesRead = Math.max(0, sortedReadingSessions(book).length - 1);
+    await patchBookRow(book.database_id, {times_read: nextTimesRead || null});
+    await loadDatabaseBooks();
+    rebuildReadYearBuckets();
+    buildHeaderStats();
+    buildLog();
+    buildLogDetail();
+    buildBooks();
+    buildSeries();
+    buildAuthors();
+    buildPicker();
+    const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(book.title);
+    closeTrackedModal();
+    renderBookDetailPage(refreshed?.title || book.title, activeBookDetailSource, bookKey);
+  } catch (error) {
+    if (status) status.textContent = readingSessionMigrationMessage(error);
+  }
+}
+
 function storyDateLabel(story) {
   const started = story?.started_on || '';
   const finished = story?.finished_on || '';
@@ -10367,6 +10609,8 @@ function renderBookDetailPage(title, source='', key='') {
         </div>
 
       </div>
+
+      ${bookReadingSessionsHTML(b)}
 
       ${bookEditionsHTML(b)}
 
@@ -12476,7 +12720,7 @@ function bookSpansYearMonth(book, year, month) {
 }
 
 function monthNavigationHTML(yearMonth) {
-  const allBooks = allReadBooks();
+  const allBooks = readingLogBooks();
   const dataYears = allBooks
     .map(monthKeyFromBook)
     .filter(Boolean)
@@ -12510,7 +12754,7 @@ function showMonthSummary(yearMonth) {
   const panel = document.getElementById('tab-month');
 
   // Books assigned to this month by the Month/read-session data
-  const allBooks = allReadBooks();
+  const allBooks = readingLogBooks();
   const books = allBooks.filter(b => monthKeyFromBook(b) === yearMonth).sort(compareMonthReadOrder);
   const calendarBooks = allBooks.filter(b => bookSpansYearMonth(b, year, mon)).sort((a,b) =>
     String(a.start || a.end || '').localeCompare(String(b.start || b.end || ''), undefined, {numeric: true})
