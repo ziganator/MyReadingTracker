@@ -4253,6 +4253,7 @@ const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const DEFAULT_BOOK_LANGUAGE = 'English';
 const DEFAULT_LANGUAGE_CLEANUP_VERSION = 'english-2026-07-17';
+const PAGE_COUNT_SYNC_VERSION = 'isbn-pages-2026-07-18';
 let supabaseSession = null;
 let guestMode = false;
 let trackerStarted = false;
@@ -4273,6 +4274,7 @@ let booksBulkSelection = new Set();
 let booksBulkVisible = [];
 let bookDetailNavigationContexts = {books: [], tbr: []};
 let readTimesReadCleanupAttempted = false;
+let pageCountSyncRunning = false;
 let libraryCollections = [];
 let bookCollectionMemberships = new Map();
 let collectionEditorDraft = null;
@@ -7229,6 +7231,133 @@ async function ensureUniqueEditions(books=[]) {
   ));
   const failed = results.filter(result => result.status === 'rejected').length;
   if (failed) console.warn(`Could not remove ${failed} duplicate edition row${failed === 1 ? '' : 's'}.`);
+}
+
+function pageCountSyncStorageKey() {
+  return `reading-tracker-page-count-sync-${PAGE_COUNT_SYNC_VERSION}-${supabaseSession?.user?.id || 'local'}`;
+}
+
+function loadPageCountSyncProgress() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(pageCountSyncStorageKey()) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function savePageCountSyncProgress(progress) {
+  try {
+    localStorage.setItem(pageCountSyncStorageKey(), JSON.stringify(progress || {}));
+  } catch (_) {}
+}
+
+function bestPageCountFromEditions(editions=[], isbn='') {
+  const cleanTarget = cleanISBN(isbn);
+  const candidates = editions.filter(Boolean);
+  const exact = candidates.find(edition =>
+    [edition.isbn_13, edition.isbn_10].map(cleanISBN).filter(Boolean).includes(cleanTarget) &&
+    Number(edition.page_count) > 0
+  );
+  const fallback = exact || candidates.find(edition => Number(edition.page_count) > 0);
+  const pages = Number(fallback?.page_count) || null;
+  return pages && pages > 0 && pages < 10000 ? pages : null;
+}
+
+function updateLocalPageCount(databaseId, pages) {
+  ['books', 'tbr', 'wishlist', 'ratings_2026', 'ratings_2025', 'ratings_2024'].forEach(key => {
+    (DATA[key] || []).forEach(book => {
+      if (String(book.database_id || '') === String(databaseId)) {
+        book.page_count = pages;
+        if (book.edition) book.edition.page_count = book.edition.page_count || pages;
+        if (Array.isArray(book.editions)) {
+          const edition = book.editions.find(item => String(item.id || '') === String(book.edition_id || book.selected_edition_id || ''));
+          if (edition && !edition.page_count) edition.page_count = pages;
+        }
+      }
+    });
+  });
+}
+
+async function patchPageCountForBook(book, pages) {
+  await patchBookRow(book.database_id, {page_count: pages});
+  const editionId = book.edition_id || book.selected_edition_id || book.edition?.id || '';
+  if (editionId) {
+    try {
+      await supabaseTableRequest('editions', {
+        method: 'PATCH',
+        query: `?id=eq.${encodeURIComponent(editionId)}`,
+        body: {page_count: pages},
+        prefer: 'return=minimal'
+      });
+    } catch (error) {
+      console.warn(`Could not update edition page count for ${book.title}:`, error.message);
+    }
+  }
+  updateLocalPageCount(book.database_id, pages);
+}
+
+function refreshAfterPageCountSync() {
+  rebuildReadYearBuckets();
+  rebuildSeriesFromLibraryBooks();
+  buildHeaderStats();
+  buildLog();
+  buildLogDetail();
+  buildBooks();
+  buildTBR();
+  buildAuthors();
+  buildPicker();
+  applyHashRoute();
+}
+
+async function syncMissingPageCountsFromISBNs() {
+  if (pageCountSyncRunning || guestMode || !supabaseSession?.user?.id) return;
+  const progress = loadPageCountSyncProgress();
+  const books = allLibraryBooks().filter(book =>
+    book.database_id &&
+    cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
+    !(Number(book.page_count) > 0) &&
+    !progress[String(book.database_id)]
+  );
+  if (!books.length) return;
+  pageCountSyncRunning = true;
+  let updated = 0;
+  console.log(`Starting page count sync for ${books.length} book${books.length === 1 ? '' : 's'} with ISBNs.`);
+  setAccountStatus(`Looking up missing page counts for ${books.length} book${books.length === 1 ? '' : 's'}...`, false, true);
+  showToast(`Looking up missing page counts for ${books.length} book${books.length === 1 ? '' : 's'}...`);
+  try {
+    for (const [index, book] of books.entries()) {
+      const id = String(book.database_id);
+      const isbn = cleanISBN(book.isbn || book.isbn_13 || book.isbn_10);
+      try {
+        const editions = await fetchEditionCandidatesByISBN(isbn);
+        const pages = bestPageCountFromEditions(editions, isbn);
+        if (pages) {
+          await patchPageCountForBook(book, pages);
+          progress[id] = {status: 'updated', pages, at: new Date().toISOString()};
+          updated++;
+        } else {
+          progress[id] = {status: 'no-pages-found', at: new Date().toISOString()};
+        }
+        savePageCountSyncProgress(progress);
+        if ((index + 1) % 25 === 0 || index + 1 === books.length) {
+          setAccountStatus(`Page count lookup ${index + 1} of ${books.length}; ${updated} updated.`, false, true);
+        }
+      } catch (error) {
+        console.warn(`Page count lookup failed for ${book.title}:`, error.message);
+      }
+    }
+  } finally {
+    pageCountSyncRunning = false;
+  }
+  if (updated) {
+    console.log(`Page count sync updated ${updated} book${updated === 1 ? '' : 's'}.`);
+    setAccountStatus(`Page count sync updated ${updated} book${updated === 1 ? '' : 's'}.`);
+    showToast(`Page count sync updated ${updated} book${updated === 1 ? '' : 's'}.`);
+    refreshAfterPageCountSync();
+  } else {
+    setAccountStatus('Page count lookup finished; no new page counts found.');
+  }
 }
 
 let addBookMode = 'manual';
@@ -13225,6 +13354,7 @@ async function startTracker() {
   await loadPickerPreferences();
   buildPicker();
   applyHashRoute();
+  setTimeout(() => syncMissingPageCountsFromISBNs(), 800);
 }
 
 function buildGuestDemoData() {
