@@ -6969,6 +6969,10 @@ function mergeDatabaseBook(localBook) {
        start: localBook.start || existing.start, end: localBook.end || existing.end,
        month_read: localBook.month_read || existing.month_read,
        year_read: localBook.year_read || existing.year_read,
+       selected_edition_id: localBook.selected_edition_id || existing.selected_edition_id,
+       edition_id: localBook.edition_id || existing.edition_id,
+       edition: localBook.edition || existing.edition,
+       editions: localBook.editions?.length ? localBook.editions : (existing.editions || []),
        rating: localBook.rating ?? existing.rating,
        status: localBook.status || existing.status}
     : localBook;
@@ -7024,6 +7028,7 @@ async function loadDatabaseBooks() {
       if (books) break;
     }
     if (!books) throw lastError || new Error('Could not load books from Supabase.');
+    await attachMissingBookEditions(books);
     await ensureReadBooksHaveTimesRead(books);
     await ensureBooksUseDefaultLanguage(books);
     await ensureBookEditionPageCounts(books);
@@ -7033,6 +7038,29 @@ async function loadDatabaseBooks() {
   } catch (error) {
     console.warn('Could not merge books saved in Supabase:', error.message);
     return 0;
+  }
+}
+
+async function attachMissingBookEditions(books=[]) {
+  if (!supabaseSession?.user?.id) return;
+  const missing = books.filter(book => book?.id && !Array.isArray(book.editions));
+  if (!missing.length) return;
+  try {
+    const rows = await supabaseTableRequest('editions', {
+      query: '?select=*&order=created_at.desc'
+    });
+    const byBookId = new Map();
+    rows.forEach(edition => {
+      const id = String(edition.book_id || '');
+      if (!id) return;
+      if (!byBookId.has(id)) byBookId.set(id, []);
+      byBookId.get(id).push(edition);
+    });
+    missing.forEach(book => {
+      book.editions = byBookId.get(String(book.id || '')) || [];
+    });
+  } catch (error) {
+    console.warn('Could not load editions separately:', error.message);
   }
 }
 
@@ -9831,15 +9859,6 @@ async function refreshBookEditorEditions(bookKey, fallbackTitle='') {
   await loadDatabaseBooks();
   const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(fallbackTitle);
   if (refreshed) {
-    if (!Array.isArray(refreshed.editions) || !refreshed.editions.length) {
-      try {
-        refreshed.editions = await supabaseTableRequest('editions', {
-          query: `?select=*&book_id=eq.${encodeURIComponent(refreshed.database_id)}&order=created_at.desc`
-        });
-      } catch (error) {
-        console.warn('Could not reload editions directly:', error.message);
-      }
-    }
     replaceBookEditionsList(refreshed, 'editor');
   }
   return refreshed;
