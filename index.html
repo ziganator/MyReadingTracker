@@ -5272,7 +5272,7 @@ function importedBookFromCSV(row) {
     finished,
     rating: ratingForStatus(status, rating),
     times_read: defaultTimesReadForStatus(status, safeInt(csvImportValue(row, 'Times Read'))),
-    signed: csvImportValue(row, 'Signed'),
+    signed: normalizeSignedValue(csvImportValue(row, 'Signed')),
     received_date: csvImportValue(row, 'Received') || csvImportValue(row, 'Year Received'),
     event: csvImportValue(row, 'Event'),
     notes: csvImportValue(row, 'Thoughts')
@@ -5368,7 +5368,7 @@ async function importLibraryCSV(file) {
         status: book.status,
         owned: book.owned,
         synopsis: book.synopsis || null,
-        signed: book.signed || null,
+        signed: normalizeSignedValue(book.signed) || null,
         received_date_text: book.received_date || null,
         event: book.event || null,
         times_read: defaultTimesReadForStatus(book.status, book.times_read),
@@ -5509,7 +5509,7 @@ async function importCurrentLibrary() {
           : (b.status === 'Abandoned' ? 'DNF' : (b.status || 'Read')),
         owned: ownedValue(b.own),
         synopsis: b.synopsis || null,
-        signed: b.signed || null,
+        signed: normalizeSignedValue(b.signed) || null,
         received_date_text: b.received_date || b.year_received || null,
         event: b.event || null,
         times_read: defaultTimesReadForStatus(
@@ -5775,13 +5775,31 @@ function bookFormatOptionsHTML(selected='', includeBlank=false) {
   const options = includeBlank ? [''] : [];
   options.push(...BOOK_FORMAT_OPTIONS);
   if (current && !BOOK_FORMAT_OPTIONS.includes(current)) options.push(current);
-  return options.map(format => `<option value="${esc(format)}" ${format === current ? 'selected' : ''}>${esc(format || 'Keep current')}</option>`).join('');
+  return options.map(format => `<option value="${esc(format)}" ${format === current ? 'selected' : ''}>${esc(format || 'No Format')}</option>`).join('');
 }
 
 function setSupportedBookFormat(id, value) {
   const select = document.getElementById(id);
   const format = String(value || '').trim();
   if (select && BOOK_FORMAT_OPTIONS.includes(format)) select.value = format;
+}
+
+function normalizeSignedValue(value) {
+  const text = String(value || '').trim();
+  const key = text.toLowerCase();
+  if (!text) return '';
+  if (key === 'yes' || key === 'signed') return 'Signed';
+  if (key === 'personalized' || key === 'personalised') return 'Personalized';
+  return text;
+}
+
+function signedOptionsHTML(selected='') {
+  const current = normalizeSignedValue(selected);
+  const options = ['', 'Signed', 'Personalized'];
+  if (current && !options.includes(current)) options.push(current);
+  return options.map(option =>
+    `<option value="${esc(option)}" ${option === current ? 'selected' : ''}>${esc(option || 'Not Signed')}</option>`
+  ).join('');
 }
 
 function isShortStoryCollection(bookOrFormat) {
@@ -6904,7 +6922,7 @@ function databaseBookToLocal(book) {
     editions,
     synopsis: book.synopsis || '',
     thoughts: book.notes || '',
-    signed: book.signed || '',
+    signed: normalizeSignedValue(book.signed),
     received_date: book.received_date_text || (book.year_received ? String(book.year_received) : ''),
     year_received: book.year_received || null,
     event: book.event || '',
@@ -10492,7 +10510,7 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-signed">Signed</label><input id="book-editor-signed" value="${esc(book.signed || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-signed">Signed</label><select id="book-editor-signed">${signedOptionsHTML(book.signed || '')}</select></div>
       </div>
       <div class="book-editor-row status-row">
         <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(normalizeBookLanguage(book.language))}"></div>
@@ -10642,7 +10660,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     language: normalizeBookLanguage(bookEditorValue('book-editor-language') || original.language),
     synopsis: bookEditorValue('book-editor-synopsis'),
     thoughts: bookEditorValue('book-editor-thoughts'),
-    signed: bookEditorValue('book-editor-signed'),
+    signed: normalizeSignedValue(bookEditorValue('book-editor-signed')),
     received_date: bookEditorValue('book-editor-received'),
     event: bookEditorValue('book-editor-event'),
     times_read: defaultTimesReadForStatus(statusValue, bookEditorValue('book-editor-times-read')),
@@ -12883,7 +12901,7 @@ if (dnf || endDNF) status = 'DNF';
       isbn,
       cover_url,
       own,
-      signed:       get('Signed', 21),
+      signed:       normalizeSignedValue(get('Signed', 21)),
       thoughts:     get('Thoughts', 25),
       status,
       times_read:   defaultTimesReadForStatus(status, rawTimesRead),
