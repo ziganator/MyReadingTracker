@@ -9716,6 +9716,14 @@ function bookEditionsHTML(book, mode='detail') {
   </section>`;
 }
 
+function replaceBookEditionsList(book, mode='editor') {
+  const section = document.querySelector(mode === 'editor' ? '.book-editor-editions' : '.book-editions-section');
+  if (!section) return;
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = bookEditionsHTML(book, mode);
+  section.replaceWith(wrapper.firstElementChild);
+}
+
 function currentBookEditorEditionPayload() {
   return editionPayloadFromValues({
     isbn: bookEditorValue('book-editor-isbn'),
@@ -9733,6 +9741,24 @@ async function refreshBookAfterEditionChange(bookKey, fallbackTitle='') {
   const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(fallbackTitle);
   if (document.getElementById('series-modal')?.classList.contains('open')) closeTrackedModal();
   if (refreshed) renderBookDetailPage(refreshed.title, activeBookDetailSource, bookRouteKey(refreshed));
+  return refreshed;
+}
+
+async function refreshBookEditorEditions(bookKey, fallbackTitle='') {
+  await loadDatabaseBooks();
+  const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(fallbackTitle);
+  if (refreshed) {
+    if (!Array.isArray(refreshed.editions) || !refreshed.editions.length) {
+      try {
+        refreshed.editions = await supabaseTableRequest('editions', {
+          query: `?select=*&book_id=eq.${encodeURIComponent(refreshed.database_id)}&order=created_at.desc`
+        });
+      } catch (error) {
+        console.warn('Could not reload editions directly:', error.message);
+      }
+    }
+    replaceBookEditionsList(refreshed, 'editor');
+  }
   return refreshed;
 }
 
@@ -9754,7 +9780,10 @@ async function saveCurrentBookEditorEdition() {
   try {
     await saveSelectedEdition(bookId, payload);
     if (status) status.textContent = 'Edition saved and set active.';
-    await refreshBookAfterEditionChange(bookKey, title);
+    const refreshed = await refreshBookEditorEditions(bookKey, title);
+    if (!refreshed?.editions?.length && status) {
+      status.textContent = 'Edition saved, but the editions list did not reload. Refresh the page if it does not appear.';
+    }
   } catch (error) {
     if (status) status.textContent = bookEditorMigrationMessage(error);
   }
