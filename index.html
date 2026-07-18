@@ -6993,6 +6993,7 @@ async function loadDatabaseBooks() {
     if (!books) throw lastError || new Error('Could not load books from Supabase.');
     await ensureReadBooksHaveTimesRead(books);
     await ensureBooksUseDefaultLanguage(books);
+    await ensureBookEditionPageCounts(books);
     books.forEach(book => mergeDatabaseBook(databaseBookToLocal(book)));
     return books.length;
   } catch (error) {
@@ -7056,6 +7057,36 @@ async function ensureBooksUseDefaultLanguage(books=[]) {
     return;
   }
   localStorage.setItem(cleanupKey, 'done');
+}
+
+async function ensureBookEditionPageCounts(books=[]) {
+  if (!supabaseSession?.user?.id) return;
+  const tasks = [];
+  books.forEach(book => {
+    const edition = selectedEditionFromDatabase(book);
+    const bookPages = Number(book?.page_count) || null;
+    const editionPages = Number(edition?.page_count) || null;
+    if (book?.id && editionPages && !bookPages) {
+      tasks.push(
+        patchBookRow(book.id, {page_count: editionPages})
+          .then(() => { book.page_count = editionPages; })
+      );
+    }
+    if (edition?.id && bookPages && !editionPages) {
+      tasks.push(
+        supabaseTableRequest('editions', {
+          method: 'PATCH',
+          query: `?id=eq.${encodeURIComponent(edition.id)}`,
+          body: {page_count: bookPages},
+          prefer: 'return=minimal'
+        }).then(() => { edition.page_count = bookPages; })
+      );
+    }
+  });
+  if (!tasks.length) return;
+  const results = await Promise.allSettled(tasks);
+  const failed = results.filter(result => result.status === 'rejected').length;
+  if (failed) console.warn(`Could not reconcile page counts for ${failed} edition record${failed === 1 ? '' : 's'}.`);
 }
 
 let addBookMode = 'manual';
@@ -8180,15 +8211,16 @@ async function findOrCreateLibraryRelation(table, name, extra={}) {
 
 function editionPayloadFromValues(values, sourceEdition={}) {
   const isbns = editionISBNs([], values.isbn);
+  const pageCount = Number(values.page_count || sourceEdition.page_count) || null;
   return {
     isbn_10: isbns.isbn_10 || sourceEdition.isbn_10 || null,
     isbn_13: isbns.isbn_13 || sourceEdition.isbn_13 || null,
-    publisher: values.publisher || null,
-    binding: values.binding || null,
-    page_count: Number(values.page_count) || null,
+    publisher: values.publisher || sourceEdition.publisher || null,
+    binding: values.binding || sourceEdition.binding || null,
+    page_count: pageCount,
     language: normalizeBookLanguage(values.language || sourceEdition.language),
-    publication_date: values.publication_date || null,
-    cover_url: values.cover_url || null,
+    publication_date: values.publication_date || sourceEdition.publication_date || null,
+    cover_url: values.cover_url || sourceEdition.cover_url || null,
     cover_small_url: sourceEdition.cover_small_url || null,
     open_library_edition_id: sourceEdition.open_library_edition_id || null,
     open_library_work_id: sourceEdition.open_library_work_id || null,
