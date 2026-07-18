@@ -9709,10 +9709,10 @@ function bookEditionsHTML(book, mode='detail') {
         </div>
       </div>`;
     }).join('')
-    : '<p style="color:var(--muted);font-style:italic">No owned editions have been saved for this book yet.</p>';
+    : '<p style="color:var(--muted);font-style:italic">No editions have been saved for this book yet.</p>';
   return `<section class="${mode === 'editor' ? 'book-editor-editions' : 'book-editions-section'}">
     <div class="${mode === 'editor' ? 'book-editor-editions-head' : 'book-editions-head'}">
-      <h4>Owned Editions</h4>
+      <h4>Editions</h4>
       ${mode === 'editor'
         ? `<button class="editor-button" type="button" onclick="saveCurrentBookEditorEdition()">Add Current Edition</button>`
         : ''}
@@ -9747,7 +9747,7 @@ async function saveCurrentBookEditorEdition() {
   const bookKey = document.getElementById('book-editor-route-key')?.value || activeBookDetailKey || '';
   const title = document.getElementById('book-editor-title')?.value || activeBookDetailTitle || '';
   if (!bookId) {
-    if (status) status.textContent = 'Save the book before adding owned editions.';
+    if (status) status.textContent = 'Save the book before adding editions.';
     return;
   }
   const payload = currentBookEditorEditionPayload();
