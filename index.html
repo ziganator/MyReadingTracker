@@ -5252,6 +5252,7 @@ function missingPageCountBooks() {
     .filter(book =>
       validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
       !isAudiobookFormat(book.format) &&
+      (!isShortStoryCollection(book) || usesFullBookPageCount(book)) &&
       !(Number(book.page_count) > 0)
     )
     .sort((a, b) => authorLastNameKey(a.author_full || a.author || a.author_short)
@@ -5908,6 +5909,16 @@ function setSupportedBookFormat(id, value) {
   if (select && BOOK_FORMAT_OPTIONS.includes(format)) select.value = format;
 }
 
+function updateShortStoryFullBookControls() {
+  const addFormat = document.getElementById('add-book-format')?.value;
+  const addWrap = document.getElementById('add-book-full-book-wrap');
+  if (addWrap) addWrap.style.display = isShortStoryCollection(addFormat) ? '' : 'none';
+
+  const editorFormat = document.getElementById('book-editor-format')?.value;
+  const editorWrap = document.getElementById('book-editor-full-book-wrap');
+  if (editorWrap) editorWrap.style.display = isShortStoryCollection(editorFormat) ? '' : 'none';
+}
+
 function normalizeSignedValue(value) {
   const text = String(value || '').trim();
   const key = text.toLowerCase();
@@ -5932,6 +5943,18 @@ function isShortStoryCollection(bookOrFormat) {
     : bookOrFormat?.format;
   const key = normalizedKey(format).replace(/[^a-z0-9]/g, '');
   return ['shortstorycollection', 'shortstories', 'shortstory'].includes(key);
+}
+
+function usesFullBookPageCount(book) {
+  return isShortStoryCollection(book) && Boolean(book?.full_book_read);
+}
+
+function storyPageTotal(book) {
+  return (Array.isArray(book?.short_stories) ? book.short_stories : [])
+    .reduce((sum, story) => {
+      const pages = Number.parseInt(story?.page_count, 10);
+      return sum + (Number.isFinite(pages) && pages > 0 ? pages : 0);
+    }, 0);
 }
 
 function monthKeyFromBook(b) {
@@ -6483,6 +6506,9 @@ function readingLogBooks() {
 }
 
 function pageCountForBook(book) {
+  if (isShortStoryCollection(book) && !usesFullBookPageCount(book)) {
+    return storyPageTotal(book);
+  }
   const candidates = [
     book?.page_count,
     book?.pages,
@@ -6788,7 +6814,7 @@ function showYear(year) {
           <div class="card-title">${esc(b.title)}</div>
           <div class="card-author">${esc(b.author)}</div>
           <div style="margin-top:0.3rem">${ratingDisplay(b.rating)}</div>
-          ${seriesLabelForBook(b) ? `<div class="book-series" style="margin-top:0.2rem">${esc(seriesLabelForBook(b))}</div>` : ''}
+          ${seriesLabelForBook(b) ? `<div class="book-series" style="margin-top:0.2rem">${seriesLabelHTML(b)}</div>` : ''}
           ${pages ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.2rem">${pageMetric(pages)} pages</div>` : ''}
         </div>
       </div>
@@ -6993,6 +7019,10 @@ function seriesLabelForBook(book) {
   return `${series}${positionLabel}`;
 }
 
+function seriesLabelHTML(book) {
+  return esc(seriesLabelForBook(book)).replace(/ #/g, '&nbsp;#');
+}
+
 function spineAppearance(book) {
   const text = `${book.title || ''}${book.author_full || book.author || ''}`;
   let hash = 0;
@@ -7095,6 +7125,7 @@ function databaseBookToLocal(book) {
     format: book.format || edition?.binding || '',
     publisher: book.publisher || edition?.publisher || '',
     page_count: book.page_count || edition?.page_count || null,
+    full_book_read: Boolean(book.full_book_read),
     language: normalizeBookLanguage(book.language || edition?.language),
     publication_date: publicationDate,
     selected_edition_id: book.selected_edition_id || edition?.id || null,
@@ -7475,6 +7506,7 @@ async function syncMissingPageCountsFromISBNs() {
     book.database_id &&
     validCleanISBN(book.isbn || book.isbn_13 || book.isbn_10) &&
     !isAudiobookFormat(book.format) &&
+    (!isShortStoryCollection(book) || usesFullBookPageCount(book)) &&
     !(Number(book.page_count) > 0) &&
     !progress[String(book.database_id)]
   );
@@ -7727,7 +7759,7 @@ function renderCollectionEditorBooks(search='') {
       <label class="picker-book-choice">
         <input type="checkbox" value="${esc(id)}" ${collectionEditorDraft.selectedBookIds.has(id) ? 'checked' : ''}
           onchange="toggleCollectionEditorBook(this.value,this.checked)">
-        <span>${esc(book.title)}<small>${esc(book.author_full || book.author || book.author_short || '')}${book.series ? ' · ' + esc(seriesLabelForBook(book)) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
+        <span>${esc(book.title)}<small>${esc(book.author_full || book.author || book.author_short || '')}${book.series ? ' · ' + seriesLabelHTML(book) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
       </label>
     `;
   }).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
@@ -7925,7 +7957,7 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field"><label for="add-book-finished">Finished</label><input id="add-book-finished" type="date"></div>
       <div class="add-book-field"><label for="add-book-rating">Rating</label><input id="add-book-rating" type="number" min="0" max="10" step="0.1"></div>
       <div class="add-book-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
-      <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format">${bookFormatOptionsHTML('Book')}</select></div>
+      <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
       <div class="add-book-field"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       <div class="add-book-field"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
       <div class="add-book-field"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
@@ -7933,6 +7965,7 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
       <div class="add-book-field"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
       <label class="add-book-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+      <label class="add-book-check" id="add-book-full-book-wrap" style="display:none"><input id="add-book-full-book-read" type="checkbox"> Full Book</label>
       <div class="add-book-field full"><label for="add-book-synopsis">Synopsis</label><textarea id="add-book-synopsis" rows="5" placeholder="ISBN lookup will fill this when Open Library has a description."></textarea></div>
       <div class="add-book-field full"><label for="add-book-notes">Notes</label><textarea id="add-book-notes" rows="3"></textarea></div>
     </div>
@@ -7941,6 +7974,7 @@ function openAddBookDialog(defaultStatus='TBR') {
     </div>
   `;
   openModal(null, 'add-book', true, '<button class="account-primary" id="add-book-save" type="button" onclick="saveAddedBook()">Save Book</button>');
+  updateShortStoryFullBookControls();
 }
 
 function setAddBookMode(mode) {
@@ -8268,6 +8302,7 @@ async function populateAddBookFromEdition(edition) {
   renderAddBookCover();
   const synopsisInput = document.getElementById('add-book-synopsis');
   if (synopsisInput && edition.synopsis) synopsisInput.value = edition.synopsis;
+  updateShortStoryFullBookControls();
   renderEditionPicker('add-book-edition-picker', addBookEditionCandidates, edition, 'selectAddBookEdition');
 }
 
@@ -8758,15 +8793,17 @@ function bookFieldsFromEditionValues(values, sourceEdition={}) {
   };
 }
 
+const OPTIONAL_BOOK_METADATA_FIELDS = ['publisher', 'publication_date', 'page_count', 'language', 'full_book_read'];
+
 function stripUnsupportedBookEditionFields(payload) {
   const stripped = {...payload};
-  ['publisher', 'publication_date', 'page_count', 'language'].forEach(field => delete stripped[field]);
+  OPTIONAL_BOOK_METADATA_FIELDS.forEach(field => delete stripped[field]);
   return stripped;
 }
 
 function isMissingBookEditionFieldError(error) {
   const message = String(error?.message || '');
-  return ['publisher', 'publication_date', 'page_count', 'language'].some(field =>
+  return OPTIONAL_BOOK_METADATA_FIELDS.some(field =>
     message.includes(`'${field}'`) || message.includes(`books.${field}`) || message.includes(`column ${field}`)
   ) || message.includes('schema cache');
 }
@@ -8845,6 +8882,7 @@ async function saveAddedBook() {
     const seriesName = document.getElementById('add-book-series')?.value.trim();
     const seriesId = await findOrCreateLibraryRelation('series', seriesName, {author_id: authorId});
     const status = document.getElementById('add-book-status').value;
+    const format = document.getElementById('add-book-format')?.value.trim() || 'Book';
     const started = document.getElementById('add-book-started')?.value || '';
     const finished = document.getElementById('add-book-finished')?.value || '';
     const yearRead = safeInt(document.getElementById('add-book-year-read')?.value) ||
@@ -8853,7 +8891,7 @@ async function saveAddedBook() {
     const editionFields = bookFieldsFromEditionValues({
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
-      binding: document.getElementById('add-book-format')?.value.trim(),
+      binding: format,
       page_count: document.getElementById('add-book-page-count')?.value,
       language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
       publication_date: document.getElementById('add-book-publication-date')?.value
@@ -8874,6 +8912,7 @@ async function saveAddedBook() {
       status,
       times_read: defaultTimesReadForStatus(status, null),
       owned: Boolean(document.getElementById('add-book-owned')?.checked),
+      full_book_read: isShortStoryCollection(format) && Boolean(document.getElementById('add-book-full-book-read')?.checked),
       synopsis: document.getElementById('add-book-synopsis')?.value.trim() || null,
       received_date_text: document.getElementById('add-book-received')?.value.trim() || null,
       event: document.getElementById('add-book-event')?.value.trim() || null,
@@ -8886,7 +8925,7 @@ async function saveAddedBook() {
     const initialEdition = editionPayloadFromValues({
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
-      binding: document.getElementById('add-book-format')?.value.trim(),
+      binding: format,
       page_count: document.getElementById('add-book-page-count')?.value,
       language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
       publication_date: document.getElementById('add-book-publication-date')?.value,
@@ -9023,7 +9062,7 @@ function renderLibraryCollection(books, scope, view) {
           <div class="library-list-copy">
             ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
             <div class="library-list-title">${esc(book.title || 'Untitled')}</div>
-            ${seriesLabel ? `<div class="library-list-series">${esc(seriesLabel)}</div>` : ''}
+            ${seriesLabel ? `<div class="library-list-series">${seriesLabelHTML(book)}</div>` : ''}
           </div>
           <div class="library-list-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
           <div class="library-list-detail library-list-genre">${esc(book.genre || '—')}</div>
@@ -9090,7 +9129,7 @@ function renderLibraryCollection(books, scope, view) {
         ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
         <div class="library-card-title">${esc(book.title || 'Untitled')}</div>
         <div class="library-card-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
-        ${seriesLabel ? `<div class="library-card-series">${esc(seriesLabel)}</div>` : ''}
+        ${seriesLabel ? `<div class="library-card-series">${seriesLabelHTML(book)}</div>` : ''}
         ${yearLine ? `<div class="library-card-years">${esc(yearLine)}</div>` : ''}
       </div>
     </div>`;
@@ -10246,6 +10285,7 @@ function storyMigrationMessage(error) {
 
 function bookStoriesHTML(book) {
   const shortStoryCollection = isShortStoryCollection(book);
+  if (!shortStoryCollection) return '';
   const stories = [...(book.short_stories || [])].sort((a, b) =>
     String(a.finished_on || a.started_on || a.read_on || '').localeCompare(String(b.finished_on || b.started_on || b.read_on || '')) ||
     Number(a.start_page || 0) - Number(b.start_page || 0) ||
@@ -10273,14 +10313,12 @@ function bookStoriesHTML(book) {
         </div>`;
       }).join('')
     : `<p style="color:var(--muted);font-style:italic">${
-        shortStoryCollection
-          ? 'No stories have been added for this book yet.'
-          : 'Set the Format to Short Story Collection to add individually read stories here.'
+        'No stories have been added for this book yet.'
       }</p>`;
   return `<section class="book-stories-section">
     <div class="book-stories-head">
       <h4>Stories</h4>
-      ${guestMode ? '' : `<button class="editor-button" type="button" onclick="openStoryEditor(${jsArg(bookRouteKey(book))})"${shortStoryCollection ? '' : ' disabled title="Set Format to Short Story Collection first"'}>Add Story</button>`}
+      ${guestMode ? '' : `<button class="editor-button" type="button" onclick="openStoryEditor(${jsArg(bookRouteKey(book))})">Add Story</button>`}
     </div>
     <div class="story-list">${rows}</div>
   </section>`;
@@ -10331,7 +10369,7 @@ function bookEditionsHTML(book, mode='detail') {
         </div>
         <div class="book-edition-actions">
           ${isActive ? '<span class="book-edition-active-badge">Active</span>' : `<button class="editor-button" type="button" onclick="selectOwnedEdition(${jsArg(bookKey)},${jsArg(edition.id)})">Set Active</button>`}
-          ${mode === 'editor' && !isActive ? `<button class="editor-button" type="button" onclick="deleteOwnedEdition(${jsArg(bookKey)},${jsArg(edition.id)})">Remove</button>` : ''}
+          ${!guestMode && !isActive ? `<button class="editor-button" type="button" onclick="deleteOwnedEdition(${jsArg(bookKey)},${jsArg(edition.id)},${jsArg(mode)})">Remove</button>` : ''}
         </div>
       </div>`;
     }).join('')
@@ -10431,16 +10469,22 @@ async function selectOwnedEdition(bookKey='', editionId='') {
   }
 }
 
-async function deleteOwnedEdition(bookKey='', editionId='') {
+async function deleteOwnedEdition(bookKey='', editionId='', mode='detail') {
   const book = findBookByRouteKey(bookKey);
   if (!book?.database_id || !editionId) return;
+  const activeId = String(book.selected_edition_id || book.edition_id || book.edition?.id || '');
+  if (activeId && String(editionId) === activeId) {
+    showEditError('Set another edition active before removing this one.');
+    return;
+  }
   try {
     await supabaseTableRequest('editions', {
       method: 'DELETE',
       query: `?id=eq.${encodeURIComponent(editionId)}&book_id=eq.${encodeURIComponent(book.database_id)}`,
       prefer: 'return=minimal'
     });
-    await refreshBookAfterEditionChange(bookKey, book.title);
+    if (mode === 'editor') await refreshBookEditorEditions(bookKey, book.title);
+    else await refreshBookAfterEditionChange(bookKey, book.title);
   } catch (error) {
     showEditError(bookEditorMigrationMessage(error));
   }
@@ -10533,6 +10577,11 @@ async function saveStoryForBook(bookKey='', storyId='') {
       prefer: 'return=minimal'
     });
     await loadDatabaseBooks();
+    rebuildReadYearBuckets();
+    buildHeaderStats();
+    buildLog();
+    buildLogDetail();
+    buildBooks();
     const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(book.title);
     closeTrackedModal();
     renderBookDetailPage(refreshed?.title || book.title, activeBookDetailSource, bookKey);
@@ -10627,11 +10676,12 @@ function renderBookDetailPage(title, source='', key='') {
               ${field('Times Read', b.times_read)}
               ${field('Owned', b.own)}
               ${field('Format', b.format)}
+              ${isShortStoryCollection(b) ? field('Full Book', usesFullBookPageCount(b) ? 'Yes' : 'No') : ''}
             </div>
             <div class="book-card-detail-column">
               ${field('Publisher', b.publisher)}
               ${field('Publication Date', publicationDate)}
-              ${field('Pages', b.page_count)}
+              ${field('Pages', pageCountForBook(b) || '')}
               ${field('Language', b.language)}
               ${field('ISBN', b.isbn)}
               ${field('Signed', b.signed)}
@@ -10737,6 +10787,7 @@ async function createDatabaseBookForEdit(original, updated, authorId, seriesId) 
     publisher: updated.publisher || null,
     publication_date: updated.publication_date || null,
     page_count: updated.page_count || null,
+    full_book_read: Boolean(updated.full_book_read),
     language: updated.language || null
   };
   const inserted = await insertBookRow(row);
@@ -10946,6 +10997,7 @@ function selectBookEditorEdition(index) {
   setBookEditorValue('book-editor-language', edition.language);
   setBookEditorValue('book-editor-cover', edition.cover_url || edition.cover_small_url);
   setBookEditorValue('book-editor-synopsis', edition.synopsis);
+  updateShortStoryFullBookControls();
   updateBookEditorCoverPreview();
   renderEditionPicker(
     'book-editor-edition-picker',
@@ -11004,7 +11056,7 @@ function openBookEditor(title, source='', key='') {
             `<option value="${status}" ${readStatus===status?'selected':''}>${status}</option>`
           ).join('')}
         </select></div>
-        <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
+        <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
       </div>
       <div class="book-editor-row publish-row">
         <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
@@ -11027,6 +11079,7 @@ function openBookEditor(title, source='', key='') {
       <div class="book-editor-checks">
         <label class="book-editor-check" for="book-editor-owned"><input id="book-editor-owned" type="checkbox" ${ownedValue(book.own)?'checked':''}><span>Owned</span></label>
         <label class="book-editor-check" for="book-editor-reread"><input id="book-editor-reread" type="checkbox" ${isReread ? 'checked' : ''}><span>Reread</span></label>
+        <label class="book-editor-check" id="book-editor-full-book-wrap" for="book-editor-full-book-read"><input id="book-editor-full-book-read" type="checkbox" ${usesFullBookPageCount(book) ? 'checked' : ''}><span>Full Book</span></label>
       </div>
       <div class="book-editor-field edit-all">
         ${bookEditionsHTML(book, 'editor')}
@@ -11046,6 +11099,7 @@ function openBookEditor(title, source='', key='') {
     <div class="picker-settings-status" id="book-editor-status-message"></div>
   `;
   openModal(null, 'book-editor', true, `<button class="account-primary" type="button" onclick="confirmBookEditorSave(${jsArg(title)},${jsArg(source)},${jsArg(key || bookRouteKey(book))})">Save Changes</button>`);
+  updateShortStoryFullBookControls();
   updateBookEditorCoverPreview();
 }
 
@@ -11097,6 +11151,9 @@ function bookEditorMigrationMessage(error) {
     message.includes(`'${column}'`) || message.includes(`books.${column}`)
   )) {
     return 'Edition fields on books are not enabled yet. Run supabase_book_edition_fields.sql once, then save again.';
+  }
+  if (message.includes('full_book_read')) {
+    return 'Full-book tracking for short story collections is not enabled yet. Run supabase_short_story_full_book.sql once, then save again.';
   }
   if (message.includes('year_read')) {
     return 'Year Read storage is not enabled yet. Run supabase_reading_session_year.sql once, then save again.';
@@ -11161,6 +11218,8 @@ async function saveBookEditor(originalTitle, source='', key='') {
     status: statusValue,
     own: document.getElementById('book-editor-owned')?.checked ? 'Yes' : '',
     format: bookEditorValue('book-editor-format') || original.format || 'Book',
+    full_book_read: isShortStoryCollection(bookEditorValue('book-editor-format') || original.format || 'Book') &&
+      Boolean(document.getElementById('book-editor-full-book-read')?.checked),
     publisher: keepText('book-editor-publisher', original.publisher),
     publication_date: keepText('book-editor-publication-date', original.publication_date),
     page_count: keepNumber('book-editor-page-count', original.page_count),
@@ -11204,6 +11263,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     if (changedText(updated.isbn, comparisonBook.isbn)) bookPatch.isbn = updated.isbn || null;
     if (changedText(updated.cover_url, comparisonBook.cover_url)) bookPatch.cover_url = updated.cover_url || null;
     if (changedText(updated.format, comparisonBook.format)) bookPatch.format = updated.format || null;
+    if (Boolean(updated.full_book_read) !== Boolean(comparisonBook.full_book_read)) bookPatch.full_book_read = Boolean(updated.full_book_read);
     if (changedText(updated.publisher, comparisonBook.publisher)) bookPatch.publisher = updated.publisher || null;
     if (changedText(updated.publication_date, comparisonBook.publication_date)) bookPatch.publication_date = updated.publication_date || null;
     if (changedValue(updated.page_count, comparisonBook.page_count)) bookPatch.page_count = updated.page_count || null;
