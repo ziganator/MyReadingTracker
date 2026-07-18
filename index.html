@@ -4264,7 +4264,7 @@ const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const DEFAULT_BOOK_LANGUAGE = 'English';
 const DEFAULT_LANGUAGE_CLEANUP_VERSION = 'english-2026-07-17';
-const PAGE_COUNT_SYNC_VERSION = 'isbn-pages-2026-07-18';
+const PAGE_COUNT_SYNC_VERSION = 'isbn-pages-pagination-2026-07-18';
 let supabaseSession = null;
 let guestMode = false;
 let trackerStarted = false;
@@ -7995,6 +7995,21 @@ function cleanISBN(value) {
   return String(value || '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
+function numericPageCount(...values) {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (!text) continue;
+    if (/^\d{1,4}$/.test(text)) {
+      const direct = Number.parseInt(text, 10);
+      if (direct > 0 && direct < 10000) return direct;
+    }
+    const pagesMatch = text.match(/\b(\d{1,4})\s*(?:pages?|pp\.?|p\.)\b/i);
+    const pages = pagesMatch ? Number.parseInt(pagesMatch[1], 10) : null;
+    if (Number.isFinite(pages) && pages > 0 && pages < 10000) return pages;
+  }
+  return null;
+}
+
 function normalizedPublicationDate(value) {
   const text = String(value || '').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
@@ -8413,7 +8428,7 @@ async function fetchOpenLibraryEdition(isbn) {
     ...isbns,
     publisher: book.publishers?.[0]?.name || editionRecord.publishers?.[0] || '',
     binding: editionRecord.physical_format || '',
-    page_count: book.number_of_pages || editionRecord.number_of_pages || null,
+    page_count: numericPageCount(book.number_of_pages, editionRecord.number_of_pages, editionRecord.pagination),
     language: String(editionRecord.languages?.[0]?.key || '').replace('/languages/', ''),
     publication_date: normalizedPublicationDate(book.publish_date || editionRecord.publish_date),
     cover_url: book.cover?.large || (coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : ''),
