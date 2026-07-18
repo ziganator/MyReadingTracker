@@ -2607,6 +2607,10 @@
     min-width:95px;
   }
 
+  .book-card-middle .series-position-box {
+    margin-bottom: 0.65rem;
+  }
+
   .book-card-detail-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -10128,15 +10132,16 @@ function renderBookDetailPage(title, source='', key='') {
 
         <div class="book-card-middle">
 
+          ${b.series && b.series_position ? `
+            <div class="series-position-box">
+              <span>Book ${esc(b.series_position)}</span>
+              <span>in the ${esc(b.series)} series</span>
+            </div>
+          ` : ''}
+
           <div class="book-card-detail-grid">
             <div class="book-card-detail-column">
               ${field('Genre', b.genre)}
-              ${b.series && b.series_position ? `
-                <div class="series-position-box">
-                  <span>Book ${esc(b.series_position)}</span>
-                  <span>in the ${esc(b.series)} series</span>
-                </div>
-              ` : ''}
 
               ${field('Read', readDate)}
               ${field('Times Read', b.times_read)}
