@@ -2604,11 +2604,25 @@
   }
 
   .book-card-middle{
-    display:grid;
-    grid-template-columns:auto auto;
-    gap:.4rem 1.25rem;
-    display:inline-block;
     min-width:95px;
+  }
+
+  .book-card-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.35rem 1.5rem;
+    align-items: start;
+  }
+
+  .book-card-detail-column {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .book-card-detail-column > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .book-card-rating{
@@ -3626,6 +3640,11 @@
   .book-card-middle {
     display: block;
     min-width: 0;
+  }
+
+  .book-card-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
   }
 
   .book-card-middle > div {
@@ -10109,31 +10128,33 @@ function renderBookDetailPage(title, source='', key='') {
 
         <div class="book-card-middle">
 
-          ${field('Genre', b.genre)}
-          ${field('Series', b.series)}
-          ${b.series && b.series_position ? `
-            <div class="series-position-box">
-              <span>Book ${esc(b.series_position)}</span>
-              <span>in the ${esc(b.series)} series</span>
+          <div class="book-card-detail-grid">
+            <div class="book-card-detail-column">
+              ${field('Genre', b.genre)}
+              ${b.series && b.series_position ? `
+                <div class="series-position-box">
+                  <span>Book ${esc(b.series_position)}</span>
+                  <span>in the ${esc(b.series)} series</span>
+                </div>
+              ` : ''}
+
+              ${field('Read', readDate)}
+              ${field('Times Read', b.times_read)}
+              ${field('Owned', b.own)}
+              ${field('Format', b.format)}
             </div>
-          ` : ''}
-
-          ${field('Read', readDate)}
-          ${field('Times Read', b.times_read)}
-
-          ${field('Owned', b.own)}
-          ${field('Format', b.format)}
-          ${field('Publisher', b.publisher)}
-          ${field('Publication Date', publicationDate)}
-          ${field('Pages', b.page_count)}
-          ${field('Language', b.language)}
-          ${field('ISBN', b.isbn)}
-
-          ${field('Signed', b.signed)}
-          ${field('Received', b.received_date || b.year_received)}
-          ${field('Collections', bookCollections.join(', '))}
-
-          ${field('Event', b.event)}
+            <div class="book-card-detail-column">
+              ${field('Publisher', b.publisher)}
+              ${field('Publication Date', publicationDate)}
+              ${field('Pages', b.page_count)}
+              ${field('Language', b.language)}
+              ${field('ISBN', b.isbn)}
+              ${field('Signed', b.signed)}
+              ${field('Received', b.received_date || b.year_received)}
+              ${field('Collections', bookCollections.join(', '))}
+              ${field('Event', b.event)}
+            </div>
+          </div>
 
         </div>
 
