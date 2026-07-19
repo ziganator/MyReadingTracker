@@ -6305,6 +6305,11 @@ function applyHashRoute() {
     renderBookDetailPage(bookRoute.title, bookRoute.source, bookRoute.key);
     return;
   }
+  const monthRoute = String(window.location.hash || '').match(/^#month\/(\d{4}-\d{2})$/);
+  if (monthRoute) {
+    showMonthSummary(monthRoute[1], false);
+    return;
+  }
   const requested = window.location.hash.replace(/^#/, '') || 'log';
   const validTabs = ['log','log-detail','stats','search','books','series','authors','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
@@ -10631,12 +10636,15 @@ async function saveReadingSessionEditor() {
   };
   if (status) status.textContent = 'Saving session...';
   try {
-    await saveReadingSessions({
+    const savedSessions = await saveReadingSessions({
       method: sessionId ? 'PATCH' : 'POST',
       query: sessionId ? `?id=eq.${encodeURIComponent(sessionId)}` : '',
       body: sessionId ? body : [body],
-      prefer: 'return=minimal'
+      prefer: 'return=representation'
     });
+    if (!Array.isArray(savedSessions) || !savedSessions.length) {
+      throw new Error('Supabase did not confirm the reading-session save. No dates were changed.');
+    }
     const nextTimesRead = sessionId ? sortedReadingSessions(book).length : sortedReadingSessions(book).length + 1;
     await patchBookRow(book.database_id, {times_read: nextTimesRead || null});
     await loadDatabaseBooks();
@@ -11743,18 +11751,24 @@ async function saveBookEditor(originalTitle, source='', key='') {
         notes: updated.thoughts || null
       };
       if (sessions.length) {
-        await saveReadingSessions({
+        const savedSessions = await saveReadingSessions({
           method: 'PATCH',
           query: `?id=eq.${encodeURIComponent(sessions[0].id)}`,
           body: sessionBody,
-          prefer: 'return=minimal'
+          prefer: 'return=representation'
         });
+        if (!Array.isArray(savedSessions) || !savedSessions.length) {
+          throw new Error('Supabase did not confirm the reading-session update. No dates were changed.');
+        }
       } else {
-        await saveReadingSessions({
+        const savedSessions = await saveReadingSessions({
           method: 'POST',
           body: [sessionBody],
-          prefer: 'return=minimal'
+          prefer: 'return=representation'
         });
+        if (!Array.isArray(savedSessions) || !savedSessions.length) {
+          throw new Error('Supabase did not confirm the reading-session save. No dates were changed.');
+        }
       }
     }
     updated.database_id = databaseId;
@@ -13275,8 +13289,18 @@ function monthNavigationHTML(yearMonth) {
   </div>`;
 }
 
-function showMonthSummary(yearMonth) {
-  switchTab('month');
+function showMonthSummary(yearMonth, updateRoute=true) {
+  if (!/^\d{4}-\d{2}$/.test(String(yearMonth || ''))) return;
+  const route = `#month/${yearMonth}`;
+  if (updateRoute && window.location.hash !== route) {
+    rememberCurrentScroll();
+    history.pushState(
+      appHistoryState({readingTrackerPreviousHash: window.location.hash || '#log-detail'}),
+      '',
+      route
+    );
+  }
+  showTab('month', 'content');
   const [year, mon] = yearMonth.split('-').map(Number);
   const fullMonthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const label = fullMonthNames[mon-1] + ' ' + year;
