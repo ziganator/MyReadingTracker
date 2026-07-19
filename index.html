@@ -6320,6 +6320,16 @@ function applyHashRoute() {
 }
 
 window.addEventListener('hashchange', applyHashRoute);
+function restoreMonthRouteAfterPageShow(attempt=0) {
+  const monthRoute = String(window.location.hash || '').match(/^#month\/(\d{4}-\d{2})$/);
+  if (!monthRoute) return;
+  if (trackerStarted && document.getElementById('mainNav')?.children.length) {
+    showMonthSummary(monthRoute[1], false);
+    return;
+  }
+  if (attempt < 20) setTimeout(() => restoreMonthRouteAfterPageShow(attempt + 1), 250);
+}
+window.addEventListener('pageshow', () => restoreMonthRouteAfterPageShow());
 window.addEventListener('popstate', event => {
   const modal = event.state?.readingTrackerModal;
   if (modal) restoreTrackedModal(modal);
