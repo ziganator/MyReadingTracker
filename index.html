@@ -4470,8 +4470,7 @@ async function saveGenreColorSettings() {
     setAccountStatus('Genre colors saved to your account.');
   } catch (error) {
     console.warn('Could not save genre colors to Supabase:', error.message);
-    renderGenreColorSettings();
-    setAccountStatus('Could not save genre colors to your account. Run supabase_user_settings.sql once, then try again.', true);
+    setAccountStatus('Genre colors were not saved. Run supabase_user_settings.sql once, then try Save Colors again.', true);
   }
 }
 
@@ -4493,8 +4492,7 @@ async function resetGenreColorSettings() {
     setAccountStatus('Genre colors reset in your account.');
   } catch (error) {
     console.warn('Could not reset genre colors in Supabase:', error.message);
-    renderGenreColorSettings();
-    setAccountStatus('Could not reset genre colors in your account. Run supabase_user_settings.sql once, then try again.', true);
+    setAccountStatus('Genre colors were not reset. Run supabase_user_settings.sql once, then try Reset Colors again.', true);
   }
 }
 
