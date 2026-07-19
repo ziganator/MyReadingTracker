@@ -4375,10 +4375,9 @@ async function loadUserSettings() {
     });
     const colors = rows?.[0]?.genre_colors || {};
     customGenreColors = colors && typeof colors === 'object' ? colors : {};
-    cacheGenreColorSettings(customGenreColors);
   } catch (error) {
     console.warn('User settings are unavailable until the user_settings migration is applied:', error.message);
-    customGenreColors = loadGenreColorSettings();
+    customGenreColors = {};
   }
 }
 
@@ -4399,7 +4398,7 @@ function genreColorRows() {
   const labels = new Map([
     ['Fantasy', 'fantasy'],
     ['Horror', 'horror'],
-    ['Sci-fi', 'scifi'],
+    ['Sci-Fi', 'scifi'],
     ['Urban Fantasy', 'urbanfantasy'],
     ['YA Fantasy', 'yafantasy'],
     ['Fiction', 'fiction'],
@@ -4407,10 +4406,10 @@ function genreColorRows() {
     ['Superhero', 'superhero'],
     ['Thriller', 'thriller'],
     ['Mystery', 'mystery'],
-    ['Techno-Thriller', 'technothriller']
+    ['Techno Thriller', 'technothriller']
   ]);
   allLibraryBooks().forEach(book => {
-    const genre = String(book.genre || '').trim();
+    const genre = normalizeBookGenre(book.genre);
     if (!genre) return;
     labels.set(genre, genre.toLowerCase().replace(/[^a-z]/g, ''));
   });
@@ -4454,40 +4453,48 @@ async function saveGenreColorSettings() {
   document.querySelectorAll('[data-genre-color-key]').forEach(input => {
     next[input.dataset.genreColorKey] = input.value;
   });
-  customGenreColors = next;
-  cacheGenreColorSettings(next);
-  refreshGenreColoredViews();
-  renderGenreColorSettings();
   if (!supabaseSession?.user?.id || guestMode) {
+    customGenreColors = next;
+    cacheGenreColorSettings(next);
+    refreshGenreColoredViews();
+    renderGenreColorSettings();
     setAccountStatus('Genre colors saved on this device.');
     return;
   }
   setAccountStatus('Saving genre colors to your account...', false, true);
   try {
     await saveUserSettings({genre_colors: next});
+    customGenreColors = next;
+    refreshGenreColoredViews();
+    renderGenreColorSettings();
     setAccountStatus('Genre colors saved to your account.');
   } catch (error) {
     console.warn('Could not save genre colors to Supabase:', error.message);
-    setAccountStatus('Genre colors saved on this device. Run the user settings SQL migration to sync them to your account.', true);
+    renderGenreColorSettings();
+    setAccountStatus('Could not save genre colors to your account. Run supabase_user_settings.sql once, then try again.', true);
   }
 }
 
 async function resetGenreColorSettings() {
-  customGenreColors = {};
-  try { localStorage.removeItem(GENRE_COLOR_STORAGE_KEY); } catch (_) {}
-  refreshGenreColoredViews();
-  renderGenreColorSettings();
   if (!supabaseSession?.user?.id || guestMode) {
+    customGenreColors = {};
     setAccountStatus('Genre colors reset on this device.');
+    try { localStorage.removeItem(GENRE_COLOR_STORAGE_KEY); } catch (_) {}
+    refreshGenreColoredViews();
+    renderGenreColorSettings();
     return;
   }
   setAccountStatus('Resetting genre colors in your account...', false, true);
   try {
     await saveUserSettings({genre_colors: {}});
+    customGenreColors = {};
+    refreshGenreColoredViews();
+    renderGenreColorSettings();
     setAccountStatus('Genre colors reset in your account.');
   } catch (error) {
     console.warn('Could not reset genre colors in Supabase:', error.message);
-    setAccountStatus('Genre colors reset on this device. Run the user settings SQL migration to sync them to your account.', true);
+    renderGenreColorSettings();
+    setAccountStatus('Could not reset genre colors in your account. Run supabase_user_settings.sql once, then try again.', true);
   }
 }
 
@@ -5368,6 +5375,15 @@ function normalizeBookLanguage(value, fallback=DEFAULT_BOOK_LANGUAGE) {
   return language;
 }
 
+function normalizeBookGenre(value) {
+  const genre = String(value || '').replace(/\u00a0/g, ' ').trim().replace(/\s+/g, ' ');
+  if (!genre) return '';
+  const compact = genre.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (compact === 'technothriller' || compact === 'techthriller') return 'Techno Thriller';
+  if (compact === 'scifi' || compact === 'sciencefiction') return 'Sci-Fi';
+  return genre;
+}
+
 function importedBookFromCSV(row) {
   const finished = safeDate(csvImportValue(row, 'Finished'));
   const started = safeDate(csvImportValue(row, 'Started'));
@@ -5381,7 +5397,7 @@ function importedBookFromCSV(row) {
     series: csvImportValue(row, 'Series'),
     series_position: safeNum(csvImportValue(row, 'Series Position')),
     publication_year: safeInt(csvImportValue(row, 'Publication Year')),
-    genre: csvImportValue(row, 'Genre'),
+    genre: normalizeBookGenre(csvImportValue(row, 'Genre')),
     isbn: csvImportValue(row, 'ISBN').replace(/\.0+$/, ''),
     cover_url: csvImportValue(row, 'Cover URL'),
     status,
@@ -5486,7 +5502,7 @@ async function importLibraryCSV(file) {
         title: book.title,
         series_position: book.series_position,
         publication_year: book.publication_year || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
-        genre: book.genre || null,
+        genre: normalizeBookGenre(book.genre) || null,
         status: book.status,
         owned: book.owned,
         synopsis: book.synopsis || null,
@@ -5625,7 +5641,7 @@ async function importCurrentLibrary() {
         title: b.title,
         series_position: b.series_position || null,
         publication_year: b.year_pub || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
-        genre: b.genre || null,
+        genre: normalizeBookGenre(b.genre) || null,
         status: DATA.wishlist.includes(b) ? 'Wishlist'
           : DATA.tbr.includes(b) ? 'TBR'
           : (b.status === 'Abandoned' ? 'DNF' : (b.status || 'Read')),
@@ -7118,7 +7134,7 @@ function databaseBookToLocal(book) {
     year_pub: publicationDate
       ? Number(String(publicationDate).slice(0, 4))
       : (book.publication_year || null),
-    genre: book.genre || '',
+    genre: normalizeBookGenre(book.genre),
     isbn: book.isbn || edition?.isbn_13 || edition?.isbn_10 || '',
     isbn_10: cleanISBN(book.isbn).length === 10 ? cleanISBN(book.isbn) : (edition?.isbn_10 || ''),
     isbn_13: cleanISBN(book.isbn).length === 13 ? cleanISBN(book.isbn) : (edition?.isbn_13 || ''),
@@ -7197,7 +7213,7 @@ function mergeDatabaseBook(localBook) {
   const merged = existing
     ? {...existing, ...localBook, database_id: localBook.database_id,
        cover_url: localBook.cover_url || existing.cover_url,
-       genre: localBook.genre || existing.genre, series: localBook.series || existing.series,
+       genre: normalizeBookGenre(localBook.genre || existing.genre), series: localBook.series || existing.series,
        own: localBook.own || existing.own, format: localBook.format || existing.format,
        synopsis: localBook.synopsis || existing.synopsis,
        thoughts: localBook.thoughts || existing.thoughts,
@@ -8912,7 +8928,7 @@ async function saveAddedBook() {
       series_position: Number.parseFloat(document.getElementById('add-book-series-position')?.value) || null,
       publication_year: Number(document.getElementById('add-book-year')?.value)
         || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
-      genre: document.getElementById('add-book-genre')?.value.trim() || null,
+      genre: normalizeBookGenre(document.getElementById('add-book-genre')?.value) || null,
       status,
       times_read: defaultTimesReadForStatus(status, null),
       owned: Boolean(document.getElementById('add-book-owned')?.checked),
@@ -10778,7 +10794,7 @@ async function createDatabaseBookForEdit(original, updated, authorId, seriesId) 
     title: updated.title,
     series_position: updated.series_position ?? null,
     publication_year: updated.year_pub || null,
-    genre: updated.genre || null,
+    genre: normalizeBookGenre(updated.genre) || null,
     status: updated.status || libraryBookStatus(original),
     owned: ownedValue(updated.own),
     synopsis: updated.synopsis || null,
@@ -11216,7 +11232,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     series: editedSeries || original.series || '',
     series_position: keepNumber('book-editor-series-position', original.series_position),
     year_pub: keepNumber('book-editor-year', original.year_pub),
-    genre: keepText('book-editor-genre', original.genre),
+    genre: normalizeBookGenre(keepText('book-editor-genre', original.genre)),
     isbn: isbn || original.isbn || '',
     cover_url: coverUrl || original.cover_url || '',
     status: statusValue,
@@ -13460,7 +13476,7 @@ if (dnf || endDNF) status = 'DNF';
       title,
       author_full:  lastAuthorFull,
       author_short: lastAuthorLast,
-      genre:        get('Genre', 8),
+      genre:        normalizeBookGenre(get('Genre', 8)),
       series,
       series_position: getNum('Series Position', -1) || getNum('Book in Series', -1) || null,
       year_pub:     getNum('Year Pub', 5),
