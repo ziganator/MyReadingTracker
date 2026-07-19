@@ -5439,22 +5439,33 @@ async function importLibraryCSV(file) {
     if (!parsed.length) throw new Error('The CSV contains no book rows.');
 
     const [existingBooks, existingAuthors, existingSeries] = await Promise.all([
-      supabaseTableRequest('books', {query: '?select=id,title,authors(name)'}),
+      supabaseTableRequest('books', {query: '?select=id,title,isbn,authors(name)'}),
       supabaseTableRequest('authors', {query: '?select=id,name'}),
       supabaseTableRequest('series', {query: '?select=id,name'})
     ]);
-    const existingKeys = new Set(existingBooks.map(book =>
-      `${normalizedKey(book.title)}|${normalizedKey(databaseRelationName(book.authors))}`
-    ));
+    const existingByKey = new Map(existingBooks.map(book => [
+      `${normalizedKey(book.title)}|${normalizedKey(databaseRelationName(book.authors))}`,
+      book
+    ]));
     const unique = [];
     const skippedKeys = new Set();
+    const existingBookUpdates = [];
     parsed.forEach(book => {
       const key = `${normalizedKey(book.title)}|${normalizedKey(book.author)}`;
-      if (existingKeys.has(key) || skippedKeys.has(key)) return skippedKeys.add(key);
+      const existing = existingByKey.get(key);
+      if (existing) {
+        const isbn = validCleanISBN(book.isbn);
+        if ((isbn && cleanISBN(existing.isbn) !== isbn) || book.series) {
+          existingBookUpdates.push({id: existing.id, isbn, series: book.series, author: book.author});
+          if (isbn) existing.isbn = isbn;
+        }
+        return skippedKeys.add(key);
+      }
+      if (skippedKeys.has(key)) return;
       skippedKeys.add(key);
       unique.push(book);
     });
-    if (!unique.length) {
+    if (!unique.length && !existingBookUpdates.length) {
       setAccountStatus(`No books imported. All ${parsed.length} rows already exist in this account.`);
       return;
     }
@@ -5472,13 +5483,13 @@ async function importLibraryCSV(file) {
     }
 
     const seriesIds = new Map(existingSeries.map(series => [normalizedKey(series.name), series.id]));
-    const missingSeries = [...new Set(unique.map(book => book.series).filter(Boolean))]
+    const missingSeries = [...new Set(parsed.map(book => book.series).filter(Boolean))]
       .filter(name => !seriesIds.has(normalizedKey(name)));
     if (missingSeries.length) {
       const inserted = await supabaseTableRequest('series', {
         method: 'POST',
         body: missingSeries.map(name => {
-          const source = unique.find(book => normalizedKey(book.series) === normalizedKey(name));
+          const source = parsed.find(book => normalizedKey(book.series) === normalizedKey(name));
           return {
             user_id: supabaseSession.user.id,
             author_id: authorIds.get(normalizedKey(source?.author)) || null,
@@ -5490,8 +5501,18 @@ async function importLibraryCSV(file) {
       inserted.forEach(series => seriesIds.set(normalizedKey(series.name), series.id));
     }
 
-    setAccountStatus(`Importing ${unique.length} books...`, false, true);
-    const insertedBooks = await insertBookRows(unique.map(book => {
+    if (existingBookUpdates.length) {
+      setAccountStatus(`Updating ${existingBookUpdates.length} existing book${existingBookUpdates.length === 1 ? '' : 's'}...`, false, true);
+      await Promise.all(existingBookUpdates.map(update => {
+        const patch = {};
+        if (update.isbn) patch.isbn = update.isbn;
+        if (update.series) patch.series_id = seriesIds.get(normalizedKey(update.series)) || null;
+        return patchBookRow(update.id, patch);
+      }));
+    }
+
+    if (unique.length) setAccountStatus(`Importing ${unique.length} books...`, false, true);
+    const insertedBooks = unique.length ? await insertBookRows(unique.map(book => {
       const editionFields = bookFieldsFromEditionValues({
         isbn: book.isbn,
         publisher: '',
@@ -5519,7 +5540,7 @@ async function importLibraryCSV(file) {
         notes: book.notes || null,
         ...editionFields
       };
-    }));
+    })) : [];
     for (let index = 0; index < insertedBooks.length; index++) {
       const source = unique[index];
       if (source.reread && collectionBySlug('reread')?.id && !collectionBySlug('reread').id.startsWith('fallback:')) {
@@ -5556,7 +5577,12 @@ async function importLibraryCSV(file) {
     buildSeries();
     buildAuthors();
     buildPicker();
-    setAccountStatus(`Imported ${insertedBooks.length} books. Skipped ${parsed.length - unique.length} duplicates.`);
+    const statusParts = [];
+    if (insertedBooks.length) statusParts.push(`Imported ${insertedBooks.length} book${insertedBooks.length === 1 ? '' : 's'}`);
+    if (existingBookUpdates.length) statusParts.push(`updated ISBN or series details for ${existingBookUpdates.length} existing book${existingBookUpdates.length === 1 ? '' : 's'}`);
+    const unchangedDuplicates = parsed.length - unique.length - existingBookUpdates.length;
+    if (unchangedDuplicates > 0) statusParts.push(`skipped ${unchangedDuplicates} unchanged duplicate${unchangedDuplicates === 1 ? '' : 's'}`);
+    setAccountStatus(`${statusParts.join(', ')}.`);
   } catch (error) {
     setAccountStatus(error.message, true);
   } finally {
@@ -10709,7 +10735,7 @@ function renderBookDetailPage(title, source='', key='') {
               ${field('Publication Date', publicationDate)}
               ${field('Pages', pageCountForBook(b) || '')}
               ${field('Language', b.language)}
-              ${field('ISBN', b.isbn)}
+              ${field('ISBN', b.isbn || b.isbn_13 || b.isbn_10 || b.edition?.isbn_13 || b.edition?.isbn_10)}
               ${field('Signed', b.signed)}
               ${field('Received', b.received_date || b.year_received)}
               ${field('Collections', bookCollections.join(', '))}
