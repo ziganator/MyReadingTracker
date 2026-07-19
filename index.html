@@ -4036,6 +4036,35 @@
   .rating-up { color: #16a34a; }
   .rating-down { color: #dc2626; }
 
+  .stats-workspace { max-width: 1240px; margin: 0 auto; }
+  .stats-filter-bar {
+    position: sticky; top: 52px; z-index: 35;
+    display: flex; gap: 0.65rem; align-items: end; flex-wrap: wrap;
+    margin-bottom: 1rem; padding: 0.85rem;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: rgba(255,255,255,0.96); box-shadow: 0 8px 24px rgba(20,31,28,0.08);
+  }
+  .stats-filter-bar label { display: grid; gap: 0.2rem; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .stats-filter-bar select { min-width: 130px; padding: 0.45rem 0.55rem; color: var(--ink); background: #fff; }
+  .stats-filter-bar > button { min-height: 38px; padding: 0.45rem 0.75rem; }
+  .stats-section-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .stats-section-tabs button { border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--ink); padding: 0.42rem 0.75rem; cursor: pointer; font: 700 0.82rem inherit; }
+  .stats-section-tabs button.active { background: var(--deep); border-color: var(--deep); color: #fff; }
+  .stats-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+  .stats-chart-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,350px),1fr)); gap: 1rem; margin-bottom: 1rem; }
+  .stats-chart { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 5px 18px rgba(20,31,28,0.06); }
+  .stats-chart h3 { margin: 0 0 0.8rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border); color: var(--burnt); font: 700 1.05rem 'Playfair Display',serif; }
+  .stats-bars { display: grid; gap: 0.48rem; }
+  .stats-bar-row { display: grid; grid-template-columns: minmax(85px,1.1fr) minmax(100px,3fr) auto; gap: 0.5rem; align-items: center; font-size: 0.8rem; }
+  .stats-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stats-bar-track { height: 12px; overflow: hidden; border-radius: 999px; background: var(--aged); }
+  .stats-bar-fill { height: 100%; min-width: 2px; border-radius: inherit; background: linear-gradient(90deg,var(--burnt),var(--gold)); }
+  .stats-bar-value { color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stats-note { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; font-style: italic; }
+  .stats-record-list { display: grid; gap: 0.5rem; }
+  .stats-record { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.6rem; border-radius: 6px; background: rgba(47,111,94,0.06); }
+  @media (max-width:700px) { .stats-filter-bar { top: 0; } .stats-bar-row { grid-template-columns: minmax(75px,1fr) minmax(70px,2fr) auto; } }
+
   @media (max-width: 700px) {
     header {
       display: block;
@@ -4117,6 +4146,7 @@
 <main>
   <div class="tab-panel active" id="tab-log"></div>
   <div class="tab-panel" id="tab-log-detail"></div>
+  <div class="tab-panel" id="tab-stats"></div>
   <div class="tab-panel" id="tab-month"></div>
   <div class="tab-panel" id="tab-search"></div>
   <div class="tab-panel" id="tab-books"></div>
@@ -4309,6 +4339,11 @@ let tbrGenreFilter = '';
 let tbrYearFilter = '';
 let seriesSortField = 'series';
 let seriesFilterMode = 'all';
+let statsSection = 'overview';
+let statsYearFilter = 'all';
+let statsGenreFilter = 'all';
+let statsFormatFilter = 'all';
+let statsOwnedFilter = 'all';
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
@@ -6148,7 +6183,7 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log','Summary'],['log-detail','Reading Log'],['search','Search'],['books','Books'],['series','Series'],
+    ['log','Summary'],['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
     ['authors','Authors'],['picker','Picker']
   ];
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
@@ -6167,6 +6202,7 @@ function showTab(id, scrollMode='preserve') {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('tab-'+id);
   if (!panel) return;
+  if (id === 'stats') buildStats();
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+id);
   activeButton?.classList.add('active');
@@ -6270,7 +6306,7 @@ function applyHashRoute() {
     return;
   }
   const requested = window.location.hash.replace(/^#/, '') || 'log';
-  const validTabs = ['log','log-detail','search','books','series','authors','picker','month'];
+  const validTabs = ['log','log-detail','stats','search','books','series','authors','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   showTab(
     validTabs.includes(requested) ? requested : 'log',
@@ -6324,6 +6360,273 @@ function yearReadSyncPromptHTML() {
     </div>
     <button class="account-primary" type="button" onclick="syncLegacyYearReadsToDatabase()">Sync Year Read</button>
   </div>`;
+}
+
+const STATS_SECTIONS = [
+  ['overview','Overview'], ['pace','Pace & Time'], ['ratings','Ratings'], ['genres','Genres'],
+  ['authors','Authors'], ['formats','Formats & Eras'], ['series','Series'], ['library','Library & Wishlist']
+];
+
+function statsOptionValues(books, field) {
+  return [...new Set(books.map(book => String(book[field] || '').trim()).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, undefined, {sensitivity:'base'}));
+}
+
+function statsBookMatches(book, includeYear=true) {
+  if (includeYear && statsYearFilter !== 'all' && readYearForBook(book) !== Number(statsYearFilter)) return false;
+  if (statsGenreFilter !== 'all' && normalizedKey(book.genre) !== normalizedKey(statsGenreFilter)) return false;
+  if (statsFormatFilter !== 'all' && bookFormatKey(book.format || 'Book') !== statsFormatFilter) return false;
+  if (statsOwnedFilter === 'owned' && !ownedValue(book.own)) return false;
+  if (statsOwnedFilter === 'not-owned' && ownedValue(book.own)) return false;
+  return true;
+}
+
+function filteredStatsReads() {
+  return readingLogBooks().filter(book => statsBookMatches(book, true));
+}
+
+function filteredStatsLibrary() {
+  return allLibraryBooks().filter(book => statsBookMatches(book, false));
+}
+
+function statsCard(icon, value, label, subtitle='') {
+  const displayValue = value === 0 ? '0' : value;
+  return `<div class="summary-stat-card"><div class="summary-stat-icon">${icon}</div><div class="summary-stat-value">${esc(displayValue)}</div><div class="summary-stat-label">${esc(label)}</div>${subtitle ? `<div class="summary-stat-subtitle">${esc(subtitle)}</div>` : ''}</div>`;
+}
+
+function statsChart(title, content, note='') {
+  return `<section class="stats-chart"><h3>${esc(title)}</h3>${content || '<p class="stats-note">Not enough data for this view.</p>'}${note ? `<p class="stats-note">${esc(note)}</p>` : ''}</section>`;
+}
+
+function statsBarChart(entries, options={}) {
+  const clean = entries.filter(([,value]) => Number.isFinite(Number(value))).slice(0, options.limit || 15);
+  if (!clean.length) return '';
+  const max = Math.max(1, ...clean.map(([,value]) => Number(value)));
+  return `<div class="stats-bars">${clean.map(([label,value,display]) => `<div class="stats-bar-row" title="${esc(label).replace(/"/g,'&quot;')}">
+    <span class="stats-bar-label">${esc(label)}</span><span class="stats-bar-track"><span class="stats-bar-fill" style="display:block;width:${Math.max(1,(Number(value)/max)*100)}%;${options.color ? `background:${options.color};` : ''}"></span></span>
+    <span class="stats-bar-value">${esc(display ?? value)}</span></div>`).join('')}</div>`;
+}
+
+function statsAverageBy(books, keyFn, valueFn=book => Number(book.rating)) {
+  const groups = new Map();
+  books.forEach(book => {
+    const key = String(keyFn(book) || 'Unknown').trim() || 'Unknown';
+    const value = Number(valueFn(book));
+    if (!Number.isFinite(value)) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(value);
+  });
+  return [...groups.entries()].map(([key,values]) => [key, values.reduce((a,b)=>a+b,0)/values.length, `${(values.reduce((a,b)=>a+b,0)/values.length).toFixed(1)} (${values.length})`])
+    .sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
+}
+
+function statsCountBy(books, keyFn) {
+  const counts = new Map();
+  books.forEach(book => {
+    const key = String(keyFn(book) || 'Unknown').trim() || 'Unknown';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
+}
+
+function monthStats(reads) {
+  const months = new Map();
+  reads.forEach(book => {
+    const key = monthKeyFromBook(book);
+    if (!key) return;
+    if (!months.has(key)) months.set(key, {books:0,pages:0,days:0,dayBooks:0});
+    const row = months.get(key);
+    row.books++;
+    row.pages += pageCountForBook(book);
+    if (Number(book.days) > 0) { row.days += Number(book.days); row.dayBooks++; }
+  });
+  return [...months.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+}
+
+function statsRecordList(rows) {
+  return `<div class="stats-record-list">${rows.filter(row => row[1] !== null && row[1] !== undefined).map(([label,value,subtitle]) => `<div class="stats-record"><span><strong>${esc(label)}</strong>${subtitle ? `<br><small>${esc(subtitle)}</small>` : ''}</span><strong>${esc(value)}</strong></div>`).join('')}</div>`;
+}
+
+function readingStreakStats(reads) {
+  const dates = new Set();
+  reads.forEach(book => {
+    let start = localDate(book.start || book.end);
+    const end = localDate(book.end || book.start);
+    if (!start || !end) return;
+    let guard = 0;
+    while (start <= end && guard++ < 1000) {
+      dates.add(`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`);
+      start.setDate(start.getDate()+1);
+    }
+  });
+  const sorted = [...dates].sort();
+  let longest = 0, current = 0, previous = null;
+  sorted.forEach(value => {
+    const date = localDate(value);
+    current = previous && Math.round((date-previous)/86400000) === 1 ? current+1 : 1;
+    longest = Math.max(longest,current);
+    previous = date;
+  });
+  const months = [...new Set(reads.map(monthKeyFromBook).filter(Boolean))].sort();
+  let monthLongest = 0, monthCurrent = 0, previousIndex = null;
+  months.forEach(value => {
+    const [year,month] = value.split('-').map(Number);
+    const index = year*12+month;
+    monthCurrent = previousIndex !== null && index === previousIndex+1 ? monthCurrent+1 : 1;
+    monthLongest = Math.max(monthLongest,monthCurrent);
+    previousIndex = index;
+  });
+  return {days:longest, months:monthLongest, datedDays:dates.size};
+}
+
+function statsOverviewHTML(reads, library) {
+  const rated = reads.map(book=>Number(book.rating)).filter(Number.isFinite);
+  const withDays = reads.filter(book=>Number(book.days)>0);
+  const pages = pagesReadStats(reads);
+  const fastest = withDays.length ? withDays.reduce((a,b)=>Number(b.days)<Number(a.days)?b:a) : null;
+  const slowest = withDays.length ? withDays.reduce((a,b)=>Number(b.days)>Number(a.days)?b:a) : null;
+  const withPages = reads.filter(book=>pageCountForBook(book)>0);
+  const longest = withPages.length ? withPages.reduce((a,b)=>pageCountForBook(b)>pageCountForBook(a)?b:a) : null;
+  const shortest = withPages.length ? withPages.reduce((a,b)=>pageCountForBook(b)<pageCountForBook(a)?b:a) : null;
+  const monthly = monthStats(reads);
+  const yearCounts = statsCountBy(reads, book=>readYearForBook(book) || 'Unknown').sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  return `<div class="stats-card-grid">
+    ${statsCard('📚',reads.length,'Books Read')}${statsCard('📄',pageMetric(pages.pages),'Pages Read')}${statsCard('📄',pages.avgPagesPerMonth ? pageMetric(pages.avgPagesPerMonth) : '—','Avg Pages / Month')}
+    ${statsCard('⭐',rated.length?(rated.reduce((a,b)=>a+b,0)/rated.length).toFixed(2):'—','Avg Rating')}${statsCard('⚡',withDays.length?(withDays.reduce((sum,b)=>sum+Number(b.days),0)/withDays.length).toFixed(1):'—','Avg Days / Book')}
+    ${statsCard('🐇',fastest?`${fastest.days}d`:'—','Fastest Read',fastest?.title||'')}${statsCard('🐢',slowest?`${slowest.days}d`:'—','Slowest Read',slowest?.title||'')}
+  </div><div class="stats-chart-grid">
+    ${statsChart('Books Finished by Month',statsBarChart(monthly.map(([month,data])=>[month,data.books])))}
+    ${statsChart('Books Read by Year',statsBarChart(yearCounts))}
+    ${statsChart('Reading Records',statsRecordList([
+      ['Longest book',longest?`${pageMetric(pageCountForBook(longest))} pages`:null,longest?.title],
+      ['Shortest book',shortest?`${pageMetric(pageCountForBook(shortest))} pages`:null,shortest?.title],
+      ['Owned books read',reads.filter(book=>ownedValue(book.own)).length],
+      ['Library size',library.length]
+    ]))}
+    ${statsYearFilter !== 'all' ? finishCalendarHTML(reads,Number(statsYearFilter)) : statsChart('Finish Calendar','<p class="stats-note">Choose a specific year to display the finish calendar.</p>')}
+  </div>`;
+}
+
+function statsPaceHTML(reads) {
+  const monthly = monthStats(reads);
+  const pace = monthly.map(([month,data])=>[month,data.days?Math.round(data.pages/data.days):0]);
+  const streaks = readingStreakStats(reads);
+  const yearMonthCounts = new Map();
+  reads.forEach(book=>{ const key=monthKeyFromBook(book); if(!key)return; const month=key.slice(5); const year=key.slice(0,4); if(!yearMonthCounts.has(month))yearMonthCounts.set(month,new Map()); const map=yearMonthCounts.get(month); map.set(year,(map.get(year)||0)+1); });
+  const yoy = [...yearMonthCounts.entries()].sort().map(([month,years])=>[month,[...years.entries()].sort().map(([year,count])=>`${year}: ${count}`).join(' · '),Math.max(...years.values())]);
+  return `<div class="stats-card-grid">${statsCard('🔥',streaks.days||'—','Longest Reading Streak','days with recorded activity')}${statsCard('🗓',streaks.months||'—','Monthly Finish Streak','consecutive months')}${statsCard('📖',streaks.datedDays||'—','Recorded Reading Days')}</div><div class="stats-chart-grid">
+    ${statsChart('Pages per Reading Day by Month',statsBarChart(pace.map(([label,value])=>[label,value,`${value}/day`])), 'Uses books with recorded start and finish dates.')}
+    ${statsChart('Books per Month: Year over Year',statsBarChart(yoy.map(([month,display,value])=>[month,value,display])))}
+    ${statsChart('Average Days per Book by Month',statsBarChart(monthly.map(([month,data])=>[month,data.dayBooks?data.days/data.dayBooks:0,data.dayBooks?(data.days/data.dayBooks).toFixed(1):'—'])))}
+  </div>`;
+}
+
+function statsRatingsHTML(reads, library) {
+  const ratingCounts = new Map();
+  reads.forEach(book=>{ const rating=Number(book.rating); if(Number.isFinite(rating)){const key=String(rating);ratingCounts.set(key,(ratingCounts.get(key)||0)+1);} });
+  const completed = library.filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
+  const dnf = completed.filter(book=>libraryBookStatus(book)==='DNF').length;
+  return `<div class="stats-card-grid">${statsCard('✅',completed.length?`${Math.round((completed.length-dnf)/completed.length*100)}%`:'—','Completion Rate')}${statsCard('🚫',dnf,'DNF Books')}${statsCard('🔁',reads.filter(book=>book._is_reread_session || Number(book.times_read)>1).length,'Reread Entries')}</div><div class="stats-chart-grid">
+    ${statsChart('Rating Distribution',statsBarChart([...ratingCounts.entries()].sort((a,b)=>Number(a[0])-Number(b[0])).map(([rating,count])=>[`${rating} ★`,count])))}
+    ${statsChart('Highest-Rated Genres',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:12}))}
+    ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:15}))}
+    ${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:12}))}
+  </div>`;
+}
+
+function statsGenresHTML(reads) {
+  const years = [...new Set(reads.map(readYearForBook).filter(Boolean))].sort();
+  const genreYears = new Map();
+  reads.forEach(book=>{const genre=book.genre||'Unknown',year=readYearForBook(book);if(!year)return;if(!genreYears.has(genre))genreYears.set(genre,new Map());const map=genreYears.get(genre);map.set(year,(map.get(year)||0)+1);});
+  const trends=[...genreYears.entries()].map(([genre,map])=>[genre,Math.max(...map.values()),years.map(year=>`${year}: ${map.get(year)||0}`).join(' · ')]).sort((a,b)=>b[1]-a[1]);
+  return `<div class="stats-chart-grid">${genrePieChartHTML(reads,'Genre Breakdown')}${statsChart('Genre Trends by Year',statsBarChart(trends.map(([genre,value,display])=>[genre,value,display]),{limit:18}))}${statsChart('Genre Ratings',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:18}))}</div>`;
+}
+
+function statsAuthorsHTML(reads) {
+  const counts=statsCountBy(reads,b=>b.author_full||b.author||'Unknown');
+  const repeats=counts.filter(([,count])=>count>1).reduce((sum,[,count])=>sum+count,0);
+  return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read')}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors')}${statsCard('🔁',reads.length?`${Math.round(repeats/reads.length*100)}%`:'—','Repeat-Author Share')}</div><div class="stats-chart-grid">${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20}))}${statsChart('Highest-Rated Authors',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:20}))}</div>`;
+}
+
+function statsFormatsHTML(reads) {
+  const formats=statsCountBy(reads,b=>b.format||'Unknown');
+  const decades=statsCountBy(reads,b=>{const year=Number(b.year_pub||b.publication_year);return year?`${Math.floor(year/10)*10}s`:'Unknown';}).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  const currentYear=new Date().getFullYear();
+  const newReleases=reads.filter(b=>Number(b.year_pub||b.publication_year)===readYearForBook(b)).length;
+  const known=reads.filter(b=>Number(b.year_pub||b.publication_year)&&readYearForBook(b)).length;
+  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads')}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads')}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read')}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsBarChart(formats))}${statsChart('Publication Decades',statsBarChart(decades))}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown')))}</div>`;
+}
+
+function statsSeriesHTML(library) {
+  rebuildSeriesFromLibraryBooks();
+  const relevant=DATA.series.filter(series=>library.some(book=>normalizedKey(book.series)===normalizedKey(series.series)));
+  const started=relevant.filter(series=>series.books_read>0);
+  const completed=relevant.filter(series=>series.state==='completed');
+  const avg=started.length?Math.round(started.reduce((sum,s)=>sum+(s.total?s.books_read/s.total:0),0)/started.length*100):0;
+  return `<div class="stats-card-grid">${statsCard('▶️',started.length,'Series Started')}${statsCard('✅',completed.length,'Series Completed')}${statsCard('⏳',Math.max(0,started.length-completed.length),'In Progress')}${statsCard('📈',started.length?`${avg}%`:'—','Avg Completion')}</div><div class="stats-chart-grid">${statsChart('Most-Read Series',statsBarChart(relevant.map(s=>[s.series,s.books_read,`${s.books_read}/${s.total||'?'}`]).sort((a,b)=>b[1]-a[1]),{limit:20}))}${statsChart('Series Completion',statsBarChart(relevant.map(s=>[s.series,s.total?Math.round(s.books_read/s.total*100):0,s.total?`${Math.round(s.books_read/s.total*100)}%`:'—']).sort((a,b)=>b[1]-a[1]),{limit:20}))}</div>`;
+}
+
+function receivedYear(book) {
+  const text=String(book.received_date||book.year_received||'');
+  return Number(text.match(/\b(19|20)\d{2}\b/)?.[0])||null;
+}
+
+function statsLibraryHTML(library) {
+  const wishlist=library.filter(book=>libraryBookStatus(book)==='Wishlist');
+  const acquisitions=statsCountBy(library.filter(book=>receivedYear(book)),book=>receivedYear(book)).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  return `<div class="stats-card-grid">${statsCard('📚',library.length,'Library Books')}${statsCard('🎁',wishlist.length,'Wishlist')}${statsCard('✒️',library.filter(b=>normalizeSignedValue(b.signed)).length,'Signed Books')}${statsCard('🎟',library.filter(b=>String(b.event||'').trim()).length,'Event-Acquired')}</div><div class="stats-chart-grid">
+    ${statsChart('Owned vs Not Owned',statsBarChart([['Owned',library.filter(b=>ownedValue(b.own)).length],['Not owned',library.filter(b=>!ownedValue(b.own)).length]]))}
+    ${statsChart('Acquisitions by Year',statsBarChart(acquisitions),'Based on the Received field.')}
+    ${statsChart('Wishlist by Genre',statsBarChart(statsCountBy(wishlist,b=>b.genre||'Unknown'),{limit:18}))}
+    ${statsChart('Wishlist Age','<p class="stats-note">Wishlist age needs a new “Added to Wishlist” date. No reliable date is currently stored.</p>')}
+  </div>`;
+}
+
+function updateStatsFilter(kind,value) {
+  if (kind==='year') statsYearFilter=value;
+  if (kind==='genre') statsGenreFilter=value;
+  if (kind==='format') statsFormatFilter=value;
+  if (kind==='owned') statsOwnedFilter=value;
+  buildStats();
+}
+
+function selectStatsSection(section) {
+  statsSection=STATS_SECTIONS.some(([key])=>key===section)?section:'overview';
+  buildStats();
+  document.getElementById('tab-stats')?.scrollIntoView({block:'start'});
+}
+
+function resetStatsFilters() {
+  statsYearFilter=statsGenreFilter=statsFormatFilter=statsOwnedFilter='all';
+  buildStats();
+}
+
+function buildStats() {
+  const panel=document.getElementById('tab-stats');
+  if(!panel)return;
+  const allReads=readingLogBooks();
+  const allLibrary=allLibraryBooks();
+  const years=[...new Set(allReads.map(readYearForBook).filter(Boolean))].sort((a,b)=>b-a);
+  const genres=statsOptionValues(allLibrary,'genre');
+  const formats=[...new Map(allLibrary.map(book=>[bookFormatKey(book.format||'Book'),book.format||'Book'])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  const reads=filteredStatsReads();
+  const library=filteredStatsLibrary();
+  const sectionHTML={
+    overview:()=>statsOverviewHTML(reads,library), pace:()=>statsPaceHTML(reads), ratings:()=>statsRatingsHTML(reads,library),
+    genres:()=>statsGenresHTML(reads), authors:()=>statsAuthorsHTML(reads), formats:()=>statsFormatsHTML(reads),
+    series:()=>statsSeriesHTML(library), library:()=>statsLibraryHTML(library)
+  }[statsSection]?.() || '';
+  panel.innerHTML=`<div class="stats-workspace"><div class="section-head"><div><h2>Statistics Lab</h2><p>Explore your reading patterns without changing your library.</p></div><span class="badge">Test</span></div>
+    <div class="stats-filter-bar">
+      <label>Read Year<select onchange="updateStatsFilter('year',this.value)"><option value="all">All years</option>${years.map(year=>`<option value="${year}" ${String(year)===statsYearFilter?'selected':''}>${year}</option>`).join('')}</select></label>
+      <label>Genre<select onchange="updateStatsFilter('genre',this.value)"><option value="all">All genres</option>${genres.map(value=>`<option value="${esc(value)}" ${value===statsGenreFilter?'selected':''}>${esc(value)}</option>`).join('')}</select></label>
+      <label>Format<select onchange="updateStatsFilter('format',this.value)"><option value="all">All formats</option>${formats.map(([key,label])=>`<option value="${esc(key)}" ${key===statsFormatFilter?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+      <label>Ownership<select onchange="updateStatsFilter('owned',this.value)"><option value="all">All books</option><option value="owned" ${statsOwnedFilter==='owned'?'selected':''}>Owned</option><option value="not-owned" ${statsOwnedFilter==='not-owned'?'selected':''}>Not owned</option></select></label>
+      <button class="account-secondary" type="button" onclick="resetStatsFilters()">Reset</button>
+      <span style="margin-left:auto;color:var(--muted);font-size:.82rem">${reads.length} reading entr${reads.length===1?'y':'ies'} · ${library.length} library books</span>
+    </div>
+    <div class="stats-section-tabs">${STATS_SECTIONS.map(([key,label])=>`<button type="button" class="${key===statsSection?'active':''}" onclick="selectStatsSection('${key}')">${label}</button>`).join('')}</div>
+    <div id="stats-section-content">${sectionHTML}</div></div>`;
 }
 
 function buildLog() {
