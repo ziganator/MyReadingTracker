@@ -1401,7 +1401,7 @@
     border-radius: 2px 4px 1px 1px;
     background: var(--spine-color, var(--burnt));
     box-shadow: inset 4px 0 rgba(255,255,255,0.09), inset -3px 0 rgba(0,0,0,0.16), 2px 2px 4px rgba(0,0,0,0.35);
-    color: #fff8e8;
+    color: var(--spine-text-color, #fff);
     cursor: pointer;
   }
   .book-spine:hover { filter: brightness(1.14); transform: translateY(-3px); }
@@ -7130,12 +7130,36 @@ function spineAppearance(book) {
   const titleHeight = 138 + Math.min(40, Math.ceil(titleLength / 12) * 8);
   const titleColumns = titleLength > 54 ? 3 : titleLength > 28 ? 2 : 1;
   const width = 42 + (titleColumns - 1) * 17;
+  const color = genreColor(book.genre);
   return {
-    color: genreColor(book.genre),
+    color,
+    textColor: contrastingTextColor(color),
     height: Math.max(titleHeight, 132 + (Math.abs(hash >> 3) % 43)),
     width,
     columns: titleColumns + 1
   };
+}
+
+function contrastingTextColor(color) {
+  const value = String(color || '').trim();
+  let channels = null;
+  const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)?.[1];
+  if (hex) {
+    const full = hex.length === 3 ? [...hex].map(character => character + character).join('') : hex;
+    channels = [0, 2, 4].map(index => Number.parseInt(full.slice(index, index + 2), 16));
+  } else {
+    const rgb = value.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i);
+    if (rgb) channels = rgb.slice(1, 4).map(Number);
+  }
+  if (!channels) return '#fff';
+  const linear = channels.map(channel => {
+    const normalized = Math.max(0, Math.min(255, channel)) / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+  });
+  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  const whiteContrast = 1.05 / (luminance + 0.05);
+  const blackContrast = (luminance + 0.05) / 0.05;
+  return blackContrast >= whiteContrast ? '#000' : '#fff';
 }
 
 function databaseRelationName(value) {
@@ -9195,12 +9219,11 @@ function renderLibraryCollection(books, scope, view) {
     target.innerHTML = `<div class="library-bookcase">${books.map(book => {
       const spine = spineAppearance(book);
       return `<div class="book-spine" ${bookClickAttributes(book, sourceForBook(book), scope)}
-        style="--spine-height:${spine.height}px;--spine-color:${spine.color};--spine-width:${spine.width}px;--spine-columns:${spine.columns}"
+        style="--spine-height:${spine.height}px;--spine-color:${spine.color};--spine-text-color:${spine.textColor};--spine-width:${spine.width}px;--spine-columns:${spine.columns}"
         title="${esc(`${book.title || 'Untitled'} — ${book.author_full || book.author || 'Unknown Author'}`).replace(/"/g,'&quot;')}">
         <div class="book-spine-copy">
           <span class="book-spine-author">${esc(book.author_full || book.author || 'Unknown Author')}</span>
           <span class="book-spine-title">${esc(book.title || 'Untitled')}</span>
-          ${amazonWishlistLinkHTML(book, 'Amazon')}
         </div>
       </div>`;
     }).join('')}</div>`;
