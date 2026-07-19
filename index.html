@@ -1346,7 +1346,7 @@
     text-transform: uppercase;
     white-space: nowrap;
   }
-  .library-status-pill.wish {
+.library-status-pill.wish {
     background: rgba(213,155,76,0.18);
     color: #865929;
   }
@@ -1565,6 +1565,18 @@
   border-left: 5px solid #a52a2a;
   background: #fff7f5;
 }
+
+.amazon-book-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 0.35rem;
+  color: var(--burnt);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.amazon-book-link:hover { text-decoration: underline; }
 .series-card.suspended {
   border-left: 5px solid var(--muted);
 }
@@ -7009,6 +7021,17 @@ function libraryRatingOrStatus(book) {
   return '—';
 }
 
+function amazonBookURL(book) {
+  const isbn = validCleanISBN(book?.isbn || book?.isbn_13 || book?.isbn_10 || book?.edition?.isbn_13 || book?.edition?.isbn_10);
+  const query = isbn || [book?.title, book?.author_full || book?.author || book?.author_short].filter(Boolean).join(' ');
+  return `https://www.amazon.com/s?k=${encodeURIComponent(query)}`;
+}
+
+function amazonWishlistLinkHTML(book, label='View on Amazon') {
+  if (libraryBookStatus(book) !== 'Wishlist') return '';
+  return `<a class="amazon-book-link" href="${esc(amazonBookURL(book))}" target="_blank" rel="noopener noreferrer nofollow" onclick="event.stopPropagation()">${esc(label)} ↗</a>`;
+}
+
 function bookClickAttributes(book, source='', navScope='') {
   return `onclick="openBookDetail(this,event)" data-title="${esc(book.title || '').replace(/"/g,'&quot;')}" data-book-key="${esc(bookRouteKey(book)).replace(/"/g,'&quot;')}"${source ? ` data-source="${source}"` : ''}${navScope ? ` data-nav-scope="${navScope}"` : ''}`;
 }
@@ -9139,6 +9162,7 @@ function renderLibraryCollection(books, scope, view) {
             ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
             <div class="library-list-title">${esc(book.title || 'Untitled')}</div>
             ${seriesLabel ? `<div class="library-list-series">${seriesLabelHTML(book)}</div>` : ''}
+            ${amazonWishlistLinkHTML(book)}
           </div>
           <div class="library-list-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
           <div class="library-list-detail library-list-genre">${esc(book.genre || '—')}</div>
@@ -9161,6 +9185,7 @@ function renderLibraryCollection(books, scope, view) {
         <div class="library-minimal-rating">${libraryRatingOrStatus(book)}</div>
         <div class="library-minimal-title">${esc(book.title || 'Untitled')}</div>
         <div class="library-minimal-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
+        ${amazonWishlistLinkHTML(book, 'Amazon')}
       </div>`;
     }).join('')}</div>`;
     return;
@@ -9175,6 +9200,7 @@ function renderLibraryCollection(books, scope, view) {
         <div class="book-spine-copy">
           <span class="book-spine-author">${esc(book.author_full || book.author || 'Unknown Author')}</span>
           <span class="book-spine-title">${esc(book.title || 'Untitled')}</span>
+          ${amazonWishlistLinkHTML(book, 'Amazon')}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -9207,6 +9233,7 @@ function renderLibraryCollection(books, scope, view) {
         <div class="library-card-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
         ${seriesLabel ? `<div class="library-card-series">${seriesLabelHTML(book)}</div>` : ''}
         ${yearLine ? `<div class="library-card-years">${esc(yearLine)}</div>` : ''}
+        ${amazonWishlistLinkHTML(book)}
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -10732,6 +10759,7 @@ function renderBookDetailPage(title, source='', key='') {
           <div style="margin-top:.75rem;font-weight:600;">
             Status: ${esc(b.status || (source === 'calendar' ? 'Read' : '—'))}
           </div>
+          ${amazonWishlistLinkHTML(b)}
 
         </div>
 
