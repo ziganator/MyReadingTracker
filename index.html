@@ -14390,7 +14390,9 @@ async function init() {
   await startTracker();
 }
 
-init();
+init().then(() => applyHashRoute()).catch(error => {
+  console.warn('Tracker initialization did not complete:', error.message);
+});
 </script>
 </body>
 </html>
