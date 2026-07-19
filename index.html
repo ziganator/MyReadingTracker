@@ -5221,6 +5221,16 @@ function validCleanISBN(value) {
   return [10, 13].includes(isbn.length) ? isbn : '';
 }
 
+function importedISBN(value) {
+  const text = String(value || '').trim().replace(/^=['"]?|['"]$/g, '');
+  if (!text) return '';
+  if (/^\d+(?:\.\d+)?e\+?\d+$/i.test(text)) {
+    const number = Number(text);
+    if (Number.isSafeInteger(number)) return validCleanISBN(String(number));
+  }
+  return validCleanISBN(text);
+}
+
 function downloadCSV(filename, rows) {
   const csv = rows.map(row => row.map(csvCell).join(',')).join('\r\n');
   const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], {type: 'text/csv;charset=utf-8'}));
@@ -5404,7 +5414,7 @@ function importedBookFromCSV(row) {
     series_position: safeNum(csvImportValue(row, 'Series Position')),
     publication_year: safeInt(csvImportValue(row, 'Publication Year')),
     genre: normalizeBookGenre(csvImportValue(row, 'Genre')),
-    isbn: csvImportValue(row, 'ISBN').replace(/\.0+$/, ''),
+    isbn: importedISBN(csvImportValue(row, 'ISBN').replace(/\.0+$/, '')),
     cover_url: csvImportValue(row, 'Cover URL'),
     status,
     owned: ownedValue(csvImportValue(row, 'Owned')),
@@ -5447,12 +5457,19 @@ async function importLibraryCSV(file) {
       `${normalizedKey(book.title)}|${normalizedKey(databaseRelationName(book.authors))}`,
       book
     ]));
+    const existingByTitle = new Map();
+    existingBooks.forEach(book => {
+      const key = normalizedKey(book.title);
+      if (!existingByTitle.has(key)) existingByTitle.set(key, []);
+      existingByTitle.get(key).push(book);
+    });
     const unique = [];
     const skippedKeys = new Set();
     const existingBookUpdates = [];
     parsed.forEach(book => {
       const key = `${normalizedKey(book.title)}|${normalizedKey(book.author)}`;
-      const existing = existingByKey.get(key);
+      const titleMatches = existingByTitle.get(normalizedKey(book.title)) || [];
+      const existing = existingByKey.get(key) || (titleMatches.length === 1 ? titleMatches[0] : null);
       if (existing) {
         const isbn = validCleanISBN(book.isbn);
         if ((isbn && cleanISBN(existing.isbn) !== isbn) || book.series) {
@@ -5582,7 +5599,14 @@ async function importLibraryCSV(file) {
     if (existingBookUpdates.length) statusParts.push(`updated ISBN or series details for ${existingBookUpdates.length} existing book${existingBookUpdates.length === 1 ? '' : 's'}`);
     const unchangedDuplicates = parsed.length - unique.length - existingBookUpdates.length;
     if (unchangedDuplicates > 0) statusParts.push(`skipped ${unchangedDuplicates} unchanged duplicate${unchangedDuplicates === 1 ? '' : 's'}`);
-    setAccountStatus(`${statusParts.join(', ')}.`);
+    const invalidISBNRows = rows.filter(row => {
+      const raw = csvImportValue(row, 'ISBN');
+      return raw && !importedISBN(raw);
+    });
+    if (invalidISBNRows.length) {
+      statusParts.push(`${invalidISBNRows.length} ISBN value${invalidISBNRows.length === 1 ? '' : 's'} could not be read`);
+    }
+    setAccountStatus(`${statusParts.join(', ')}.` + (invalidISBNRows.length ? ' Keep ISBN cells as text or use the exported ="ISBN" format.' : ''), Boolean(invalidISBNRows.length));
   } catch (error) {
     setAccountStatus(error.message, true);
   } finally {
