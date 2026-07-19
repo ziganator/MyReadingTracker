@@ -4375,6 +4375,14 @@ async function loadUserSettings() {
     });
     const colors = rows?.[0]?.genre_colors || {};
     customGenreColors = colors && typeof colors === 'object' ? colors : {};
+    if (!Object.keys(customGenreColors).length) {
+      const localColors = loadGenreColorSettings();
+      if (Object.keys(localColors).length) {
+        customGenreColors = localColors;
+        await saveUserSettings({genre_colors: localColors});
+        setAccountStatus('Recovered your saved genre colors into your account.');
+      }
+    }
   } catch (error) {
     console.warn('User settings are unavailable until the user_settings migration is applied:', error.message);
     customGenreColors = {};
