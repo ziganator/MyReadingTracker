@@ -14222,6 +14222,7 @@ async function startTracker() {
   await loadPickerPreferences();
   buildPicker();
   applyHashRoute();
+  setTimeout(applyHashRoute, 100);
   setTimeout(() => syncMissingPageCountsFromISBNs(), 800);
 }
 
@@ -14370,6 +14371,7 @@ async function startGuestDemo() {
   buildAuthors();
   buildPicker();
   applyHashRoute();
+  setTimeout(applyHashRoute, 100);
 }
 
 async function init() {
