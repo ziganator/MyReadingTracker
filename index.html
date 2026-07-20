@@ -9412,6 +9412,7 @@ async function saveAddedBook() {
   message.textContent = 'Saving book...';
   if (saveButton) saveButton.disabled = true;
   let insertedBookId = null;
+  let databaseSaveComplete = false;
   try {
     const authorId = await findOrCreateLibraryRelation('authors', author);
     const seriesName = document.getElementById('add-book-series')?.value.trim();
@@ -9490,6 +9491,7 @@ async function saveAddedBook() {
       addedReadingSession = Array.isArray(savedReadingSessions) ? savedReadingSessions[0] : savedReadingSessions;
       if (!addedReadingSession?.id) throw new Error('Supabase did not return the new reading session. The book was not added.');
     }
+    databaseSaveComplete = true;
     mergeDatabaseBook(databaseBookToLocal({
       ...inserted[0],
       ...row,
@@ -9512,7 +9514,7 @@ async function saveAddedBook() {
     clearTrackedModalState();
     applyHashRoute();
   } catch (error) {
-    if (insertedBookId) {
+    if (insertedBookId && !databaseSaveComplete) {
       try {
         await supabaseTableRequest('books', {
           method: 'DELETE',
@@ -9522,7 +9524,9 @@ async function saveAddedBook() {
       } catch (_) {}
     }
     const errorMessage = String(error.message);
-    message.textContent = errorMessage.includes('editions')
+    message.textContent = databaseSaveComplete
+      ? `The book was saved to Supabase, but the page could not refresh: ${errorMessage}. Refresh the page to reload it.`
+      : errorMessage.includes('editions')
       ? 'Edition storage is not enabled yet. Run the Supabase editions migration, then save again.'
       : errorMessage.includes('received_date_text') || errorMessage.includes('collections')
         ? 'Run the collections and received-date migration, then save again.'
