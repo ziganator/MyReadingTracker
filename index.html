@@ -1225,10 +1225,19 @@
     overflow-wrap: anywhere;
   }
   .library-card-author { margin-top: 0.25rem; color: var(--muted); font-size: 0.86rem; }
-  .library-card-series { margin-top: 0.35rem; color: var(--burnt); font-size: 0.8rem; font-style: italic; }
+  .library-card-series {
+    max-width: 100%;
+    margin-top: 0.35rem;
+    color: var(--burnt);
+    font-size: 0.8rem;
+    font-style: italic;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .library-card-years { margin-top: 0.45rem; color: var(--muted); font-size: 0.76rem; line-height: 1.35; }
   .library-card-meta { margin-top: 0.45rem; color: var(--muted); font-size: 0.76rem; line-height: 1.35; }
-  .library-list-series { color: var(--burnt); font-size: 0.78rem; font-style: italic; margin-top: 0.16rem; }
+  .library-list-series { max-width: 100%; color: var(--burnt); font-size: 0.78rem; font-style: italic; line-height: 1.3; margin-top: 0.16rem; overflow-wrap: anywhere; }
   .book-count-line {
     display: flex;
     gap: 0.75rem;
@@ -9498,7 +9507,7 @@ function renderLibraryCollection(books, scope, view) {
           <div class="library-list-copy">
             ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
             <div class="library-list-title">${esc(book.title || 'Untitled')}</div>
-            ${seriesLabel ? `<div class="library-list-series">${seriesLabelHTML(book)}</div>` : ''}
+            ${seriesLabel ? `<div class="library-list-series" title="${esc(seriesLabel).replace(/"/g,'&quot;')}">${seriesLabelHTML(book)}</div>` : ''}
             ${amazonWishlistLinkHTML(book)}
           </div>
           <div class="library-list-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
@@ -9567,7 +9576,7 @@ function renderLibraryCollection(books, scope, view) {
         ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
         <div class="library-card-title">${esc(book.title || 'Untitled')}</div>
         <div class="library-card-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
-        ${seriesLabel ? `<div class="library-card-series">${seriesLabelHTML(book)}</div>` : ''}
+        ${seriesLabel ? `<div class="library-card-series" title="${esc(seriesLabel).replace(/"/g,'&quot;')}">${seriesLabelHTML(book)}</div>` : ''}
         ${yearLine ? `<div class="library-card-years">${esc(yearLine)}</div>` : ''}
         ${amazonWishlistLinkHTML(book)}
       </div>
