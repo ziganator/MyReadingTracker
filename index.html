@@ -7717,13 +7717,14 @@ function mergeDatabaseBook(localBook) {
     removeBookFromLocalData(identity, databaseKey);
     return;
   }
-  const findMatch = list => list.find(book =>
-    (databaseKey && String(book.database_id || '') === databaseKey) ||
-    previousIdentities.includes(bookIdentity(book)) ||
-    (isbnKey && cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) === isbnKey) ||
-    bookIdentity(book) === identity ||
-    (!localBook.author_full && normalizedKey(book.title) === normalizedKey(localBook.title))
-  );
+  const findMatch = list => list.find(book => {
+    const existingDatabaseKey = String(book.database_id || '');
+    if (databaseKey && existingDatabaseKey) return existingDatabaseKey === databaseKey;
+    return previousIdentities.includes(bookIdentity(book)) ||
+      (isbnKey && cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) === isbnKey) ||
+      bookIdentity(book) === identity ||
+      (!localBook.author_full && normalizedKey(book.title) === normalizedKey(localBook.title));
+  });
   const existing = findMatch(DATA.tbr) || findMatch(DATA.books) || findMatch(DATA.wishlist);
   const merged = existing
     ? {...existing, ...localBook, database_id: localBook.database_id,
@@ -7744,7 +7745,9 @@ function mergeDatabaseBook(localBook) {
     : localBook;
 
   const keepBook = book => {
-    const sameDatabase = databaseKey && String(book.database_id || '') === databaseKey;
+    const existingDatabaseKey = String(book.database_id || '');
+    const sameDatabase = databaseKey && existingDatabaseKey === databaseKey;
+    if (databaseKey && existingDatabaseKey) return !sameDatabase;
     const sameIdentity = bookIdentity(book) === identity;
     const samePreviousIdentity = previousIdentities.includes(bookIdentity(book));
     const sameIsbn = isbnKey && cleanISBN(book.isbn || book.isbn_13 || book.isbn_10) === isbnKey;
