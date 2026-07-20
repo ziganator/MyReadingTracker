@@ -6090,6 +6090,22 @@ function storyPageTotal(book) {
     }, 0);
 }
 
+function recordedActivitySpans(book) {
+  const spans = [];
+  const addSpan = (startValue, endValue) => {
+    const start = startValue || endValue || '';
+    const end = endValue || startValue || '';
+    if (localDate(start) && localDate(end)) spans.push({start, end});
+  };
+  addSpan(book?.start, book?.end);
+  (Array.isArray(book?.short_stories) ? book.short_stories : []).forEach(story => {
+    const started = story?.started_on || story?.read_on || story?.finished_on || '';
+    const finished = story?.finished_on || story?.read_on || story?.started_on || '';
+    addSpan(started, finished);
+  });
+  return spans;
+}
+
 function monthKeyFromBook(b) {
   const spanStart = b.start || b.end || '';
   const spanEnd = b.end || b.start || '';
@@ -6490,14 +6506,15 @@ function statsRecordList(rows) {
 function readingStreakStats(reads) {
   const dates = new Set();
   reads.forEach(book => {
-    let start = localDate(book.start || book.end);
-    const end = localDate(book.end || book.start);
-    if (!start || !end) return;
-    let guard = 0;
-    while (start <= end && guard++ < 1000) {
-      dates.add(`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`);
-      start.setDate(start.getDate()+1);
-    }
+    recordedActivitySpans(book).forEach(span => {
+      let start = localDate(span.start);
+      const end = localDate(span.end);
+      let guard = 0;
+      while (start <= end && guard++ < 1000) {
+        dates.add(localDateKey(start));
+        start.setDate(start.getDate()+1);
+      }
+    });
   });
   const sorted = [...dates].sort();
   let longest = 0, current = 0, previous = null, runStart = null;
@@ -7123,20 +7140,24 @@ function genrePieChartHTML(books, title='Genre Breakdown') {
 
 function finishCalendarHTML(books, year) {
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const dayMap = {};
-  books.forEach(book => {
-    const start = localDate(book.start || book.end);
-    const end = localDate(book.end || book.start);
-    if (!start || !end) return;
-    const yearStart = new Date(year, 0, 1);
-    const yearEnd = new Date(year, 11, 31);
-    const cursor = start < yearStart ? new Date(yearStart) : new Date(start);
-    const finish = end > yearEnd ? yearEnd : end;
-    while (cursor <= finish) {
-      const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-      dayMap[date] = (dayMap[date] || 0) + 1;
-      cursor.setDate(cursor.getDate() + 1);
-    }
+  const dayEntries = new Map();
+  books.forEach((book, bookIndex) => {
+    const entryKey = book._reading_session_id || `${book.database_id || bookIdentity(book)}|${bookIndex}`;
+    recordedActivitySpans(book).forEach(span => {
+      const start = localDate(span.start);
+      const end = localDate(span.end);
+      if (!start || !end) return;
+      const yearStart = new Date(year, 0, 1);
+      const yearEnd = new Date(year, 11, 31);
+      const cursor = start < yearStart ? new Date(yearStart) : new Date(start);
+      const finish = end > yearEnd ? yearEnd : end;
+      while (cursor <= finish) {
+        const date = localDateKey(cursor);
+        if (!dayEntries.has(date)) dayEntries.set(date, new Set());
+        dayEntries.get(date).add(entryKey);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
   });
   const month = monthIndex => {
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -7147,7 +7168,7 @@ function finishCalendarHTML(books, year) {
     }
     for (let day = 1; day <= daysInMonth; day++) {
       const date = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const count = dayMap[date] || 0;
+      const count = dayEntries.get(date)?.size || 0;
       const color = count === 0 ? 'var(--aged)' : count === 1 ? '#c8960c' : '#8b4513';
       const cell = firstDay + day - 1;
       squares += `<rect width="12" height="12" x="${(cell % 7) * 14}" y="${Math.floor(cell / 7) * 14}" rx="2" fill="${color}" opacity="${count ? 1 : 0.4}">
