@@ -7205,7 +7205,7 @@ function showYear(year) {
           <div class="card-title">${esc(b.title)}</div>
           <div class="card-author">${esc(b.author)}</div>
           <div style="margin-top:0.3rem">${ratingDisplay(b.rating)}</div>
-          ${seriesLabelForBook(b) ? `<div class="book-series" style="margin-top:0.2rem;font-size:0.8rem;white-space:nowrap">${seriesLabelNoBreakHTML(b)}</div>` : ''}
+          ${seriesLabelForBook(b) ? `<div class="book-series" title="${esc(seriesLabelForBook(b)).replace(/"/g,'&quot;')}" style="max-width:100%;margin-top:0.2rem;font-size:0.8rem;line-height:1.3;overflow-wrap:anywhere;word-break:break-word">${seriesLabelHTML(b)}</div>` : ''}
           ${pages ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.2rem">${pageMetric(pages)} pages</div>` : ''}
         </div>
       </div>
@@ -7422,10 +7422,6 @@ function seriesLabelForBook(book) {
 
 function seriesLabelHTML(book) {
   return esc(seriesLabelForBook(book)).replace(/ #/g, '&nbsp;#');
-}
-
-function seriesLabelNoBreakHTML(book) {
-  return esc(seriesLabelForBook(book)).replace(/\s+/g, '&nbsp;');
 }
 
 function spineAppearance(book) {
