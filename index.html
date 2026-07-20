@@ -1471,6 +1471,20 @@
   tbody td { padding: 0.6rem 0.8rem; vertical-align: top; }
   .book-title { font-weight: 600; color: var(--deep); }
   .book-series { font-style: italic; color: var(--muted); font-size: 0.85rem; }
+  .book-series,
+  .library-card-series,
+  .library-list-series,
+  .series-name,
+  .series-author,
+  .picker-book-choice > span,
+  .picker-book-choice small,
+  #modal-series-name,
+  #modal-series-sub {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
   .book-thoughts { color: var(--muted); font-style: italic; font-size: 0.82rem; max-width: 300px; }
   /* ─── Rating Stars ────────────────────────────── */
   .rating { white-space: nowrap; font-family: 'Playfair Display', serif; font-weight: 700; }
@@ -1550,6 +1564,8 @@
     border-radius: 6px; padding: 0.85rem 1rem;
     box-shadow: 0 1px 6px var(--shadow);
     position: relative;
+    min-width: 0;
+    overflow: hidden;
   }
   .series-name { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.95rem; color: var(--deep); }
   .series-author { font-size: 0.82rem; color: var(--muted); margin-top: 0.1rem; }
