@@ -4344,7 +4344,8 @@ let statsYearFilter = 'all';
 let statsGenreFilter = 'all';
 let statsFormatFilter = 'all';
 let statsOwnedFilter = 'all';
-let statsDatabaseRefreshInFlight = false;
+let statsDatabaseRefreshPromise = null;
+let statsDatabaseRefreshMessage = '';
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
@@ -6642,6 +6643,8 @@ function buildStats() {
       <label>Format<select onchange="updateStatsFilter('format',this.value)"><option value="all">All formats</option>${formats.map(([key,label])=>`<option value="${esc(key)}" ${key===statsFormatFilter?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
       <label>Ownership<select onchange="updateStatsFilter('owned',this.value)"><option value="all">All books</option><option value="owned" ${statsOwnedFilter==='owned'?'selected':''}>Owned</option><option value="not-owned" ${statsOwnedFilter==='not-owned'?'selected':''}>Not owned</option></select></label>
       <button class="account-secondary" type="button" onclick="resetStatsFilters()">Reset</button>
+      <button class="account-secondary" type="button" onclick="manualRefreshStatsFromDatabase(this)">↻ Refresh from Database</button>
+      ${statsDatabaseRefreshMessage ? `<span style="color:var(--muted);font-size:.82rem">${esc(statsDatabaseRefreshMessage)}</span>` : ''}
       <span style="margin-left:auto;color:var(--muted);font-size:.82rem">${reads.length} reading entr${reads.length===1?'y':'ies'} · ${library.length} library books</span>
     </div>
     <div class="stats-section-tabs">${STATS_SECTIONS.map(([key,label])=>`<button type="button" class="${key===statsSection?'active':''}" onclick="selectStatsSection('${key}')">${label}</button>`).join('')}</div>
@@ -6649,17 +6652,34 @@ function buildStats() {
 }
 
 async function refreshStatsFromDatabase() {
-  if (guestMode || !supabaseSession?.access_token || statsDatabaseRefreshInFlight) return;
-  statsDatabaseRefreshInFlight = true;
-  try {
-    await loadDatabaseBooks();
-    rebuildReadYearBuckets();
-    if (document.getElementById('tab-stats')?.classList.contains('active')) buildStats();
-  } catch (error) {
-    console.error('Could not refresh Stats from Supabase:', error);
-  } finally {
-    statsDatabaseRefreshInFlight = false;
+  if (guestMode || !supabaseSession?.access_token) return false;
+  if (statsDatabaseRefreshPromise) return statsDatabaseRefreshPromise;
+  statsDatabaseRefreshPromise = (async () => {
+    try {
+      await loadDatabaseBooks();
+      rebuildReadYearBuckets();
+      if (document.getElementById('tab-stats')?.classList.contains('active')) buildStats();
+      return true;
+    } catch (error) {
+      console.error('Could not refresh Stats from Supabase:', error);
+      return false;
+    } finally {
+      statsDatabaseRefreshPromise = null;
+    }
+  })();
+  return statsDatabaseRefreshPromise;
+}
+
+async function manualRefreshStatsFromDatabase(button) {
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Refreshing…';
   }
+  const refreshed = await refreshStatsFromDatabase();
+  statsDatabaseRefreshMessage = refreshed
+    ? `Database refreshed at ${new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`
+    : 'Database refresh failed';
+  buildStats();
 }
 
 function buildLog() {
