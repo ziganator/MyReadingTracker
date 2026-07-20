@@ -4248,7 +4248,6 @@
           <p id="import-library-description">This can import your old Google Sheet into Supabase. Normal app loading now uses Supabase.</p>
           <div class="account-actions" style="margin-top:0">
             <button class="account-primary" id="import-library-button" type="button" onclick="importCurrentLibrary()">Import This Library</button>
-            <button class="account-secondary" type="button" onclick="syncLegacyYearReadsToDatabase()">Sync Year Read</button>
           </div>
         </section>
         <div class="account-actions">
@@ -5833,102 +5832,6 @@ async function importCurrentLibrary() {
   }
 }
 
-async function syncLegacyYearReadsToDatabase() {
-  if (!supabaseSession?.user?.id) return setAccountStatus('Sign in before syncing Year Read.', true);
-  setAccountStatus('Loading Year Read values from the original Google Sheet...', false, true);
-  try {
-    const text = await loadCSV();
-    if (!text) throw new Error('The Google Sheet could not be loaded.');
-    const legacyBooks = buildDATAfromCSV(parseCSV(text)).legacy_read_books
-      .filter(book => readYearForBook(book));
-    if (!legacyBooks.length) throw new Error('No Year Read values were found in the Google Sheet.');
-
-    setAccountStatus(`Matching ${legacyBooks.length} Year Read records to Supabase books...`, false, true);
-    let databaseBooks;
-    try {
-      databaseBooks = await supabaseTableRequest('books', {
-        query: '?select=id,title,previous_title,status,authors(name),reading_sessions(id,created_at,started_on,finished_on,month_read,year_read,rating,status,notes)&order=title.asc'
-      });
-    } catch (error) {
-      if (!String(error.message || '').includes('previous_title')) throw error;
-      databaseBooks = await supabaseTableRequest('books', {
-        query: '?select=id,title,status,authors(name),reading_sessions(id,created_at,started_on,finished_on,month_read,year_read,rating,status,notes)&order=title.asc'
-      });
-    }
-    const byIdentity = new Map();
-    databaseBooks.forEach(book => {
-      const author = normalizedKey(databaseRelationName(book.authors));
-      byIdentity.set(`${normalizedKey(book.title)}|${author}`, book);
-      if (book.previous_title) byIdentity.set(`${normalizedKey(book.previous_title)}|${author}`, book);
-    });
-
-    let updated = 0;
-    let created = 0;
-    let skipped = 0;
-    for (const source of legacyBooks) {
-      const key = `${normalizedKey(source.title)}|${normalizedKey(source.author_full || source.author_short || source.author)}`;
-      const databaseBook = byIdentity.get(key);
-      const yearRead = readYearForBook(source);
-      if (!databaseBook || !yearRead) {
-        skipped++;
-        continue;
-      }
-      const sessions = Array.isArray(databaseBook.reading_sessions) ? databaseBook.reading_sessions : [];
-      const existing = [...sessions].sort((a, b) =>
-        String(b.finished_on || b.started_on || b.created_at || '').localeCompare(String(a.finished_on || a.started_on || a.created_at || ''))
-      )[0] || null;
-      const sessionBody = {
-        user_id: supabaseSession.user.id,
-        book_id: databaseBook.id,
-        started_on: source.start || existing?.started_on || null,
-        finished_on: source.end || existing?.finished_on || null,
-        month_read: monthDateForBook(source) || existing?.month_read || null,
-        year_read: yearRead,
-        rating: isDNFStatusValue(source.status) ? null : (source.rating ?? existing?.rating ?? null),
-        status: source.status === 'DNF' ? 'DNF'
-          : source.status === 'Currently Reading' ? 'Currently Reading'
-          : 'Read',
-        notes: existing?.notes || source.thoughts || null
-      };
-      if (existing?.id) {
-        await supabaseTableRequest('reading_sessions', {
-          method: 'PATCH',
-          query: `?id=eq.${encodeURIComponent(existing.id)}`,
-          body: sessionBody,
-          prefer: 'return=minimal'
-        });
-        updated++;
-      } else {
-        await supabaseTableRequest('reading_sessions', {
-          method: 'POST',
-          body: [sessionBody],
-          prefer: 'return=minimal'
-        });
-        created++;
-      }
-    }
-
-    DATA.books = [];
-    DATA.tbr = [];
-    DATA.wishlist = [];
-    DATA.ratings_2024 = [];
-    DATA.ratings_2025 = [];
-    DATA.ratings_2026 = [];
-    await loadDatabaseBooks();
-    rebuildReadYearBuckets();
-    rebuildSeriesFromLibraryBooks();
-    buildHeaderStats();
-    buildLog();
-    buildLogDetail();
-    buildBooks();
-    buildSeries();
-    buildAuthors();
-    setAccountStatus(`Year Read synced: ${updated} updated, ${created} created, ${skipped} skipped.`);
-  } catch (error) {
-    setAccountStatus(error.message, true);
-  }
-}
-
 // ─── Utilities ────────────────────────────────────────────────
 function ratingClass(r) {
   if (!r || r==='DNF'||r==='*'||r==='In Progress'||r==='Current') return 'r-dnf';
@@ -6395,21 +6298,6 @@ function sortTable(tableId, col, type) {
 }
 
 // ─── Summary / Dashboard ──────────────────────────────────────
-function needsYearReadSync() {
-  return !guestMode && allReadBooks().some(book => !readYearForBook(book));
-}
-
-function yearReadSyncPromptHTML() {
-  if (!needsYearReadSync()) return '';
-  return `<div style="background:#fff8e6;border:1px solid var(--gold);border-radius:8px;padding:0.95rem 1rem;margin:1rem 0;box-shadow:0 2px 8px var(--shadow);display:flex;gap:0.9rem;align-items:center;flex-wrap:wrap">
-    <div style="flex:1;min-width:240px">
-      <strong style="font-family:'Playfair Display',serif;color:var(--burnt);font-size:1.05rem">Some read books are missing Year Read</strong>
-      <div style="color:var(--muted);font-size:0.92rem">Run the one-time sync to copy the old sheet's Year Read values into Supabase. After that, the Reading Log will use the database only.</div>
-    </div>
-    <button class="account-primary" type="button" onclick="syncLegacyYearReadsToDatabase()">Sync Year Read</button>
-  </div>`;
-}
-
 const STATS_SECTIONS = [
   ['overview','Overview'], ['pace','Pace & Time'], ['ratings','Ratings'], ['genres','Genres'],
   ['authors','Authors'], ['formats','Formats & Eras'], ['series','Series'], ['library','Library & Wishlist']
@@ -6799,8 +6687,6 @@ function buildLog() {
 
   panel.innerHTML = `
     <div style="max-width:1200px;margin:0 auto">
-      ${yearReadSyncPromptHTML()}
-
       <!-- ── Hero Stats ── -->
       <div class="summary-stat-grid">
         ${[
@@ -7367,7 +7253,6 @@ function buildLogDetail() {
         ${years.map(year => `<option value="${year}" ${year === selectedYear ? 'selected' : ''}>${year}</option>`).join('')}
       </select>
     </div>
-    ${yearReadSyncPromptHTML()}
     <div id="log-content"></div>
   `;
   showYear(selectedYear);
