@@ -7763,9 +7763,13 @@ function mergeDatabaseBook(localBook) {
 
 function removeBookFromLocalData(identity, databaseId='') {
   ['books', 'tbr', 'wishlist', 'ratings_2026', 'ratings_2025', 'ratings_2024'].forEach(key => {
-    DATA[key] = DATA[key].filter(book =>
-      bookIdentity(book) !== identity && (!databaseId || String(book.database_id || '') !== String(databaseId))
-    );
+    DATA[key] = DATA[key].filter(book => {
+      const bookDatabaseId = String(book.database_id || '');
+      if (databaseId) return bookDatabaseId
+        ? bookDatabaseId !== String(databaseId)
+        : bookIdentity(book) !== identity;
+      return bookIdentity(book) !== identity;
+    });
   });
 }
 
@@ -11648,7 +11652,7 @@ function openBookEditor(title, source='', key='') {
     <div class="account-actions" style="margin-top:1rem">
       <button class="account-secondary" type="button" onclick="openBookDetailByTitle(${jsArg(title)},${jsArg(source)})">Cancel</button>
       <button class="account-secondary" style="color:#9b2020;margin-left:auto" type="button"
-        onclick="showDeleteBookConfirmation(${jsArg(book.title)},${jsArg(book.author_full || book.author || '')})">Delete Book</button>
+        onclick="showDeleteBookConfirmation(${jsArg(book.title)},${jsArg(book.author_full || book.author || '')},${jsArg(book.database_id || '')})">Delete Book</button>
     </div>
     <div class="picker-settings-status" id="book-editor-status-message"></div>
   `;
@@ -12002,7 +12006,7 @@ async function findSynopsisOnline(title, isbn) {
   }
 }
 
-function showDeleteBookConfirmation(title, author) {
+function showDeleteBookConfirmation(title, author, databaseId='') {
   const body = document.getElementById('modal-series-body');
   if (!body) return;
   document.getElementById('delete-book-confirmation')?.remove();
@@ -12012,7 +12016,7 @@ function showDeleteBookConfirmation(title, author) {
       <p style="color:var(--muted);margin:0.35rem 0 0.75rem">This removes the book from your library on every device.</p>
       <div class="account-actions">
         <button class="account-primary" style="background:#9b2020;border-color:#9b2020!important" type="button"
-          onclick="deleteBookFromLibrary(${jsArg(title)},${jsArg(author)})">Yes, Delete</button>
+          onclick="deleteBookFromLibrary(${jsArg(title)},${jsArg(author)},${jsArg(databaseId)})">Yes, Delete</button>
         <button class="account-secondary" type="button"
           onclick="document.getElementById('delete-book-confirmation')?.remove()">Cancel</button>
       </div>
@@ -12022,25 +12026,27 @@ function showDeleteBookConfirmation(title, author) {
   document.getElementById('delete-book-confirmation')?.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-async function deleteBookFromLibrary(title, author) {
+async function deleteBookFromLibrary(title, author, databaseId='') {
   const status = document.getElementById('delete-book-status');
   if (status) status.textContent = 'Deleting book...';
-  const localBook = allLibraryBooks().find(book =>
-    normalizedKey(book.title) === normalizedKey(title) &&
-    (!author || normalizedKey(book.author_full || book.author) === normalizedKey(author))
-  );
+  const localBook = databaseId
+    ? allLibraryBooks().find(book => String(book.database_id || '') === String(databaseId))
+    : allLibraryBooks().find(book =>
+        normalizedKey(book.title) === normalizedKey(title) &&
+        (!author || normalizedKey(book.author_full || book.author) === normalizedKey(author))
+      );
   try {
-    let databaseId = localBook?.database_id || null;
-    if (!databaseId) {
+    let resolvedDatabaseId = databaseId || localBook?.database_id || null;
+    if (!resolvedDatabaseId) {
       const rows = await supabaseTableRequest('books', {
         query: '?select=id,title,authors(name)'
       });
-      databaseId = rows.find(book =>
+      resolvedDatabaseId = rows.find(book =>
         normalizedKey(book.title) === normalizedKey(title) &&
         (!author || normalizedKey(databaseRelationName(book.authors)) === normalizedKey(author))
       )?.id || null;
     }
-    if (!databaseId) {
+    if (!resolvedDatabaseId) {
       const authorId = await findOrCreateLibraryRelation('authors', author || 'Unknown Author');
       const inserted = await supabaseTableRequest('books', {
         method: 'POST',
@@ -12053,16 +12059,16 @@ async function deleteBookFromLibrary(title, author) {
         }],
         prefer: 'return=representation'
       });
-      databaseId = inserted?.[0]?.id;
+      resolvedDatabaseId = inserted?.[0]?.id;
     } else {
       await supabaseTableRequest('books', {
         method: 'PATCH',
-        query: `?id=eq.${encodeURIComponent(databaseId)}`,
+        query: `?id=eq.${encodeURIComponent(resolvedDatabaseId)}`,
         body: {deleted_at: new Date().toISOString()},
         prefer: 'return=minimal'
       });
     }
-    removeBookFromLocalData(bookIdentity(localBook || {title, author_full: author}));
+    removeBookFromLocalData(bookIdentity(localBook || {title, author_full: author}), resolvedDatabaseId || '');
     rebuildSeriesFromLibraryBooks();
     buildHeaderStats();
     buildBooks();
