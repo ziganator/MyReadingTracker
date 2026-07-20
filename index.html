@@ -4344,6 +4344,7 @@ let statsYearFilter = 'all';
 let statsGenreFilter = 'all';
 let statsFormatFilter = 'all';
 let statsOwnedFilter = 'all';
+let statsDatabaseRefreshInFlight = false;
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
@@ -6202,7 +6203,10 @@ function showTab(id, scrollMode='preserve') {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('tab-'+id);
   if (!panel) return;
-  if (id === 'stats') buildStats();
+  if (id === 'stats') {
+    buildStats();
+    refreshStatsFromDatabase();
+  }
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+id);
   activeButton?.classList.add('active');
@@ -6642,6 +6646,20 @@ function buildStats() {
     </div>
     <div class="stats-section-tabs">${STATS_SECTIONS.map(([key,label])=>`<button type="button" class="${key===statsSection?'active':''}" onclick="selectStatsSection('${key}')">${label}</button>`).join('')}</div>
     <div id="stats-section-content">${sectionHTML}</div></div>`;
+}
+
+async function refreshStatsFromDatabase() {
+  if (guestMode || !supabaseSession?.access_token || statsDatabaseRefreshInFlight) return;
+  statsDatabaseRefreshInFlight = true;
+  try {
+    await loadDatabaseBooks();
+    rebuildReadYearBuckets();
+    if (document.getElementById('tab-stats')?.classList.contains('active')) buildStats();
+  } catch (error) {
+    console.error('Could not refresh Stats from Supabase:', error);
+  } finally {
+    statsDatabaseRefreshInFlight = false;
+  }
 }
 
 function buildLog() {
