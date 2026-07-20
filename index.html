@@ -9471,7 +9471,7 @@ async function saveAddedBook() {
     }
     let addedReadingSession = null;
     if (!['TBR', 'Wishlist', 'On Hold'].includes(status) && (yearRead || started || finished || rating !== null)) {
-      addedReadingSession = {
+      const readingSessionPayload = {
         user_id: supabaseSession.user.id,
         book_id: inserted[0].id,
         started_on: started || null,
@@ -9482,11 +9482,13 @@ async function saveAddedBook() {
         status: status === 'DNF' ? 'DNF' : status,
         notes: row.notes || null
       };
-      await saveReadingSessions({
+      const savedReadingSessions = await saveReadingSessions({
         method: 'POST',
-        body: [addedReadingSession],
-        prefer: 'return=minimal'
+        body: [readingSessionPayload],
+        prefer: 'return=representation'
       });
+      addedReadingSession = Array.isArray(savedReadingSessions) ? savedReadingSessions[0] : savedReadingSessions;
+      if (!addedReadingSession?.id) throw new Error('Supabase did not return the new reading session. The book was not added.');
     }
     mergeDatabaseBook(databaseBookToLocal({
       ...inserted[0],
@@ -9499,6 +9501,9 @@ async function saveAddedBook() {
     }));
     rebuildSeriesFromLibraryBooks();
     buildHeaderStats();
+    buildLog();
+    buildLogDetail();
+    buildStats();
     buildBooks();
     buildSeries();
     buildTBR();
