@@ -1360,6 +1360,10 @@
     background: rgba(255,122,0,0.18);
     color: #c95700;
   }
+.library-status-pill.paused {
+    background: rgba(255,122,0,0.16);
+    color: #a84600;
+  }
   .library-minimal-title {
     display: -webkit-box;
     margin-top: 0.15rem;
@@ -5127,7 +5131,7 @@ const SYSTEM_COLLECTIONS = [
   ['TBR', 'tbr'],
   ['Wishlist', 'wishlist'],
   ['DNF', 'dnf'],
-  ['On Hold', 'on-hold'],
+  ['Paused', 'on-hold'],
   ['Reread', 'reread']
 ];
 const COLLECTION_YEAR_RULE_PATTERN = /\n?\[publication-year-rule:from=(\d*);to=(\d*)\]\s*$/;
@@ -5196,7 +5200,7 @@ function bookBelongsToCollection(book, collection) {
   if (collection.slug === 'tbr') return libraryBookStatus(book) === 'TBR';
   if (collection.slug === 'wishlist') return libraryBookStatus(book) === 'Wishlist';
   if (collection.slug === 'dnf') return libraryBookStatus(book) === 'DNF';
-  if (collection.slug === 'on-hold') return libraryBookStatus(book) === 'On Hold';
+  if (collection.slug === 'on-hold') return libraryBookStatus(book) === 'Paused';
   if (collection.slug === 'reread' && guestMode) return Boolean(book.reread);
   return explicitCollectionIdsForBook(book).has(collection.id) || collectionYearRuleMatchesBook(collection, book);
 }
@@ -5247,7 +5251,9 @@ async function loadCollections() {
       });
       collections = [...collections, ...inserted];
     }
-    libraryCollections = collections;
+    libraryCollections = collections.map(collection =>
+      collection.slug === 'on-hold' ? {...collection, name: 'Paused'} : collection
+    );
     if (booksStatusFilter === 'all') booksStatusFilter = collectionBySlug('all-books')?.id || 'all';
     const memberships = await supabaseTableRequest('book_collections', {
       query: '?select=book_id,collection_id'
@@ -5322,7 +5328,7 @@ function monthDateForBook(book) {
 
 const LIBRARY_CSV_COLUMNS = [
   'Title', 'Author', 'Series', 'Series Position', 'Publication Year', 'Genre',
-  'ISBN', 'Cover URL', 'Status', 'Owned', 'Format', 'Synopsis', 'Reread',
+  'ISBN', 'Cover URL', 'Status', 'Paused Page', 'Owned', 'Format', 'Synopsis', 'Reread',
   'Year Read', 'Started', 'Finished', 'Rating', 'Times Read', 'Signed', 'Received', 'Event', 'Thoughts'
 ];
 
@@ -5372,7 +5378,7 @@ function downloadLibraryCSVTemplate() {
   downloadCSV('reading-tracker-template.csv', [
     LIBRARY_CSV_COLUMNS,
     ['Pride and Prejudice', 'Jane Austen', '', '', '1813', 'Classic Romance',
-      spreadsheetText('9780141439518'), '', 'Read', 'Yes', 'Paperback', '', '', '2026', '', '', '8.5', '1', '', 'June 2026', '', '']
+      spreadsheetText('9780141439518'), '', 'Read', '', 'Yes', 'Paperback', '', '', '2026', '', '', '8.5', '1', '', 'June 2026', '', '']
   ]);
   setAccountStatus('CSV template downloaded.');
 }
@@ -5385,7 +5391,7 @@ function exportLibraryCSV() {
     .map(book => [
       book.title, book.author_full || book.author || book.author_short, book.series, book.series_position,
       book.year_pub, book.genre, exportISBN(book.isbn || book.isbn_13 || book.isbn_10), book.cover_url,
-      libraryBookStatus(book),
+      libraryBookStatus(book), book.paused_page || '',
       ownedValue(book.own) ? 'Yes' : '', book.format, book.synopsis,
       bookBelongsToCollection(book, collectionBySlug('reread')) ? 'X' : '',
       readYearForBook(book) || '', book.start, book.end, book.rating, book.times_read, book.signed,
@@ -5477,7 +5483,7 @@ function normalizeImportedStatus(value) {
   if (['currently reading', 'current', 'reading', 'in progress'].includes(status)) return 'Currently Reading';
   if (['read', 'finished', 'complete', 'completed'].includes(status)) return 'Read';
   if (['dnf', 'abandoned', 'did not finish'].includes(status)) return 'DNF';
-  if (['on hold', 'paused', 'pause'].includes(status)) return 'On Hold';
+  if (['on hold', 'paused', 'pause'].includes(status)) return 'Paused';
   return 'TBR';
 }
 
@@ -5490,6 +5496,7 @@ function isDNFStatusValue(status) {
 }
 
 function ratingForStatus(status, rating) {
+  if (libraryBookStatus({status}) === 'Paused') return null;
   return isDNFStatusValue(status) ? 'DNF' : (rating ?? null);
 }
 
@@ -5542,6 +5549,7 @@ function importedBookFromCSV(row) {
     isbn: importedISBN(csvImportValue(row, 'ISBN').replace(/\.0+$/, '')),
     cover_url: csvImportValue(row, 'Cover URL'),
     status,
+    paused_page: status === 'Paused' ? safeInt(csvImportValue(row, 'Paused Page')) : null,
     owned: ownedValue(csvImportValue(row, 'Owned')),
     format: csvImportValue(row, 'Format'),
     synopsis: csvImportValue(row, 'Synopsis'),
@@ -5571,6 +5579,10 @@ async function importLibraryCSV(file) {
     const parsed = rows.map(importedBookFromCSV).filter(book => book.title || book.author);
     const invalid = parsed.filter(book => !book.title || !book.author);
     if (invalid.length) throw new Error(`${invalid.length} row${invalid.length === 1 ? '' : 's'} are missing a Title or Author.`);
+    const pausedWithoutPage = parsed.filter(book => book.status === 'Paused' && !book.paused_page);
+    if (pausedWithoutPage.length) {
+      throw new Error(`${pausedWithoutPage.length} paused book${pausedWithoutPage.length === 1 ? '' : 's'} need a Paused Page value.`);
+    }
     if (!parsed.length) throw new Error('The CSV contains no book rows.');
 
     const [existingBooks, existingAuthors, existingSeries] = await Promise.all([
@@ -5673,6 +5685,7 @@ async function importLibraryCSV(file) {
         publication_year: book.publication_year || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
         genre: normalizeBookGenre(book.genre) || null,
         status: book.status,
+        paused_page: book.status === 'Paused' ? (safeInt(book.paused_page) || null) : null,
         owned: book.owned,
         synopsis: book.synopsis || null,
         signed: normalizeSignedValue(book.signed) || null,
@@ -5692,17 +5705,18 @@ async function importLibraryCSV(file) {
 
     const sessions = insertedBooks.flatMap((book, index) => {
       const source = unique[index];
-      if (['TBR', 'Wishlist', 'On Hold'].includes(source.status) && !source.started && !source.finished) return [];
+      if (['TBR', 'Wishlist'].includes(source.status) && !source.started && !source.finished) return [];
       return [{
         user_id: supabaseSession.user.id,
         book_id: book.id,
         started_on: source.started || null,
         finished_on: source.finished || null,
-        month_read: source.finished ? `${source.finished.slice(0, 7)}-01` : null,
-        year_read: source.year_read || source.read_year || (source.finished ? Number(source.finished.slice(0, 4)) : null),
-        rating: isDNFStatusValue(source.status) ? null : source.rating,
+        month_read: source.status === 'Paused' ? null : (source.finished ? `${source.finished.slice(0, 7)}-01` : null),
+        year_read: source.status === 'Paused' ? null : (source.year_read || source.read_year || (source.finished ? Number(source.finished.slice(0, 4)) : null)),
+        rating: source.status === 'Paused' || isDNFStatusValue(source.status) ? null : source.rating,
         status: source.status === 'DNF' ? 'DNF'
-          : source.status === 'Currently Reading' ? 'Currently Reading' : 'Read',
+          : source.status === 'Currently Reading' ? 'Currently Reading'
+          : source.status === 'Paused' ? 'Paused' : 'Read',
         notes: source.notes || null
       }];
     });
@@ -5825,7 +5839,8 @@ async function importCurrentLibrary() {
         genre: normalizeBookGenre(b.genre) || null,
         status: DATA.wishlist.includes(b) ? 'Wishlist'
           : DATA.tbr.includes(b) ? 'TBR'
-          : (b.status === 'Abandoned' ? 'DNF' : (b.status || 'Read')),
+          : (b.status === 'Abandoned' ? 'DNF' : libraryBookStatus(b)),
+        paused_page: libraryBookStatus(b) === 'Paused' ? (safeInt(b.paused_page) || null) : null,
         owned: ownedValue(b.own),
         synopsis: b.synopsis || null,
         signed: normalizeSignedValue(b.signed) || null,
@@ -5858,17 +5873,18 @@ async function importCurrentLibrary() {
       const authorName = insertedAuthors.find(a => a.id === book.author_id)?.name || '';
       const source = sourceByKey.get(`${normalizedKey(book.title)}|${normalizedKey(authorName)}`)
         || allBooks.find(b => normalizedKey(b.title) === normalizedKey(book.title));
-      if (!source || ['TBR', 'Wishlist', 'On Hold'].includes(book.status)) return [];
+      if (!source || ['TBR', 'Wishlist'].includes(book.status)) return [];
       return [{
         user_id: userId,
         book_id: book.id,
         started_on: source.start || null,
         finished_on: source.end || null,
-        month_read: monthDateForBook(source),
-        year_read: source.year_read || source.read_year || null,
-        rating: isDNFStatusValue(book.status) ? null : (source.rating ?? null),
+        month_read: book.status === 'Paused' ? null : monthDateForBook(source),
+        year_read: book.status === 'Paused' ? null : (source.year_read || source.read_year || null),
+        rating: book.status === 'Paused' || isDNFStatusValue(book.status) ? null : (source.rating ?? null),
         status: book.status === 'Currently Reading' ? 'Currently Reading'
           : book.status === 'DNF' ? 'DNF'
+          : book.status === 'Paused' ? 'Paused'
           : 'Read',
         notes: source.thoughts || null
       }];
@@ -6018,6 +6034,33 @@ function updateShortStoryFullBookControls() {
   const editorFormat = document.getElementById('book-editor-format')?.value;
   const editorWrap = document.getElementById('book-editor-full-book-wrap');
   if (editorWrap) editorWrap.style.display = isShortStoryCollection(editorFormat) ? '' : 'none';
+}
+
+function updatePausedPageControls() {
+  [
+    {
+      status: 'add-book-status', wrap: 'add-book-paused-page-wrap', page: 'add-book-paused-page',
+      disabled: ['add-book-finished', 'add-book-year-read', 'add-book-rating']
+    },
+    {
+      status: 'book-editor-status', wrap: 'book-editor-paused-page-wrap', page: 'book-editor-paused-page',
+      disabled: ['book-editor-finished', 'book-editor-year-read', 'book-editor-rating']
+    },
+    {
+      status: 'reading-session-status', wrap: 'reading-session-paused-page-wrap', page: 'reading-session-paused-page',
+      disabled: ['reading-session-finished', 'reading-session-year', 'reading-session-rating']
+    }
+  ].forEach(control => {
+    const paused = libraryBookStatus({status: document.getElementById(control.status)?.value}) === 'Paused';
+    const wrap = document.getElementById(control.wrap);
+    const page = document.getElementById(control.page);
+    if (wrap) wrap.style.display = paused ? '' : 'none';
+    if (page) page.required = paused;
+    control.disabled.forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.disabled = paused;
+    });
+  });
 }
 
 function normalizeSignedValue(value) {
@@ -7012,7 +7055,7 @@ function rebuildSeriesFromLibraryBooks() {
     seriesGroups.get(key).books.push(book);
   });
   DATA.series = [...seriesGroups.values()].map(group => {
-    const read = group.books.filter(book => !['TBR', 'Wishlist'].includes(libraryBookStatus(book)));
+    const read = group.books.filter(book => libraryBookStatus(book) === 'Read');
     const ratings = read.map(book => Number(book.rating)).filter(value => Number.isFinite(value));
     const total = Math.max(
       group.books.length,
@@ -7377,8 +7420,12 @@ function currentReadingBook() {
 function libraryRatingOrStatus(book) {
   if (book?._currentlyReading) return '<span class="library-status-pill">Reading</span>';
   if (isDNFStatusValue(book?.status)) return ratingDisplay('DNF');
-  if (book?.rating) return ratingDisplay(book.rating);
   const status = libraryBookStatus(book);
+  if (status === 'Paused') {
+    const page = safeInt(book?.paused_page);
+    return `<span class="library-status-pill paused">Paused${page ? ` · p. ${page}` : ''}</span>`;
+  }
+  if (book?.rating) return ratingDisplay(book.rating);
   if (status === 'TBR') return '<span class="library-status-pill">TBR</span>';
   if (status === 'Wishlist') return '<span class="library-status-pill wish">Wish</span>';
   return '—';
@@ -7423,7 +7470,8 @@ function authorLastNameKey(name) {
 
 function libraryBookStatus(book) {
   const status = String(book.status || '').trim();
-  if (['TBR', 'Wishlist', 'DNF', 'On Hold', 'Read', 'Currently Reading'].includes(status)) return status;
+  if (status === 'On Hold') return 'Paused';
+  if (['TBR', 'Wishlist', 'DNF', 'Paused', 'Read', 'Currently Reading'].includes(status)) return status;
   if (status === 'Abandoned') return 'DNF';
   if (DATA.tbr.includes(book)) return 'TBR';
   if (DATA.wishlist.includes(book)) return 'Wishlist';
@@ -7580,6 +7628,8 @@ function databaseBookToLocal(book) {
   const startedDate = session.started_on || '';
   const finishedDate = session.finished_on || '';
   const sessionMonthRead = session.month_read || '';
+  const normalizedStatus = book.status === 'On Hold' ? 'Paused' : book.status;
+  const isPaused = normalizedStatus === 'Paused';
   const dayCount = startedDate && finishedDate
     ? Math.round((new Date(finishedDate) - new Date(startedDate)) / 86400000) + 1
     : null;
@@ -7602,7 +7652,9 @@ function databaseBookToLocal(book) {
     isbn_13: cleanISBN(book.isbn).length === 13 ? cleanISBN(book.isbn) : (edition?.isbn_13 || ''),
     cover_url: book.cover_url || edition?.cover_url || '',
     cover_small_url: edition?.cover_small_url || '',
-    status: book.status,
+    status: normalizedStatus,
+    _currentlyReading: book.status === 'Currently Reading',
+    paused_page: safeInt(book.paused_page),
     own: book.owned ? 'Yes' : '',
     format: book.format || edition?.binding || '',
     publisher: book.publisher || edition?.publisher || '',
@@ -7620,16 +7672,19 @@ function databaseBookToLocal(book) {
     received_date: book.received_date_text || (book.year_received ? String(book.year_received) : ''),
     year_received: book.year_received || null,
     event: book.event || '',
-    times_read: normalizedTimesRead(book.times_read) ?? (sessions.length ? sessions.length : null),
+    times_read: normalizedTimesRead(book.times_read) ??
+      (sessions.filter(item => libraryBookStatus({status:item.status}) === 'Read').length || null),
     reading_sessions: sessions,
     start: startedDate,
-    end: finishedDate,
-    days: dayCount,
-    month_read: finishedDate
+    end: isPaused ? '' : finishedDate,
+    days: isPaused ? null : dayCount,
+    month_read: isPaused ? null : (finishedDate
       ? new Date(`${finishedDate}T12:00:00`).toLocaleString('en-US', {month:'long'})
-      : sessionMonthRead,
-    year_read: derivedYearRead,
-    rating: ratingForStatus(book.status || session.status, session.rating),
+      : sessionMonthRead),
+    year_read: isPaused ? null : derivedYearRead,
+    rating: isPaused
+      ? null
+      : ratingForStatus(book.status || session.status, session.rating),
     short_stories: Array.isArray(book.short_stories) ? book.short_stories : [],
     previous_title: book.previous_title || '',
     deleted_at: book.deleted_at || null
@@ -7680,14 +7735,15 @@ function mergeDatabaseBook(localBook) {
        own: localBook.own || existing.own, format: localBook.format || existing.format,
        synopsis: localBook.synopsis || existing.synopsis,
        thoughts: localBook.thoughts || existing.thoughts,
-       start: localBook.start || existing.start, end: localBook.end || existing.end,
-       month_read: localBook.month_read || existing.month_read,
-       year_read: localBook.year_read || existing.year_read,
+       start: localBook.start || existing.start,
+       end: libraryBookStatus(localBook) === 'Paused' ? '' : (localBook.end || existing.end),
+       month_read: libraryBookStatus(localBook) === 'Paused' ? null : (localBook.month_read || existing.month_read),
+       year_read: libraryBookStatus(localBook) === 'Paused' ? null : (localBook.year_read || existing.year_read),
        selected_edition_id: localBook.selected_edition_id || existing.selected_edition_id,
        edition_id: localBook.edition_id || existing.edition_id,
        edition: localBook.edition || existing.edition,
        editions: localBook.editions?.length ? localBook.editions : (existing.editions || []),
-       rating: localBook.rating ?? existing.rating,
+       rating: libraryBookStatus(localBook) === 'Paused' ? null : (localBook.rating ?? existing.rating),
        status: localBook.status || existing.status}
     : localBook;
 
@@ -8432,15 +8488,16 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text"></div>
       <div class="add-book-field"><label for="add-book-status">Status</label>
-        <select id="add-book-status">
+        <select id="add-book-status" onchange="updatePausedPageControls()">
           <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
           <option value="Wishlist" ${defaultStatus==='Wishlist'?'selected':''}>Wishlist</option>
           <option value="Currently Reading" ${defaultStatus==='Currently Reading'?'selected':''}>Currently Reading</option>
           <option value="Read" ${defaultStatus==='Read'?'selected':''}>Read</option>
           <option value="DNF" ${defaultStatus==='DNF'?'selected':''}>DNF</option>
-          <option value="On Hold" ${defaultStatus==='On Hold'?'selected':''}>On Hold</option>
+          <option value="Paused" ${libraryBookStatus({status:defaultStatus})==='Paused'?'selected':''}>Paused</option>
         </select>
       </div>
+      <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at page</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-started">Started</label><input id="add-book-started" type="date"></div>
       <div class="add-book-field"><label for="add-book-finished">Finished</label><input id="add-book-finished" type="date"></div>
@@ -8464,6 +8521,7 @@ function openAddBookDialog(defaultStatus='TBR') {
   `;
   openModal(null, 'add-book', true, '<button class="account-primary" id="add-book-save" type="button" onclick="saveAddedBook()">Save Book</button>');
   updateShortStoryFullBookControls();
+  updatePausedPageControls();
 }
 
 function setAddBookMode(mode) {
@@ -9357,7 +9415,10 @@ async function saveAddedBook() {
   const saveButton = document.getElementById('add-book-save');
   const title = document.getElementById('add-book-title')?.value.trim();
   const author = document.getElementById('add-book-author')?.value.trim();
+  const status = libraryBookStatus({status: document.getElementById('add-book-status')?.value});
+  const pausedPage = status === 'Paused' ? safeInt(document.getElementById('add-book-paused-page')?.value) : null;
   if (!title || !author) return message.textContent = 'Title and author are required.';
+  if (status === 'Paused' && !pausedPage) return message.textContent = 'Enter the page where you paused.';
   const duplicate = allLibraryBooks().find(book =>
     normalizedKey(book.title) === normalizedKey(title) &&
     normalizedKey(book.author_full || book.author) === normalizedKey(author)
@@ -9371,13 +9432,14 @@ async function saveAddedBook() {
     const authorId = await findOrCreateLibraryRelation('authors', author);
     const seriesName = document.getElementById('add-book-series')?.value.trim();
     const seriesId = await findOrCreateLibraryRelation('series', seriesName, {author_id: authorId});
-    const status = document.getElementById('add-book-status').value;
     const format = document.getElementById('add-book-format')?.value.trim() || 'Book';
     const started = document.getElementById('add-book-started')?.value || '';
-    const finished = document.getElementById('add-book-finished')?.value || '';
-    const yearRead = safeInt(document.getElementById('add-book-year-read')?.value) ||
-      (finished ? Number(finished.slice(0, 4)) : null);
-    const rating = ratingForStatus(status, Number.parseFloat(document.getElementById('add-book-rating')?.value) || null);
+    const finished = status === 'Paused' ? '' : (document.getElementById('add-book-finished')?.value || '');
+    const yearRead = status === 'Paused' ? null : (safeInt(document.getElementById('add-book-year-read')?.value) ||
+      (finished ? Number(finished.slice(0, 4)) : null));
+    const rating = status === 'Paused'
+      ? null
+      : ratingForStatus(status, Number.parseFloat(document.getElementById('add-book-rating')?.value) || null);
     const editionFields = bookFieldsFromEditionValues({
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
@@ -9400,6 +9462,7 @@ async function saveAddedBook() {
         || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
       genre: normalizeBookGenre(document.getElementById('add-book-genre')?.value) || null,
       status,
+      paused_page: pausedPage,
       times_read: defaultTimesReadForStatus(status, null),
       owned: Boolean(document.getElementById('add-book-owned')?.checked),
       full_book_read: isShortStoryCollection(format) && Boolean(document.getElementById('add-book-full-book-read')?.checked),
@@ -9425,15 +9488,15 @@ async function saveAddedBook() {
       insertedEditionId = await saveSelectedEdition(insertedBookId, initialEdition);
     }
     let addedReadingSession = null;
-    if (!['TBR', 'Wishlist', 'On Hold'].includes(status) && (yearRead || started || finished || rating !== null)) {
+    if (!['TBR', 'Wishlist'].includes(status) && (status === 'Paused' || yearRead || started || finished || rating !== null)) {
       const readingSessionPayload = {
         user_id: supabaseSession.user.id,
         book_id: inserted[0].id,
         started_on: started || null,
         finished_on: finished || null,
-        month_read: monthDateForBook({start: started, end: finished, year_read: yearRead}),
+        month_read: status === 'Paused' ? null : monthDateForBook({start: started, end: finished, year_read: yearRead}),
         year_read: yearRead,
-        rating: isDNFStatusValue(status) ? null : rating,
+        rating: status === 'Paused' || isDNFStatusValue(status) ? null : rating,
         status: status === 'DNF' ? 'DNF' : status,
         notes: row.notes || null
       };
@@ -9480,6 +9543,8 @@ async function saveAddedBook() {
     const errorMessage = String(error.message);
     message.textContent = databaseSaveComplete
       ? `The book was saved to Supabase, but the page could not refresh: ${errorMessage}. Refresh the page to reload it.`
+      : errorMessage.includes('paused_page')
+      ? 'Paused-book storage is not enabled yet. Run supabase_paused_books.sql in Supabase, then save again.'
       : errorMessage.includes('editions')
       ? 'Edition storage is not enabled yet. Run the Supabase editions migration, then save again.'
       : errorMessage.includes('received_date_text') || errorMessage.includes('collections')
@@ -9608,7 +9673,9 @@ function renderLibraryCollection(books, scope, view) {
   target.innerHTML = `<div class="library-cards">${books.map(book => {
     const cover = coverImageHTML(book, 'card-cover', 'library-card-cover');
     const publishedYear = Number(book.year_pub) || null;
-    const readYear = Number(book.year_read) ? Math.floor(Number(book.year_read)) : null;
+    const readYear = libraryBookStatus(book) === 'Read' && Number(book.year_read)
+      ? Math.floor(Number(book.year_read))
+      : null;
     const yearLine = [
       publishedYear ? `Published ${publishedYear}` : '',
       readYear ? `Read ${readYear}` : ''
@@ -10350,7 +10417,7 @@ function openBulkEditDialog() {
         <input id="bulk-status-enabled" type="checkbox">
         <span>Status</span>
         <select id="bulk-status-value">
-          ${['TBR','Wishlist','Currently Reading','Read','DNF','On Hold'].map(status => `<option value="${status}">${status}</option>`).join('')}
+          ${['TBR','Wishlist','Currently Reading','Read','DNF'].map(status => `<option value="${status}">${status}</option>`).join('')}
         </select>
       </label>
       <label class="bulk-edit-field">
@@ -10591,7 +10658,11 @@ function readingSessionDateLabel(session) {
   return finished || started || (month ? monthYearLabelFromKey(String(month).slice(0, 7)) : '') || year || '';
 }
 
-function readingSessionLabel(index) {
+function readingSessionLabel(index, status='Read') {
+  const normalizedStatus = libraryBookStatus({status});
+  if (normalizedStatus === 'Paused') return index ? `Paused Attempt #${index + 1}` : 'Paused Attempt';
+  if (normalizedStatus === 'DNF') return index ? `DNF Attempt #${index + 1}` : 'DNF Attempt';
+  if (normalizedStatus === 'Currently Reading') return index ? `Current Read #${index + 1}` : 'Current Read';
   return index === 0 ? 'First Read' : `Reread #${index + 1}`;
 }
 
@@ -10602,11 +10673,13 @@ function bookReadingSessionsHTML(book) {
         const meta = [
           readingSessionDateLabel(session),
           session.rating ? ratingDisplay(session.rating).replace(/<[^>]+>/g, '') : '',
-          session.status && session.status !== 'Read' ? session.status : ''
+          session.status && session.status !== 'Read'
+            ? `${libraryBookStatus({status:session.status})}${libraryBookStatus({status:session.status}) === 'Paused' && book.paused_page ? ` at page ${book.paused_page}` : ''}`
+            : ''
         ].filter(Boolean).join(' · ');
         return `<div class="reading-session-row">
           <div>
-            <div class="reading-session-title">${esc(readingSessionLabel(index))}</div>
+            <div class="reading-session-title">${esc(readingSessionLabel(index, session.status))}</div>
             ${meta ? `<div class="reading-session-meta">${esc(meta)}</div>` : ''}
             ${session.notes ? `<div class="reading-session-notes">${esc(session.notes)}</div>` : ''}
           </div>
@@ -10632,8 +10705,9 @@ function openReadingSessionEditor(bookKey, sessionId='') {
   if (!book?.database_id) return;
   const sessions = sortedReadingSessions(book);
   const session = sessions.find(item => String(item.id || '') === String(sessionId || '')) || {};
+  const sessionStatus = libraryBookStatus({status: session.status || 'Read'});
   const index = sessionId ? Math.max(0, sessions.findIndex(item => String(item.id || '') === String(sessionId))) : sessions.length;
-  document.getElementById('modal-series-name').textContent = sessionId ? `Edit ${readingSessionLabel(index)}` : 'Add Reading Session';
+  document.getElementById('modal-series-name').textContent = sessionId ? `Edit ${readingSessionLabel(index, session.status)}` : 'Add Reading Session';
   document.getElementById('modal-series-sub').textContent = book.title || '';
   document.getElementById('modal-series-body').innerHTML = `
     <div class="book-editor-grid">
@@ -10646,9 +10720,10 @@ function openReadingSessionEditor(bookKey, sessionId='') {
         <div class="book-editor-field"><label for="reading-session-rating">Rating</label><input id="reading-session-rating" type="number" min="0" max="10" step="0.1" value="${esc(session.rating || '')}"></div>
       </div>
       <div class="book-editor-row status-row">
-        <div class="book-editor-field"><label for="reading-session-status">Status</label><select id="reading-session-status">
-          ${['Read','Currently Reading','DNF','On Hold'].map(status => `<option value="${status}" ${(session.status || 'Read') === status ? 'selected' : ''}>${status}</option>`).join('')}
+        <div class="book-editor-field"><label for="reading-session-status">Status</label><select id="reading-session-status" onchange="updatePausedPageControls()">
+          ${['Read','Currently Reading','DNF','Paused'].map(status => `<option value="${status}" ${sessionStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select></div>
+        <div class="book-editor-field" id="reading-session-paused-page-wrap" style="display:none"><label for="reading-session-paused-page">Paused at page</label><input id="reading-session-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
       </div>
       <div class="book-editor-field edit-all"><label for="reading-session-notes">Notes</label><textarea id="reading-session-notes" rows="6">${esc(session.notes || '')}</textarea></div>
     </div>
@@ -10660,6 +10735,7 @@ function openReadingSessionEditor(bookKey, sessionId='') {
     <div class="picker-settings-status" id="reading-session-status-message"></div>
   `;
   openModal(null, 'book-editor');
+  updatePausedPageControls();
 }
 
 function syncReadingSessionYearFromDates() {
@@ -10673,6 +10749,9 @@ function syncReadingSessionYearFromDates() {
 
 function readingSessionMigrationMessage(error) {
   const message = String(error?.message || '');
+  if (message.includes('paused_page')) {
+    return 'Paused-book storage is not enabled yet. Run supabase_paused_books.sql in Supabase, then try again.';
+  }
   return message.includes('reading_sessions') || message.includes('schema cache')
     ? 'Reading session storage is not enabled yet. Run the reading session SQL migrations, then try again.'
     : (message || 'The reading session could not be saved.');
@@ -10684,20 +10763,27 @@ async function saveReadingSessionEditor() {
   const sessionId = document.getElementById('reading-session-id')?.value || '';
   const book = findBookByRouteKey(bookKey);
   if (!book?.database_id) return;
+  const originalSession = sortedReadingSessions(book)
+    .find(item => String(item.id || '') === String(sessionId || '')) || {};
   const started = document.getElementById('reading-session-started')?.value || '';
-  const finished = document.getElementById('reading-session-finished')?.value || '';
-  const yearRead = safeInt(document.getElementById('reading-session-year')?.value) ||
-    (finished ? Number(finished.slice(0, 4)) : (started ? Number(started.slice(0, 4)) : null));
-  const statusValue = document.getElementById('reading-session-status')?.value || 'Read';
+  const statusValue = libraryBookStatus({status: document.getElementById('reading-session-status')?.value || 'Read'});
+  const pausedPage = statusValue === 'Paused' ? safeInt(document.getElementById('reading-session-paused-page')?.value) : null;
+  if (statusValue === 'Paused' && !pausedPage) {
+    if (status) status.textContent = 'Enter the page where you paused.';
+    return;
+  }
+  const finished = statusValue === 'Paused' ? '' : (document.getElementById('reading-session-finished')?.value || '');
+  const yearRead = statusValue === 'Paused' ? null : (safeInt(document.getElementById('reading-session-year')?.value) ||
+    (finished ? Number(finished.slice(0, 4)) : (started ? Number(started.slice(0, 4)) : null)));
   const ratingValue = Number.parseFloat(document.getElementById('reading-session-rating')?.value || '');
   const body = {
     user_id: supabaseSession.user.id,
     book_id: book.database_id,
     started_on: started || null,
     finished_on: finished || null,
-    month_read: monthDateForBook({start: started, end: finished, year_read: yearRead}),
+    month_read: statusValue === 'Paused' ? null : monthDateForBook({start: started, end: finished, year_read: yearRead}),
     year_read: yearRead || null,
-    rating: isDNFStatusValue(statusValue) || Number.isNaN(ratingValue) ? null : ratingValue,
+    rating: statusValue === 'Paused' || isDNFStatusValue(statusValue) || Number.isNaN(ratingValue) ? null : ratingValue,
     status: statusValue,
     notes: document.getElementById('reading-session-notes')?.value || null
   };
@@ -10712,8 +10798,18 @@ async function saveReadingSessionEditor() {
     if (!Array.isArray(savedSessions) || !savedSessions.length) {
       throw new Error('Supabase did not confirm the reading-session save. No dates were changed.');
     }
-    const nextTimesRead = sessionId ? sortedReadingSessions(book).length : sortedReadingSessions(book).length + 1;
-    await patchBookRow(book.database_id, {times_read: nextTimesRead || null});
+    const nextTimesRead = statusValue === 'Paused'
+      ? normalizedTimesRead(book.times_read)
+      : (sessionId ? sortedReadingSessions(book).length : sortedReadingSessions(book).length + 1);
+    const bookPatch = {times_read: nextTimesRead || null};
+    if (statusValue === 'Paused') {
+      bookPatch.status = 'Paused';
+      bookPatch.paused_page = pausedPage;
+    } else if (libraryBookStatus(book) === 'Paused' && libraryBookStatus({status: originalSession.status}) === 'Paused') {
+      bookPatch.status = statusValue;
+      bookPatch.paused_page = null;
+    }
+    await patchBookRow(book.database_id, bookPatch);
     await loadDatabaseBooks();
     rebuildReadYearBuckets();
     buildHeaderStats();
@@ -11158,7 +11254,7 @@ function renderBookDetailPage(title, source='', key='') {
           ${coverEl}
 
           <div style="margin-top:.75rem;font-weight:600;">
-            Status: ${esc(b.status || (source === 'calendar' ? 'Read' : '—'))}
+            Status: ${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}
           </div>
           ${amazonWishlistLinkHTML(b)}
 
@@ -11177,7 +11273,8 @@ function renderBookDetailPage(title, source='', key='') {
             <div class="book-card-detail-column">
               ${field('Genre', b.genre)}
 
-              ${field('Read', readDate)}
+              ${libraryBookStatus(b) === 'Read' ? field('Read', readDate) : field('Started', b.start)}
+              ${libraryBookStatus(b) === 'Paused' ? field('Paused at page', b.paused_page) : ''}
               ${field('Times Read', b.times_read)}
               ${field('Owned', b.own)}
               ${field('Format', b.format)}
@@ -11281,6 +11378,7 @@ async function createDatabaseBookForEdit(original, updated, authorId, seriesId) 
     publication_year: updated.year_pub || null,
     genre: normalizeBookGenre(updated.genre) || null,
     status: updated.status || libraryBookStatus(original),
+    paused_page: updated.status === 'Paused' ? (safeInt(updated.paused_page) || null) : null,
     owned: ownedValue(updated.own),
     synopsis: updated.synopsis || null,
     received_date_text: updated.received_date || null,
@@ -11519,7 +11617,7 @@ function openBookEditor(title, source='', key='') {
   selectedBookEditorEdition = book.edition || null;
   bookEditorEditionCandidates = [];
   const isReread = explicitCollectionIdsForBook(book).has(collectionBySlug('reread')?.id || '');
-  const readStatus = book.status || libraryBookStatus(book);
+  const readStatus = libraryBookStatus(book);
   const editorBookKey = bookRouteKey(book);
   document.getElementById('modal-series-name').textContent = 'Edit Book';
   document.getElementById('modal-series-sub').textContent = book.title || title;
@@ -11556,8 +11654,8 @@ function openBookEditor(title, source='', key='') {
       </div>
       <div class="book-editor-row core-row">
         <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status">
-          ${['TBR','Wishlist','Currently Reading','Read','DNF','On Hold'].map(status =>
+        <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status" onchange="updatePausedPageControls()">
+          ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status =>
             `<option value="${status}" ${readStatus===status?'selected':''}>${status}</option>`
           ).join('')}
         </select></div>
@@ -11565,6 +11663,7 @@ function openBookEditor(title, source='', key='') {
       </div>
       <div class="book-editor-row publish-row">
         <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
+        <div class="book-editor-field" id="book-editor-paused-page-wrap" style="display:none"><label for="book-editor-paused-page">Paused at page</label><input id="book-editor-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-year">Pub Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
@@ -11605,6 +11704,7 @@ function openBookEditor(title, source='', key='') {
   `;
   openModal(null, 'book-editor', true, `<button class="account-primary" type="button" onclick="confirmBookEditorSave(${jsArg(title)},${jsArg(source)},${jsArg(key || bookRouteKey(book))})">Save Changes</button>`);
   updateShortStoryFullBookControls();
+  updatePausedPageControls();
   updateBookEditorCoverPreview();
 }
 
@@ -11660,6 +11760,9 @@ function bookEditorMigrationMessage(error) {
   if (message.includes('full_book_read')) {
     return 'Full-book tracking for short story collections is not enabled yet. Run supabase_short_story_full_book.sql once, then save again.';
   }
+  if (message.includes('paused_page')) {
+    return 'Paused-book storage is not enabled yet. Run supabase_paused_books.sql in Supabase, then save again.';
+  }
   if (message.includes('year_read')) {
     return 'Year Read storage is not enabled yet. Run supabase_reading_session_year.sql once, then save again.';
   }
@@ -11677,11 +11780,17 @@ async function saveBookEditor(originalTitle, source='', key='') {
   const original = localBookByTitle(originalTitle, key);
   if (!original) return;
   if (message) message.textContent = 'Saving changes...';
-  const statusValue = bookEditorValue('book-editor-status');
-  const finished = bookEditorValue('book-editor-finished');
+  const statusValue = libraryBookStatus({status: bookEditorValue('book-editor-status')});
+  const pausedPage = statusValue === 'Paused' ? safeInt(bookEditorValue('book-editor-paused-page')) : null;
+  if (statusValue === 'Paused' && !pausedPage) {
+    if (message) message.textContent = '';
+    showEditError('Enter the page where you paused.');
+    return;
+  }
+  const finished = statusValue === 'Paused' ? '' : bookEditorValue('book-editor-finished');
   const started = bookEditorValue('book-editor-start');
-  const editedYearRead = safeInt(bookEditorValue('book-editor-year-read')) ||
-    (finished ? Number(finished.slice(0, 4)) : null);
+  const editedYearRead = statusValue === 'Paused' ? null : (safeInt(bookEditorValue('book-editor-year-read')) ||
+    (finished ? Number(finished.slice(0, 4)) : null));
   const coverInput = bookEditorValue('book-editor-cover');
   const isbn = bookEditorValue('book-editor-isbn');
   const coverUrl = coverInput;
@@ -11721,6 +11830,8 @@ async function saveBookEditor(originalTitle, source='', key='') {
     isbn: isbn || original.isbn || '',
     cover_url: coverUrl || original.cover_url || '',
     status: statusValue,
+    _currentlyReading: statusValue === 'Currently Reading',
+    paused_page: pausedPage,
     own: document.getElementById('book-editor-owned')?.checked ? 'Yes' : '',
     format: bookEditorValue('book-editor-format') || original.format || 'Book',
     full_book_read: isShortStoryCollection(bookEditorValue('book-editor-format') || original.format || 'Book') &&
@@ -11738,8 +11849,12 @@ async function saveBookEditor(originalTitle, source='', key='') {
     start: started,
     end: finished,
     year_read: editedYearRead,
-    month_read: monthDateForBook({start: started, end: finished, year_read: editedYearRead}) || original.month_read,
-    rating: ratingForStatus(statusValue, Number.parseFloat(bookEditorValue('book-editor-rating')) || null),
+    month_read: statusValue === 'Paused'
+      ? null
+      : (monthDateForBook({start: started, end: finished, year_read: editedYearRead}) || original.month_read),
+    rating: statusValue === 'Paused'
+      ? null
+      : ratingForStatus(statusValue, Number.parseFloat(bookEditorValue('book-editor-rating')) || null),
     previous_title: changedTitle ? original.title : original.previous_title || ''
   };
   try {
@@ -11774,6 +11889,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     if (changedValue(updated.page_count, comparisonBook.page_count)) bookPatch.page_count = updated.page_count || null;
     if (changedText(updated.language, comparisonBook.language)) bookPatch.language = updated.language || null;
     if (changedText(statusValue, comparisonBook.status)) bookPatch.status = statusValue;
+    if (changedValue(updated.paused_page, comparisonBook.paused_page)) bookPatch.paused_page = updated.paused_page;
     if (ownedValue(updated.own) !== ownedValue(comparisonBook.own)) bookPatch.owned = ownedValue(updated.own);
     if (changedText(updated.thoughts, comparisonBook.thoughts)) bookPatch.notes = updated.thoughts || null;
     if (updated.synopsis !== (comparisonBook.synopsis || '')) bookPatch.synopsis = updated.synopsis || null;
@@ -11805,15 +11921,15 @@ async function saveBookEditor(originalTitle, source='', key='') {
     const sessions = await supabaseTableRequest('reading_sessions', {
       query: `?select=id&book_id=eq.${encodeURIComponent(databaseId)}&order=created_at.desc&limit=1`
     });
-    if (!['TBR', 'Wishlist', 'On Hold'].includes(statusValue)) {
+    if (!['TBR', 'Wishlist'].includes(statusValue)) {
       const sessionBody = {
         user_id: supabaseSession.user.id,
         book_id: databaseId,
         started_on: started || null,
         finished_on: finished || null,
-        month_read: monthDateForBook({start: started, end: finished, year_read: updated.year_read}),
-        year_read: updated.year_read || null,
-        rating: isDNFStatusValue(statusValue) ? null : updated.rating,
+        month_read: statusValue === 'Paused' ? null : monthDateForBook({start: started, end: finished, year_read: updated.year_read}),
+        year_read: statusValue === 'Paused' ? null : (updated.year_read || null),
+        rating: statusValue === 'Paused' || isDNFStatusValue(statusValue) ? null : updated.rating,
         status: statusValue === 'DNF' ? 'DNF' : statusValue,
         notes: updated.thoughts || null
       };
@@ -12348,7 +12464,7 @@ function getAuthorStats() {
   const authors = new Map();
 
   DATA.books
-    .filter(b => b.status !== 'DNF')
+    .filter(b => libraryBookStatus(b) === 'Read')
     .forEach(b => {
       const author = b.author_full || b.author || b.author_short;
       const key = normalizeAuthorName(author);
@@ -13955,6 +14071,9 @@ status = String(status || '').trim();
 if (['current', 'in progress', 'currently reading'].includes(status.toLowerCase())) {
   status = 'Currently Reading';
 }
+if (['on hold', 'paused', 'pause'].includes(status.toLowerCase())) {
+  status = 'Paused';
+}
 
 
     const dnf    = String(ratingRaw||'').toLowerCase() === 'dnf';
@@ -14005,9 +14124,9 @@ if (dnf || endDNF) status = 'DNF';
       event: get('Event',24),
     };
 
-    if (status === 'Read' || status === 'Currently Reading' || status === 'DNF' || status === 'On Hold') {
+    if (status === 'Read' || status === 'Currently Reading' || status === 'DNF' || status === 'Paused') {
       books.push(b);
-      if (status !== 'DNF') {
+      if (status === 'Read') {
         const akey = (b.author_short || b.author_full || '').toLowerCase();
         if (akey) {
           if (!authorMap[akey]) authorMap[akey] = {author: b.author_full||b.author_short, ratings:[]};
