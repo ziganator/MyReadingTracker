@@ -4438,7 +4438,7 @@ const DEFAULT_GENRE_COLORS = {
   thriller:'#3e2723',
   mystery:'#b05300',
   technothriller:'#3f6f5f',
-  unknown:'#64708f'
+  unknown:'#7a6a54'
 };
 let customGenreColors = loadGenreColorSettings();
 
@@ -5951,19 +5951,6 @@ function genreColor(g) {
   return DEFAULT_GENRE_COLORS[k] || DEFAULT_GENRE_COLORS.unknown;
 }
 
-const THEME_CHART_COLORS = [
-  '#ff7a00', '#ff9340', '#ffad73', '#e87578',
-  '#cb5e94', '#a85ab4', '#815fcf', '#5c65dc',
-  '#4169e1', '#3157c2', '#2448b8', '#173b8f'
-];
-function themeChartColor(index, total=THEME_CHART_COLORS.length) {
-  const itemCount = Math.max(1, Number(total) || 1);
-  const position = itemCount <= 1
-    ? 0
-    : Math.round((Math.abs(Number(index) || 0) % itemCount) * (THEME_CHART_COLORS.length - 1) / (itemCount - 1));
-  return THEME_CHART_COLORS[position];
-}
-
 function pieSegmentSVG(cx, cy, r, startAngle, slice, color, title, strokeWidth='1.5') {
   if (slice >= Math.PI * 2 - 0.0001) {
     return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#f7f8ff" stroke-width="${strokeWidth}"><title>${esc(title)}</title></circle>`;
@@ -6740,10 +6727,10 @@ function buildLog() {
     let angle = -Math.PI/2;
     let paths = '';
     const entries = Object.entries(genreData).sort((a,b)=>b[1]-a[1]);
-    entries.forEach(([genre, count], index) => {
+    entries.forEach(([genre, count]) => {
       const slice = (count/total) * 2 * Math.PI;
       paths += pieSegmentSVG(
-        cx, cy, r, angle, slice, themeChartColor(index, entries.length),
+        cx, cy, r, angle, slice, genreColor(genre),
         `${genre}: ${count} (${Math.round(count/total*100)}%)`
       );
       angle += slice;
@@ -6754,9 +6741,9 @@ function buildLog() {
   // Build main pie SVG
   const mainPieSize = 220;
   const mainPiePaths = pieChart(genreMap, mainPieSize, 110, 110, 90);
-  const mainPieLegend = Object.entries(genreMap).sort((a,b)=>b[1]-a[1]).map(([g,n], index) =>
+  const mainPieLegend = Object.entries(genreMap).sort((a,b)=>b[1]-a[1]).map(([g,n]) =>
     `<div style="display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;align-items:center;gap:0.5rem;border:1px solid rgba(203,213,245,0.45);border-radius:5px;background:rgba(247,248,255,0.72);padding:0.35rem 0.45rem;min-width:0">
-      <div style="width:12px;height:12px;border-radius:2px;background:${themeChartColor(index, Object.keys(genreMap).length)};flex-shrink:0"></div>
+      <div style="width:12px;height:12px;border-radius:2px;background:${genreColor(g)};flex-shrink:0"></div>
       <span style="font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g}</span>
       <span style="font-weight:700;color:var(--deep)">${n}</span>
       <span style="font-size:0.78rem;color:var(--muted)">${summaryBooks.length ? Math.round(n/summaryBooks.length*100) : 0}%</span>
@@ -7075,15 +7062,15 @@ function genrePieChartHTML(books, title='Genre Breakdown') {
   const total = books.length;
   const genreEntries = Object.entries(genres).sort((a,b) => b[1] - a[1]);
   let angle = -Math.PI / 2;
-  const paths = genreEntries.map(([genre, count], index) => {
+  const paths = genreEntries.map(([genre, count]) => {
     const slice = total ? (count / total) * 2 * Math.PI : 0;
-    const path = pieSegmentSVG(110, 110, 90, angle, slice, themeChartColor(index, genreEntries.length), `${genre}: ${count}`);
+    const path = pieSegmentSVG(110, 110, 90, angle, slice, genreColor(genre), `${genre}: ${count}`);
     angle += slice;
     return path;
   }).join('');
-  const legend = genreEntries.map(([genre, count], index) => `
+  const legend = genreEntries.map(([genre, count]) => `
     <div style="display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;align-items:center;gap:0.5rem;border:1px solid rgba(203,213,245,0.45);border-radius:5px;background:rgba(247,248,255,0.72);padding:0.35rem 0.45rem;min-width:0">
-      <div style="width:12px;height:12px;border-radius:2px;background:${themeChartColor(index, genreEntries.length)};flex-shrink:0"></div>
+      <div style="width:12px;height:12px;border-radius:2px;background:${genreColor(genre)};flex-shrink:0"></div>
       <span style="font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(genre)}</span>
       <span style="font-weight:700;color:var(--deep)">${count}</span>
       <span style="font-size:0.78rem;color:var(--muted)">${total ? Math.round(count / total * 100) : 0}%</span>
@@ -7164,7 +7151,6 @@ function genreByMonthChartHTML(months) {
   const genreNames = [...new Set(entries.flatMap(([, data]) =>
     data.books.map(book => book.genre || 'Unknown')
   ))].sort();
-  const genreChartColors = new Map(genreNames.map((genre, index) => [genre, themeChartColor(index, genreNames.length)]));
   const monthlyPies = entries.map(([monthKey, data]) => {
     const monthGenres = {};
     data.books.forEach(book => {
@@ -7175,7 +7161,7 @@ function genreByMonthChartHTML(months) {
     let angle = -Math.PI / 2;
     const paths = Object.entries(monthGenres).sort((a,b) => b[1] - a[1]).map(([genre, count]) => {
       const slice = total ? (count / total) * 2 * Math.PI : 0;
-      const path = pieSegmentSVG(40, 40, 34, angle, slice, genreChartColors.get(genre), `${genre}: ${count}`);
+      const path = pieSegmentSVG(40, 40, 34, angle, slice, genreColor(genre), `${genre}: ${count}`);
       angle += slice;
       return path;
     }).join('');
@@ -7199,7 +7185,7 @@ function genreByMonthChartHTML(months) {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1rem">${monthlyPies}</div>
     <div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center">
       ${genreNames.map(genre => `<span style="display:flex;align-items:center;gap:4px;font-size:0.75rem">
-        <span style="width:10px;height:10px;border-radius:2px;background:${genreChartColors.get(genre)};display:inline-block"></span>${esc(genre)}
+        <span style="width:10px;height:10px;border-radius:2px;background:${genreColor(genre)};display:inline-block"></span>${esc(genre)}
       </span>`).join('')}
     </div>
   </div>`;
@@ -13427,11 +13413,11 @@ function showMonthSummary(yearMonth, updateRoute=true) {
     if (!total) return '';
     let angle = -Math.PI/2, paths = '';
     const pieEntries = Object.entries(gmap).sort((a,b)=>b[1]-a[1]);
-    pieEntries.forEach(([g,n], index) => {
+    pieEntries.forEach(([g,n]) => {
       const slice = (n/total)*2*Math.PI;
       if (slice < 0.001) return;
       paths += pieSegmentSVG(
-        cx, cy, r, angle, slice, themeChartColor(index, pieEntries.length),
+        cx, cy, r, angle, slice, genreColor(g),
         `${g}: ${n} (${Math.round(n/total*100)}%)`,
         '2'
       );
@@ -13441,9 +13427,9 @@ function showMonthSummary(yearMonth, updateRoute=true) {
   }
 
   const monthGenreEntries = Object.entries(genreMap).sort((a,b)=>b[1]-a[1]);
-  const pieLegend = monthGenreEntries.map(([g,n], index) =>
+  const pieLegend = monthGenreEntries.map(([g,n]) =>
     `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem">
-      <div style="width:14px;height:14px;border-radius:3px;background:${themeChartColor(index, monthGenreEntries.length)};flex-shrink:0"></div>
+      <div style="width:14px;height:14px;border-radius:3px;background:${genreColor(g)};flex-shrink:0"></div>
       <span style="font-size:0.95rem">${g}</span>
       <span style="margin-left:auto;font-weight:700;color:var(--deep);font-size:1rem">${n}</span>
       <span style="font-size:0.8rem;color:var(--muted);min-width:32px">${Math.round(n/totalBooks*100)}%</span>
