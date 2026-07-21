@@ -5786,7 +5786,7 @@ async function importLibraryCSV(file) {
       if (source.reread && collectionBySlug('reread')?.id && !collectionBySlug('reread').id.startsWith('fallback:')) {
         await replaceBookCollectionMemberships(insertedBooks[index].id, [collectionBySlug('reread').id]);
       }
-      await promoteSeriesForBookStatus(source.status, insertedBooks[index].series_id, source.series);
+      await syncSeriesStatusForBook(source.status, insertedBooks[index].series_id, source.series);
     }
 
     const sessions = insertedBooks.flatMap((book, index) => {
@@ -9390,31 +9390,46 @@ async function findOrCreateLibraryRelation(table, name, extra={}) {
 
 async function resolveSeriesRecord(seriesId='', seriesName='') {
   const cached = databaseSeriesRecordFor(seriesId, seriesName);
-  if (cached?.id && cached.status !== undefined) return cached;
+  if (cached?.id && cached.status !== undefined && cached.books_planned !== undefined) return cached;
   if (!supabaseSession?.user?.id) return cached;
   const query = seriesId
-    ? `?select=id,name,status&id=eq.${encodeURIComponent(seriesId)}&limit=1`
-    : `?select=id,name,status&name=eq.${encodeURIComponent(seriesName)}&limit=1`;
+    ? `?select=id,name,status,books_planned&id=eq.${encodeURIComponent(seriesId)}&limit=1`
+    : `?select=id,name,status,books_planned&name=eq.${encodeURIComponent(seriesName)}&limit=1`;
   const rows = await supabaseTableRequest('series', {query});
   const record = rows?.[0] || cached || null;
   if (record) cacheDatabaseSeriesRecord(record);
   return record;
 }
 
-async function promoteSeriesForBookStatus(bookStatus, seriesId='', seriesName='') {
-  if (!['Currently Reading', 'Read'].includes(bookStatus) || (!seriesId && !seriesName) || guestMode) return false;
+async function syncSeriesStatusForBook(bookStatus, seriesId='', seriesName='') {
+  if ((!seriesId && !seriesName) || guestMode) return false;
   try {
     const record = await resolveSeriesRecord(seriesId, seriesName);
     if (!record?.id) return false;
     const current = normalizeSeriesStatus(record.status);
-    if (!['Not Started', 'Abandoned'].includes(current)) return false;
+    let nextStatus = current;
+    const seriesBooks = await supabaseTableRequest('books', {
+      query: `?select=id,status,deleted_at&series_id=eq.${encodeURIComponent(record.id)}`
+    });
+    const activeBooks = seriesBooks.filter(book => !book.deleted_at);
+    const readCount = activeBooks.filter(book => libraryBookStatus(book) === 'Read').length;
+    const activeCount = activeBooks.filter(book => ['Currently Reading', 'Read'].includes(libraryBookStatus(book))).length;
+    const plannedCount = Number(record.books_planned) || 0;
+    if (activeBooks.length && readCount === activeBooks.length && readCount >= Math.max(1, plannedCount)) {
+      nextStatus = 'Completed';
+    } else if (activeCount && ['Not Started', 'Abandoned', 'Completed'].includes(current)) {
+      nextStatus = 'In Progress';
+    } else if (!activeCount && current === 'Completed') {
+      nextStatus = 'Not Started';
+    }
+    if (nextStatus === current) return false;
     await supabaseTableRequest('series', {
       method: 'PATCH',
       query: `?id=eq.${encodeURIComponent(record.id)}`,
-      body: {status: 'In Progress'},
+      body: {status: nextStatus},
       prefer: 'return=minimal'
     });
-    cacheDatabaseSeriesRecord({...record, status: 'In Progress'});
+    cacheDatabaseSeriesRecord({...record, status: nextStatus});
     return true;
   } catch (error) {
     console.warn('Could not update the series status automatically:', error.message);
@@ -9724,7 +9739,7 @@ async function saveAddedBook() {
       addedReadingSession = Array.isArray(savedReadingSessions) ? savedReadingSessions[0] : savedReadingSessions;
       if (!addedReadingSession?.id) throw new Error('Supabase did not return the new reading session. The book was not added.');
     }
-    await promoteSeriesForBookStatus(status, seriesId, seriesName);
+    await syncSeriesStatusForBook(status, seriesId, seriesName);
     databaseSaveComplete = true;
     mergeDatabaseBook(databaseBookToLocal({
       ...inserted[0],
@@ -10710,7 +10725,7 @@ async function saveBulkBookEdits() {
         ...patch,
         ...(isReadStatusValue(patch.status) && !hasTimesReadValue(book.times_read) ? {times_read: 1} : {})
       });
-      await promoteSeriesForBookStatus(
+      await syncSeriesStatusForBook(
         patch.status,
         seriesEnabled ? patch.series_id : book.series_id,
         seriesEnabled ? seriesName : book.series
@@ -11032,7 +11047,7 @@ async function saveReadingSessionEditor() {
       bookPatch.paused_page = null;
     }
     await patchBookRow(book.database_id, bookPatch);
-    await promoteSeriesForBookStatus(statusValue, book.series_id, book.series);
+    await syncSeriesStatusForBook(statusValue, book.series_id, book.series);
     await loadDatabaseBooks();
     rebuildReadYearBuckets();
     buildHeaderStats();
@@ -12181,7 +12196,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
         }
       }
     }
-    await promoteSeriesForBookStatus(statusValue, seriesId, editedSeries);
+    await syncSeriesStatusForBook(statusValue, seriesId, editedSeries);
     updated.database_id = databaseId;
     if (mergeTarget) removeBookFromLocalData(bookIdentity(mergeTarget), mergeTarget.database_id || '');
     updateLocalEditedBook(original, updated);
@@ -12412,7 +12427,7 @@ async function updateBookStatus(title, status) {
         },
         prefer: 'return=minimal'
       });
-      await promoteSeriesForBookStatus(status, book.series_id, book.series);
+      await syncSeriesStatusForBook(status, book.series_id, book.series);
       rebuildSeriesFromLibraryBooks();
       buildSeries();
       return;
