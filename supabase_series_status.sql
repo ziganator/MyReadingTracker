@@ -1,4 +1,4 @@
--- Adds the three user-managed series statuses and keeps them in sync with book activity.
+-- Adds the four user-managed series statuses and keeps them in sync with book activity.
 -- Safe to run more than once.
 
 alter table public.series
@@ -11,7 +11,9 @@ update public.series as series_row
 set status = case
   when lower(trim(coalesce(series_row.status, ''))) in ('abandoned', 'temporarily suspended', 'temp suspended', 'suspended')
     then 'Abandoned'
-  when lower(trim(coalesce(series_row.status, ''))) in ('in progress', 'progress', 'completed')
+  when lower(trim(coalesce(series_row.status, ''))) = 'completed'
+    then 'Completed'
+  when lower(trim(coalesce(series_row.status, ''))) in ('in progress', 'progress')
     then 'In Progress'
   when lower(trim(coalesce(series_row.status, ''))) in ('not started', 'not-started')
     then 'Not Started'
@@ -32,7 +34,7 @@ alter table public.series
 
 alter table public.series
   add constraint series_status_check
-  check (status in ('Not Started', 'In Progress', 'Abandoned'));
+  check (status in ('Not Started', 'In Progress', 'Completed', 'Abandoned'));
 
 create or replace function public.promote_series_status_from_book()
 returns trigger
@@ -71,4 +73,4 @@ for each row
 execute function public.promote_series_status_from_book();
 
 comment on column public.series.status is
-  'User-managed series state: Not Started, In Progress, or Abandoned.';
+  'User-managed series state: Not Started, In Progress, Completed, or Abandoned.';

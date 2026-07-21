@@ -1613,6 +1613,9 @@
 .series-card.not-started {
   border-left: 5px solid #64748b;
 }
+.series-card.completed {
+  border-left: 5px solid #ff7a00;
+}
 .series-state-badge {
   display: inline-block;
   border-radius: 3px;
@@ -1627,6 +1630,7 @@
 .series-state-badge.suspended { background: var(--muted); }
 .series-state-badge.not-started { background: #64748b; }
 .series-state-badge.in-progress { background: #2448b8; }
+.series-state-badge.completed { background: #d96500; }
 .series-status-editor {
   display: flex;
   align-items: end;
@@ -1655,6 +1659,15 @@
   color: var(--deep);
   font: 700 0.95rem 'Crimson Pro', serif;
   padding: 0.42rem 0.55rem;
+}
+.series-status-editor > .account-primary {
+  min-height: 40px;
+  border: 1px solid #4169e1;
+  border-radius: 7px;
+  cursor: pointer;
+  font: 700 0.92rem 'Crimson Pro', serif;
+  padding: 0.55rem 1.1rem;
+  white-space: nowrap;
 }
 .series-status-save-message { color: var(--muted); font-size: 0.8rem; }
 .series-reason {
@@ -4471,7 +4484,7 @@ let statsDatabaseRefreshMessage = '';
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
 
-const SERIES_STATUS_OPTIONS = ['Not Started', 'In Progress', 'Abandoned'];
+const SERIES_STATUS_OPTIONS = ['Not Started', 'In Progress', 'Completed', 'Abandoned'];
 
 const DEFAULT_GENRE_COLORS = {
   fantasy:'#8e24aa',
@@ -5172,7 +5185,8 @@ function normalizeSeriesStatus(value, books=[]) {
   const status = normalizedKey(value);
   if (status === 'not started' || status === 'not-started') return 'Not Started';
   if (status === 'abandoned' || status === 'temporarily suspended' || status === 'temp suspended' || status === 'suspended') return 'Abandoned';
-  if (status === 'in progress' || status === 'progress' || status === 'completed') return 'In Progress';
+  if (status === 'completed') return 'Completed';
+  if (status === 'in progress' || status === 'progress') return 'In Progress';
   return books.some(book => ['Currently Reading', 'Read'].includes(libraryBookStatus(book)))
     ? 'In Progress'
     : 'Not Started';
@@ -5181,7 +5195,8 @@ function normalizeSeriesStatus(value, books=[]) {
 function seriesStatusFromLegacy(series, books=[]) {
   if (series?.status) return normalizeSeriesStatus(series.status, books);
   if (series?.state === 'abandoned' || series?.state === 'suspended') return 'Abandoned';
-  if (series?.state === 'progress' || series?.state === 'completed') return 'In Progress';
+  if (series?.state === 'completed') return 'Completed';
+  if (series?.state === 'progress') return 'In Progress';
   if (series?.state === 'not-started') return 'Not Started';
   return normalizeSeriesStatus('', books);
 }
@@ -5872,9 +5887,11 @@ async function importCurrentLibrary() {
         name: s.series,
         status: s.state === 'abandoned' || s.state === 'suspended'
           ? 'Abandoned'
-          : s.state === 'progress' || s.state === 'completed'
-            ? 'In Progress'
-            : 'Not Started',
+          : s.state === 'completed'
+            ? 'Completed'
+            : s.state === 'progress'
+              ? 'In Progress'
+              : 'Not Started',
         rating: s.rating ?? null,
         books_read: s.books_read || 0,
         books_planned: s.total || null,
@@ -7148,7 +7165,7 @@ function rebuildSeriesFromLibraryBooks() {
     const status = record
       ? seriesStatusFromLegacy(record, group.books)
       : seriesStatusFromLegacy(previous, group.books);
-    const completed = Boolean(read.length && total && read.length >= total);
+    const completed = status === 'Completed' || Boolean(read.length && total && read.length >= total);
     return {
       id: record?.id || group.series_id || previous?.id || null,
       series: group.series,
@@ -12527,7 +12544,9 @@ const pct = s.done === '✅'
 
     const r = parseFloat(s.rating);
     const seriesStatus = seriesStatusFromLegacy(s);
-    const stateClass = seriesStatus === 'Abandoned' ? ' abandoned' : (seriesStatus === 'Not Started' ? ' not-started' : '');
+    const stateClass = seriesStatus === 'Abandoned'
+      ? ' abandoned'
+      : (seriesStatus === 'Not Started' ? ' not-started' : (seriesStatus === 'Completed' ? ' completed' : ''));
     const seriesGenre = genreForSeries(s);
     return `<div class="series-card${stateClass}" onclick="openSeriesModal(${JSON.stringify(s).split('"').join('&quot;')}, event)">
       <div class="series-name">${esc(s.series)}</div>
@@ -13600,8 +13619,8 @@ function openSeriesModal(s, evt) {
   document.getElementById('modal-series-sub').textContent =
     `${s.author} · ${s.books_read||0} of ${s.total||'?'} books read` +
     (!isNaN(r) ? ` · Series rating: ${r}` : '') +
-    (s.done==='✅' ? ' · Completed ✅' : '') +
-    ` · ${seriesStatus}`;
+    ` · ${seriesStatus}` +
+    (s.done==='✅' ? ' ✅' : '');
 
 let rows = `<div class="series-status-editor">
   <label for="series-status-select">Series status
@@ -14746,7 +14765,7 @@ function buildGuestDemoData() {
       rating: read.length
         ? read.reduce((sum, book) => sum + (Number(book.rating) || 0), 0) / read.length
         : null,
-      status: read.length ? 'In Progress' : 'Not Started',
+      status: read.length === group.books.length ? 'Completed' : (read.length ? 'In Progress' : 'Not Started'),
       state: read.length === group.books.length ? 'completed' : 'progress'
     };
   });
