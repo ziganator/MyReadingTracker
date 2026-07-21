@@ -49,6 +49,8 @@ declare
   tracked_count integer := 0;
   read_count integer := 0;
   active_count integer := 0;
+  tbr_count integer := 0;
+  wishlist_count integer := 0;
   planned_count integer := 0;
   current_status text;
 begin
@@ -59,8 +61,10 @@ begin
   select
     count(*),
     count(*) filter (where status = 'Read'),
-    count(*) filter (where status in ('Currently Reading', 'Read'))
-  into tracked_count, read_count, active_count
+    count(*) filter (where status in ('Currently Reading', 'Read')),
+    count(*) filter (where status = 'TBR'),
+    count(*) filter (where status = 'Wishlist')
+  into tracked_count, read_count, active_count, tbr_count, wishlist_count
   from public.books
   where series_id = target_series_id
     and user_id = target_user_id
@@ -77,6 +81,13 @@ begin
   end if;
 
   if tracked_count > 0
+     and (tbr_count = tracked_count or wishlist_count = tracked_count) then
+    update public.series
+    set status = 'Not Started'
+    where id = target_series_id
+      and user_id = target_user_id
+      and status <> 'Not Started';
+  elsif tracked_count > 0
      and read_count = tracked_count
      and read_count >= greatest(1, planned_count) then
     update public.series

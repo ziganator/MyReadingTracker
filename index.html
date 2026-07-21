@@ -6273,13 +6273,7 @@ function buildHeaderStats() {
   const books = allReadBooks().filter(b => b.rating && String(b.rating)!=='DNF' && String(b.rating)!=='*');
   const rated = books.map(b => parseFloat(b.rating)).filter(n => !isNaN(n));
   const avg = rated.length ? (rated.reduce((a,b)=>a+b,0)/rated.length).toFixed(2) : '—';
-  const seriesCountFromBooks = new Set(
-    allLibraryBooks()
-      .map(book => String(book.series || '').trim())
-      .filter(Boolean)
-      .map(normalizedKey)
-  ).size;
-  const seriesCount = seriesCountFromBooks || DATA.series.length;
+  const seriesCount = DATA.series.length;
   // Build currently reading block for inline use
   let curHTML = '';
   if (cur) {
@@ -7151,7 +7145,9 @@ function rebuildSeriesFromLibraryBooks() {
     if (!seriesGroups.get(key).series_id && book.series_id) seriesGroups.get(key).series_id = book.series_id;
     seriesGroups.get(key).books.push(book);
   });
-  DATA.series = [...seriesGroups.values()].map(group => {
+  DATA.series = [...seriesGroups.values()]
+    .filter(group => !group.books.every(book => libraryBookStatus(book) === 'Wishlist'))
+    .map(group => {
     const record = databaseSeriesRecordFor(group.series_id, group.series);
     const previous = previousSeries.get(normalizedKey(group.series));
     const read = group.books.filter(book => libraryBookStatus(book) === 'Read');
@@ -7162,9 +7158,12 @@ function rebuildSeriesFromLibraryBooks() {
       Number(record?.books_planned) || 0,
       Number(previous?.total) || 0
     );
-    const status = record
+    const savedStatus = record
       ? seriesStatusFromLegacy(record, group.books)
       : seriesStatusFromLegacy(previous, group.books);
+    const status = group.books.every(book => libraryBookStatus(book) === 'TBR')
+      ? 'Not Started'
+      : savedStatus;
     const completed = status === 'Completed' || Boolean(read.length && total && read.length >= total);
     return {
       id: record?.id || group.series_id || previous?.id || null,
@@ -9414,8 +9413,12 @@ async function syncSeriesStatusForBook(bookStatus, seriesId='', seriesName='') {
     const activeBooks = seriesBooks.filter(book => !book.deleted_at);
     const readCount = activeBooks.filter(book => libraryBookStatus(book) === 'Read').length;
     const activeCount = activeBooks.filter(book => ['Currently Reading', 'Read'].includes(libraryBookStatus(book))).length;
+    const tbrCount = activeBooks.filter(book => libraryBookStatus(book) === 'TBR').length;
+    const wishlistCount = activeBooks.filter(book => libraryBookStatus(book) === 'Wishlist').length;
     const plannedCount = Number(record.books_planned) || 0;
-    if (activeBooks.length && readCount === activeBooks.length && readCount >= Math.max(1, plannedCount)) {
+    if (activeBooks.length && (tbrCount === activeBooks.length || wishlistCount === activeBooks.length)) {
+      nextStatus = 'Not Started';
+    } else if (activeBooks.length && readCount === activeBooks.length && readCount >= Math.max(1, plannedCount)) {
       nextStatus = 'Completed';
     } else if (activeCount && ['Not Started', 'Abandoned', 'Completed'].includes(current)) {
       nextStatus = 'In Progress';
