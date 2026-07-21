@@ -3530,12 +3530,10 @@
     grid-template-columns: 1fr !important;
   }
 
-  #tab-log [style*="grid-template-columns:1fr 1fr"],
   #tab-month [style*="grid-template-columns:1fr auto"] {
     grid-template-columns: 1fr !important;
   }
 
-  #tab-log [style*="grid-template-columns:repeat(auto-fit"],
   #tab-month [style*="display:flex;gap:1rem;flex-wrap:wrap"] {
     gap: 0.65rem !important;
   }
@@ -4278,12 +4276,11 @@
 
 <nav id="mainNav"></nav>
 <main>
-  <div class="tab-panel active" id="tab-log"></div>
   <div class="tab-panel" id="tab-log-detail"></div>
   <div class="tab-panel" id="tab-stats"></div>
   <div class="tab-panel" id="tab-month"></div>
   <div class="tab-panel" id="tab-search"></div>
-  <div class="tab-panel" id="tab-books"></div>
+  <div class="tab-panel active" id="tab-books"></div>
   <div class="tab-panel" id="tab-series"></div>
   <div class="tab-panel" id="tab-tbr"></div>
   <div class="tab-panel" id="tab-authors"></div>
@@ -4465,7 +4462,7 @@ let libraryCollections = [];
 let bookCollectionMemberships = new Map();
 let databaseSeriesRecords = new Map();
 let collectionEditorDraft = null;
-let readingLogYear = new Date().getFullYear();
+let readingLogYear = 'all';
 let tbrSortField = 'author';
 let tbrSortDirection = 'asc';
 let tbrCategoryFilter = '';
@@ -4511,7 +4508,7 @@ function openStandalonePage(event) {
   page.querySelector('#series-modal')?.classList.remove('open');
   page.querySelector('#app-dialog')?.classList.remove('open');
   const html = `<!DOCTYPE html>\n${page.outerHTML}`;
-  const route = window.location.hash || '#log';
+  const route = window.location.hash || '#books';
   const standaloneWindow = window.open('', '_blank');
   if (!standaloneWindow) {
     showAppDialog(
@@ -4630,7 +4627,6 @@ function renderGenreColorSettings() {
 function refreshGenreColoredViews() {
   rebuildSeriesFromLibraryBooks();
   buildHeaderStats();
-  buildLog();
   buildLogDetail();
   buildBooks();
   buildSeries();
@@ -5813,7 +5809,6 @@ async function importLibraryCSV(file) {
     rebuildReadYearBuckets();
     rebuildSeriesFromLibraryBooks();
     buildHeaderStats();
-    buildLog();
     buildLogDetail();
     buildBooks();
     buildSeries();
@@ -6308,7 +6303,7 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log','Summary'],['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
+    ['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
     ['authors','Authors'],['picker','Picker']
   ];
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
@@ -6375,27 +6370,12 @@ function switchTab(id) {
   else {
     rememberCurrentScroll();
     history.pushState(
-      appHistoryState({readingTrackerPreviousHash: window.location.hash || '#log'}),
+      appHistoryState({readingTrackerPreviousHash: window.location.hash || '#books'}),
       '',
       route
     );
     applyHashRoute();
   }
-}
-
-function openReadingLogYear(year, event) {
-  event?.preventDefault();
-  readingLogYear = Number(year);
-  rememberCurrentScroll();
-  if (window.location.hash !== '#log-detail') {
-    history.pushState(
-      appHistoryState({readingTrackerPreviousHash: window.location.hash || '#log'}),
-      '',
-      '#log-detail'
-    );
-  }
-  buildLogDetail();
-  showTab('log-detail', 'content');
 }
 
 function bookDetailHash(title, source='', key='') {
@@ -6424,7 +6404,7 @@ function parseBookRoute(hash=window.location.hash) {
 function applyHashRoute() {
   if (!trackerStarted) return;
   if (!window.location.hash) {
-    history.replaceState(appHistoryState(), '', '#log');
+    history.replaceState(appHistoryState(), '', '#books');
   } else if (!history.state?.readingTrackerEntry) {
     history.replaceState(appHistoryState(), '', window.location.href);
   }
@@ -6438,11 +6418,15 @@ function applyHashRoute() {
     showMonthSummary(monthRoute[1], false);
     return;
   }
-  const requested = window.location.hash.replace(/^#/, '') || 'log';
-  const validTabs = ['log','log-detail','stats','search','books','series','authors','picker','month'];
+  const requested = window.location.hash.replace(/^#/, '') || 'books';
+  const normalizedRequested = requested === 'log' ? 'log-detail' : requested;
+  if (requested === 'log') {
+    history.replaceState(appHistoryState(), '', '#log-detail');
+  }
+  const validTabs = ['log-detail','stats','search','books','series','authors','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   showTab(
-    validTabs.includes(requested) ? requested : 'log',
+    validTabs.includes(normalizedRequested) ? normalizedRequested : 'books',
     Number.isFinite(savedScroll) ? savedScroll : 'content'
   );
 }
@@ -6489,7 +6473,7 @@ function sortTable(tableId, col, type) {
   });
 }
 
-// ─── Summary / Dashboard ──────────────────────────────────────
+// ─── Stats Dashboard ──────────────────────────────────────────
 const STATS_SECTIONS = [
   ['overview','Overview'], ['pace','Pace & Time'], ['ratings','Ratings'], ['genres','Genres'],
   ['authors','Authors'], ['formats','Formats & Eras'], ['series','Series'], ['library','Library & Wishlist']
@@ -6814,115 +6798,6 @@ async function manualRefreshStatsFromDatabase(button) {
   buildStats();
 }
 
-function buildLog() {
-  const panel = document.getElementById('tab-log');
-  const summaryBooks = readingLogBooks();
-  const yearCounts = summaryYearCounts();
-  const yearRows = availableReadingYears()
-    .map(year => {
-      const count = yearCounts.get(year) || 0;
-      const yearPageStats = pagesReadStats(readingBooksForYear(year));
-      return `<button type="button" onclick="openReadingLogYear(${year}, event)"
-      style="display:flex;align-items:center;gap:0.75rem;width:100%;border:1px solid var(--border);border-radius:6px;background:rgba(247,248,255,0.78);color:var(--deep);cursor:pointer;font-family:'Crimson Pro',serif;padding:0.65rem 0.8rem;text-align:left">
-        <span style="font-family:'Playfair Display',serif;font-weight:900;font-size:1.25rem;color:var(--burnt);min-width:4.4rem">${year}</span>
-        <span style="font-weight:700">${count} book${count === 1 ? '' : 's'}</span>
-        <span style="color:var(--muted);font-size:0.85rem">${pageMetric(yearPageStats.pages)} pages · ${yearPageStats.avgPagesPerMonth ? pageMetric(yearPageStats.avgPagesPerMonth) : '—'} / month</span>
-        <span style="margin-left:auto;color:var(--muted);font-size:0.85rem">View log</span>
-      </button>`;
-    })
-    .join('');
-
-  // ── Stats ──
-  const rated = summaryBooks.filter(b => typeof b.rating === 'number');
-  const avgRating = rated.length ? (rated.reduce((s,b)=>s+b.rating,0)/rated.length).toFixed(2) : '—';
-  const withDays  = summaryBooks.filter(b => b.days);
-  const avgDays   = withDays.length ? (withDays.reduce((s,b)=>s+b.days,0)/withDays.length).toFixed(1) : '—';
-  const fastest   = withDays.length ? withDays.reduce((a,b)=>b.days<a.days?b:a) : null;
-  const slowest   = withDays.length ? withDays.reduce((a,b)=>b.days>a.days?b:a) : null;
-  const pageStats = pagesReadStats(summaryBooks);
-
-  // ── Genre totals ──
-  const genreMap = {};
-  summaryBooks.forEach(b => {
-    const g = b.genre || 'Unknown';
-    genreMap[g] = (genreMap[g]||0) + 1;
-  });
-  // ── SVG Pie chart ──
-  function pieChart(genreData, size, cx, cy, r) {
-    const total = Object.values(genreData).reduce((a,b)=>a+b,0);
-    if (!total) return '';
-    let angle = -Math.PI/2;
-    let paths = '';
-    const entries = Object.entries(genreData).sort((a,b)=>b[1]-a[1]);
-    entries.forEach(([genre, count]) => {
-      const slice = (count/total) * 2 * Math.PI;
-      paths += pieSegmentSVG(
-        cx, cy, r, angle, slice, genreColor(genre),
-        `${genre}: ${count} (${Math.round(count/total*100)}%)`
-      );
-      angle += slice;
-    });
-    return paths;
-  }
-
-  // Build main pie SVG
-  const mainPieSize = 220;
-  const mainPiePaths = pieChart(genreMap, mainPieSize, 110, 110, 90);
-  const mainPieLegend = Object.entries(genreMap).sort((a,b)=>b[1]-a[1]).map(([g,n]) =>
-    `<div style="display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;align-items:center;gap:0.5rem;border:1px solid rgba(203,213,245,0.45);border-radius:5px;background:rgba(247,248,255,0.72);padding:0.35rem 0.45rem;min-width:0">
-      <div style="width:12px;height:12px;border-radius:2px;background:${genreColor(g)};flex-shrink:0"></div>
-      <span style="font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g}</span>
-      <span style="font-weight:700;color:var(--deep)">${n}</span>
-      <span style="font-size:0.78rem;color:var(--muted)">${summaryBooks.length ? Math.round(n/summaryBooks.length*100) : 0}%</span>
-    </div>`
-  ).join('');
-
-  panel.innerHTML = `
-    <div style="max-width:1200px;margin:0 auto">
-      <!-- ── Hero Stats ── -->
-      <div class="summary-stat-grid">
-        ${[
-          ['📚', summaryBooks.length, 'Books Read'],
-          ['📄', pageMetric(pageStats.pages), 'Pages Read'],
-          ['📄', pageStats.avgPagesPerMonth ? pageMetric(pageStats.avgPagesPerMonth) : '—', 'Avg Pages / Month'],
-          ['⭐', avgRating, 'Avg Rating'],
-          ['⚡', avgDays, 'Avg Days / Book'],
-          ['🐇', fastest ? fastest.days+'d' : '—', 'Fastest Read', fastest ? fastest.title : ''],
-          ['🐢', slowest ? slowest.days+'d' : '—', 'Slowest Read', slowest ? slowest.title : ''],
-        ].map(([icon,val,label,subtitle='']) => `
-          <div class="summary-stat-card">
-            <div class="summary-stat-icon">${icon}</div>
-            <div class="summary-stat-value">${val}</div>
-            <div class="summary-stat-label">${label}</div>
-            ${subtitle ? `<div class="summary-stat-subtitle">${esc(subtitle)}</div>` : ''}
-          </div>`).join('')}
-      </div>
-
-      <div style="display:grid;gap:1.5rem;margin-bottom:1.5rem">
-        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;box-shadow:0 2px 8px var(--shadow)">
-          <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.15rem;color:var(--burnt);margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.5rem">Genre Breakdown</div>
-          <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
-            <svg width="220" height="220" style="flex-shrink:0;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.15))">
-              ${mainPiePaths}
-              <circle cx="110" cy="110" r="42" fill="var(--parchment)"/>
-              <text x="110" y="105" text-anchor="middle" font-size="22" font-weight="900" fill="var(--deep)" font-family="'Playfair Display',serif">${summaryBooks.length}</text>
-              <text x="110" y="122" text-anchor="middle" font-size="11" fill="var(--muted)">books</text>
-            </svg>
-            <div style="flex:1;min-width:min(100%,360px);display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.45rem">${mainPieLegend}</div>
-          </div>
-        </div>
-
-        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;box-shadow:0 2px 8px var(--shadow)">
-          <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.15rem;color:var(--burnt);margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.5rem">Reading Years</div>
-          <div style="display:grid;gap:0.55rem">
-            ${yearRows || '<p style="color:var(--muted);font-style:italic;margin:0">No reading years yet.</p>'}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function dominantMonth(start, end) {
 
   if (!start) return null;
@@ -7237,7 +7112,7 @@ function genrePieChartHTML(books, title='Genre Breakdown') {
         <text x="110" y="122" text-anchor="middle" font-size="11" fill="var(--muted)">books</text>
       </svg>
       <div style="flex:1;min-width:min(100%,360px);display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.45rem">${legend}</div>
-    </div>` : '<p style="color:var(--muted)">No genre data for this year.</p>'}
+    </div>` : '<p style="color:var(--muted)">No genre data for this selection.</p>'}
   </div>`;
 }
 
@@ -7352,11 +7227,16 @@ function monthCoverPreviewHTML(books) {
 }
 
 function showYear(year) {
-  readingLogYear = Number(year);
+  const showAllYears = String(year).toLowerCase() === 'all';
+  readingLogYear = showAllYears ? 'all' : Number(year);
   const yearSelect = document.getElementById('reading-log-year-select');
   if (yearSelect) yearSelect.value = String(readingLogYear);
-  const books = readingBooksForYear(year);
-  const yearCount = summaryYearCounts().get(Number(year)) || books.length;
+  const books = showAllYears
+    ? [...readingLogBooks()].sort(compareMonthReadOrder)
+    : readingBooksForYear(readingLogYear);
+  const yearCount = showAllYears
+    ? books.length
+    : (summaryYearCounts().get(readingLogYear) || books.length);
   const rated = books.filter(b => typeof b.rating==='number');
   const avg = rated.length ? (rated.reduce((a,b)=>a+parseFloat(b.rating),0)/rated.length).toFixed(2) : '—';
   const withDays = books.filter(book => Number(book.days) > 0);
@@ -7369,10 +7249,10 @@ function showYear(year) {
 
   // Monthly breakdown
   const months = {};
-  const selectedYearPrefix = `${Number(year)}-`;
+  const selectedYearPrefix = `${readingLogYear}-`;
   books.forEach(b => {
     const m = monthKeyFromBook(b);
-    if (!m || !m.startsWith(selectedYearPrefix)) return;
+    if (showAllYears || !m || !m.startsWith(selectedYearPrefix)) return;
     if (!months[m]) months[m] = {books:[], total:0, count:0, pages:0};
     months[m].books.push(b);
     months[m].pages += pageCountForBook(b);
@@ -7395,7 +7275,7 @@ function showYear(year) {
     </div>
     <div class="month-detail" id="mdetail-${m}" style="display:none;grid-column:1/-1"></div>`;
   }).join('');
-  const hasMonthlyBreakdown = Boolean(monthHTML);
+  const hasMonthlyBreakdown = !showAllYears && Boolean(monthHTML);
 
   // Cards
   const cards = books.map(b => {
@@ -7427,26 +7307,25 @@ function showYear(year) {
     ['📄', pageMetric(pageStats.pages), 'Pages Read'],
     ['📄', pageStats.avgPagesPerMonth ? pageMetric(pageStats.avgPagesPerMonth) : '—', 'Avg Pages / Month'],
     ['⭐', avg, 'Avg Rating'],
-    ...(hasMonthlyBreakdown ? [
-      ['⚡', avgDays, 'Avg Days / Book'],
-      ['🐇', fastest ? `${fastest.days}d` : '—', 'Fastest Read'],
-      ['🐢', slowest ? `${slowest.days}d` : '—', 'Slowest Read']
-    ] : [])
+    ['⚡', avgDays, 'Avg Days / Book'],
+    ['🐇', fastest ? `${fastest.days}d` : '—', 'Fastest Read', fastest ? fastest.title : ''],
+    ['🐢', slowest ? `${slowest.days}d` : '—', 'Slowest Read', slowest ? slowest.title : '']
   ];
 
   document.getElementById('log-content').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.8rem;margin-bottom:1rem">
-      ${statCards.map(([icon, value, label]) => `
-        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:0.9rem;text-align:center;box-shadow:0 2px 8px var(--shadow)">
-          <div style="font-size:1.35rem">${icon}</div>
-          <div style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:var(--deep)">${value}</div>
-          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)">${label}</div>
+    <div class="summary-stat-grid">
+      ${statCards.map(([icon, value, label, subtitle='']) => `
+        <div class="summary-stat-card">
+          <div class="summary-stat-icon">${icon}</div>
+          <div class="summary-stat-value">${value}</div>
+          <div class="summary-stat-label">${label}</div>
+          ${subtitle ? `<div class="summary-stat-subtitle">${esc(subtitle)}</div>` : ''}
         </div>
       `).join('')}
     </div>
     <div style="display:grid;gap:1rem;margin-bottom:1rem">
       ${genrePieChartHTML(books)}
-      ${hasMonthlyBreakdown ? finishCalendarHTML(books, Number(year)) : ''}
+      ${hasMonthlyBreakdown ? finishCalendarHTML(books, readingLogYear) : ''}
     </div>
     ${hasMonthlyBreakdown ? `
       ${genreByMonthChartHTML(months)}
@@ -7462,12 +7341,15 @@ function showYear(year) {
 function buildLogDetail() {
   const panel = document.getElementById('tab-log-detail');
   const years = availableReadingYears();
-  const selectedYear = years.includes(readingLogYear) ? readingLogYear : (years[0] || new Date().getFullYear());
+  const selectedYear = readingLogYear === 'all' || years.includes(Number(readingLogYear))
+    ? readingLogYear
+    : 'all';
   panel.innerHTML = `
     <div class="section-head">
       <h2>Reading Log</h2>
-      <select id="reading-log-year-select" onchange="showYear(this.value)" style="border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--deep);font:700 0.95rem 'Crimson Pro',serif;padding:0.35rem 0.55rem">
-        ${years.map(year => `<option value="${year}" ${year === selectedYear ? 'selected' : ''}>${year}</option>`).join('')}
+      <select id="reading-log-year-select" onchange="showYear(this.value)" aria-label="Reading year" style="border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--deep);font:700 0.95rem 'Crimson Pro',serif;padding:0.35rem 0.55rem">
+        <option value="all" ${selectedYear === 'all' ? 'selected' : ''}>All Years</option>
+        ${years.map(year => `<option value="${year}" ${Number(selectedYear) === year ? 'selected' : ''}>${year}</option>`).join('')}
       </select>
     </div>
     <div id="log-content"></div>
@@ -8185,7 +8067,6 @@ function refreshAfterPageCountSync() {
   rebuildReadYearBuckets();
   rebuildSeriesFromLibraryBooks();
   buildHeaderStats();
-  buildLog();
   buildLogDetail();
   buildBooks();
   buildTBR();
@@ -9755,7 +9636,6 @@ async function saveAddedBook() {
     }));
     rebuildSeriesFromLibraryBooks();
     buildHeaderStats();
-    buildLog();
     buildLogDetail();
     buildStats();
     buildBooks();
@@ -11054,7 +10934,6 @@ async function saveReadingSessionEditor() {
     await loadDatabaseBooks();
     rebuildReadYearBuckets();
     buildHeaderStats();
-    buildLog();
     buildLogDetail();
     buildBooks();
     buildSeries();
@@ -11084,7 +10963,6 @@ async function deleteReadingSession(bookKey, sessionId) {
     await loadDatabaseBooks();
     rebuildReadYearBuckets();
     buildHeaderStats();
-    buildLog();
     buildLogDetail();
     buildBooks();
     buildSeries();
@@ -11420,7 +11298,6 @@ async function saveStoryForBook(bookKey='', storyId='') {
     await loadDatabaseBooks();
     rebuildReadYearBuckets();
     buildHeaderStats();
-    buildLog();
     buildLogDetail();
     buildBooks();
     const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(book.title);
@@ -12205,7 +12082,6 @@ async function saveBookEditor(originalTitle, source='', key='') {
     updateLocalEditedBook(original, updated);
     rebuildSeriesFromLibraryBooks();
     buildHeaderStats();
-    buildLog();
     buildLogDetail();
     buildBooks();
     buildSeries();
@@ -14664,7 +14540,6 @@ async function startTracker() {
   if (_lo) _lo.style.display = 'none';
   buildHeaderStats();
   buildNav();
-  buildLog();
   buildLogDetail();
   buildSearch();
   buildBooks();
@@ -14817,7 +14692,6 @@ async function startGuestDemo() {
   rebuildSeriesFromLibraryBooks();
   buildHeaderStats();
   buildNav();
-  buildLog();
   buildLogDetail();
   buildBooks();
   buildSeries();
