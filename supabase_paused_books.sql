@@ -11,6 +11,13 @@ alter table public.books
   add constraint books_paused_page_check
   check (paused_page is null or paused_page > 0);
 
+-- Replace the old status checks so both the book and its reading session can use Paused.
+alter table public.books
+  drop constraint if exists books_status_check;
+
+alter table public.reading_sessions
+  drop constraint if exists reading_sessions_status_check;
+
 -- Keep existing On Hold books, but use the clearer Paused label everywhere.
 update public.books
 set status = 'Paused'
@@ -19,6 +26,14 @@ where status = 'On Hold';
 update public.reading_sessions
 set status = 'Paused'
 where status = 'On Hold';
+
+alter table public.books
+  add constraint books_status_check
+  check (status in ('TBR', 'Wishlist', 'Currently Reading', 'Read', 'DNF', 'Paused', 'On Hold'));
+
+alter table public.reading_sessions
+  add constraint reading_sessions_status_check
+  check (status in ('Currently Reading', 'Read', 'DNF', 'Paused', 'On Hold'));
 
 -- Preserve the existing system collection slug so saved routes and filters keep working.
 update public.collections

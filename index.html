@@ -1610,6 +1610,9 @@
 .series-card.suspended {
   border-left: 5px solid var(--muted);
 }
+.series-card.not-started {
+  border-left: 5px solid #64748b;
+}
 .series-state-badge {
   display: inline-block;
   border-radius: 3px;
@@ -1622,6 +1625,38 @@
 }
 .series-state-badge.abandoned { background: #a52a2a; }
 .series-state-badge.suspended { background: var(--muted); }
+.series-state-badge.not-started { background: #64748b; }
+.series-state-badge.in-progress { background: #2448b8; }
+.series-status-editor {
+  display: flex;
+  align-items: end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--aged);
+  padding: 0.7rem;
+}
+.series-status-editor label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.series-status-editor select {
+  min-width: 165px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--deep);
+  font: 700 0.95rem 'Crimson Pro', serif;
+  padding: 0.42rem 0.55rem;
+}
+.series-status-save-message { color: var(--muted); font-size: 0.8rem; }
 .series-reason {
   color: #7f1d1d;
   font-size: 0.78rem;
@@ -2849,6 +2884,9 @@
   .book-editor-row.publish-row {
     grid-template-columns: minmax(132px, 0.72fr) minmax(118px, 0.66fr) minmax(168px, 0.95fr) minmax(168px, 0.95fr) minmax(126px, 0.72fr);
   }
+  .book-editor-row.publish-row.paused-layout {
+    grid-template-columns: minmax(105px, 0.58fr) minmax(82px, 0.42fr) minmax(86px, 0.45fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(102px, 0.55fr);
+  }
   .book-editor-row.reading-row {
     grid-template-columns: minmax(112px, 0.55fr) minmax(230px, 1.35fr) minmax(190px, 1fr) minmax(170px, 0.9fr);
   }
@@ -3042,6 +3080,7 @@
     }
     .book-editor-row.core-row,
     .book-editor-row.publish-row,
+    .book-editor-row.publish-row.paused-layout,
     .book-editor-row.reading-row,
     .book-editor-row.status-row {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3054,6 +3093,7 @@
     .book-editor-row.series-row,
     .book-editor-row.core-row,
     .book-editor-row.publish-row,
+    .book-editor-row.publish-row.paused-layout,
     .book-editor-row.reading-row,
     .book-editor-row.status-row {
       grid-template-columns: 1fr;
@@ -4410,6 +4450,7 @@ let readTimesReadCleanupAttempted = false;
 let pageCountSyncRunning = false;
 let libraryCollections = [];
 let bookCollectionMemberships = new Map();
+let databaseSeriesRecords = new Map();
 let collectionEditorDraft = null;
 let readingLogYear = new Date().getFullYear();
 let tbrSortField = 'author';
@@ -4429,6 +4470,8 @@ let statsDatabaseRefreshMessage = '';
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
+
+const SERIES_STATUS_OPTIONS = ['Not Started', 'In Progress', 'Abandoned'];
 
 const DEFAULT_GENRE_COLORS = {
   fantasy:'#8e24aa',
@@ -5125,6 +5168,33 @@ function normalizedKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizeSeriesStatus(value, books=[]) {
+  const status = normalizedKey(value);
+  if (status === 'not started' || status === 'not-started') return 'Not Started';
+  if (status === 'abandoned' || status === 'temporarily suspended' || status === 'temp suspended' || status === 'suspended') return 'Abandoned';
+  if (status === 'in progress' || status === 'progress' || status === 'completed') return 'In Progress';
+  return books.some(book => ['Currently Reading', 'Read'].includes(libraryBookStatus(book)))
+    ? 'In Progress'
+    : 'Not Started';
+}
+
+function seriesStatusFromLegacy(series, books=[]) {
+  if (series?.status) return normalizeSeriesStatus(series.status, books);
+  if (series?.state === 'abandoned' || series?.state === 'suspended') return 'Abandoned';
+  if (series?.state === 'progress' || series?.state === 'completed') return 'In Progress';
+  if (series?.state === 'not-started') return 'Not Started';
+  return normalizeSeriesStatus('', books);
+}
+
+function seriesStatusClass(status) {
+  return normalizeSeriesStatus(status).toLowerCase().replace(/\s+/g, '-');
+}
+
+function seriesStatusBadgeHTML(status) {
+  const normalized = normalizeSeriesStatus(status);
+  return `<span class="series-state-badge ${seriesStatusClass(normalized)}">${esc(normalized)}</span>`;
+}
+
 const SYSTEM_COLLECTIONS = [
   ['All Books', 'all-books'],
   ['Read', 'read'],
@@ -5701,6 +5771,7 @@ async function importLibraryCSV(file) {
       if (source.reread && collectionBySlug('reread')?.id && !collectionBySlug('reread').id.startsWith('fallback:')) {
         await replaceBookCollectionMemberships(insertedBooks[index].id, [collectionBySlug('reread').id]);
       }
+      await promoteSeriesForBookStatus(source.status, insertedBooks[index].series_id, source.series);
     }
 
     const sessions = insertedBooks.flatMap((book, index) => {
@@ -5799,10 +5870,11 @@ async function importCurrentLibrary() {
         user_id: userId,
         author_id: authorIds.get(normalizedKey(s.author)) || null,
         name: s.series,
-        status: s.state === 'completed' ? 'Completed'
-          : s.state === 'suspended' ? 'Temporarily Suspended'
-          : s.state === 'abandoned' ? 'Abandoned'
-          : 'In Progress',
+        status: s.state === 'abandoned' || s.state === 'suspended'
+          ? 'Abandoned'
+          : s.state === 'progress' || s.state === 'completed'
+            ? 'In Progress'
+            : 'Not Started',
         rating: s.rating ?? null,
         books_read: s.books_read || 0,
         books_planned: s.total || null,
@@ -6055,6 +6127,7 @@ function updatePausedPageControls() {
     const wrap = document.getElementById(control.wrap);
     const page = document.getElementById(control.page);
     if (wrap) wrap.style.display = paused ? '' : 'none';
+    if (control.status === 'book-editor-status') wrap?.closest('.publish-row')?.classList.toggle('paused-layout', paused);
     if (page) page.required = paused;
     control.disabled.forEach(id => {
       const input = document.getElementById(id);
@@ -7046,31 +7119,50 @@ function rebuildReadYearBuckets() {
 }
 
 function rebuildSeriesFromLibraryBooks() {
+  const previousSeries = new Map((DATA.series || []).map(series => [normalizedKey(series.series), series]));
   const seriesGroups = new Map();
   allLibraryBooks().filter(book => String(book.series || '').trim()).forEach(book => {
     const key = normalizedKey(book.series);
     if (!seriesGroups.has(key)) {
-      seriesGroups.set(key, {series: book.series, author: book.author_full || book.author || book.author_short || '', books: []});
+      seriesGroups.set(key, {
+        series: book.series,
+        series_id: book.series_id || null,
+        author: book.author_full || book.author || book.author_short || '',
+        books: []
+      });
     }
+    if (!seriesGroups.get(key).series_id && book.series_id) seriesGroups.get(key).series_id = book.series_id;
     seriesGroups.get(key).books.push(book);
   });
   DATA.series = [...seriesGroups.values()].map(group => {
+    const record = databaseSeriesRecordFor(group.series_id, group.series);
+    const previous = previousSeries.get(normalizedKey(group.series));
     const read = group.books.filter(book => libraryBookStatus(book) === 'Read');
     const ratings = read.map(book => Number(book.rating)).filter(value => Number.isFinite(value));
     const total = Math.max(
       group.books.length,
-      ...group.books.map(book => Math.ceil(Number(book.series_position) || 0))
+      ...group.books.map(book => Math.ceil(Number(book.series_position) || 0)),
+      Number(record?.books_planned) || 0,
+      Number(previous?.total) || 0
     );
+    const status = record
+      ? seriesStatusFromLegacy(record, group.books)
+      : seriesStatusFromLegacy(previous, group.books);
+    const completed = Boolean(read.length && total && read.length >= total);
     return {
+      id: record?.id || group.series_id || previous?.id || null,
       series: group.series,
       author: group.author,
+      status,
       books_read: read.length,
       total,
       owned: group.books.filter(book => ownedValue(book.own)).length,
       rating: ratings.length
         ? Number((ratings.reduce((sum, value) => sum + value, 0) / ratings.length).toFixed(1))
-        : null,
-      state: read.length && read.length >= total ? 'completed' : 'progress'
+        : (Number(record?.rating ?? previous?.rating) || null),
+      state: status === 'Abandoned' ? 'abandoned' : (completed ? 'completed' : status === 'Not Started' ? 'not-started' : 'progress'),
+      done: completed ? '✅' : null,
+      reason: record?.reason || previous?.reason || ''
     };
   });
 }
@@ -7642,6 +7734,7 @@ function databaseBookToLocal(book) {
     author_full: author,
     author_short: author,
     series,
+    series_id: book.series_id || null,
     series_position: book.series_position ?? null,
     year_pub: publicationDate
       ? Number(String(publicationDate).slice(0, 4))
@@ -7776,6 +7869,41 @@ function removeBookFromLocalData(identity, databaseId='') {
   });
 }
 
+function databaseSeriesRecordFor(seriesId='', seriesName='') {
+  return databaseSeriesRecords.get(`id:${String(seriesId || '')}`)
+    || databaseSeriesRecords.get(`name:${normalizedKey(seriesName)}`)
+    || null;
+}
+
+function cacheDatabaseSeriesRecord(record) {
+  if (!record) return;
+  if (record.id) databaseSeriesRecords.set(`id:${String(record.id)}`, record);
+  if (record.name) databaseSeriesRecords.set(`name:${normalizedKey(record.name)}`, record);
+}
+
+async function loadDatabaseSeries() {
+  if (guestMode || !supabaseSession?.user?.id) return [];
+  let rows = null;
+  let lastError = null;
+  for (const select of [
+    'id,name,status,rating,books_read,books_planned,books_owned,reason,author_id',
+    'id,name,status,author_id',
+    'id,name,author_id',
+    'id,name'
+  ]) {
+    try {
+      rows = await supabaseTableRequest('series', {query: `?select=${select}&order=name.asc`});
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!rows) throw lastError || new Error('Could not load series from Supabase.');
+  databaseSeriesRecords = new Map();
+  rows.forEach(cacheDatabaseSeriesRecord);
+  return rows;
+}
+
 async function loadDatabaseBooks() {
   try {
     let books = null;
@@ -7810,6 +7938,12 @@ async function loadDatabaseBooks() {
     await ensureBookEditionPageCounts(books);
     await ensureUniqueEditions(books);
     books.forEach(book => mergeDatabaseBook(databaseBookToLocal(book)));
+    try {
+      await loadDatabaseSeries();
+    } catch (error) {
+      console.warn('Could not load series settings from Supabase:', error.message);
+      databaseSeriesRecords = new Map();
+    }
     return books.length;
   } catch (error) {
     console.warn('Could not merge books saved in Supabase:', error.message);
@@ -8497,7 +8631,7 @@ function openAddBookDialog(defaultStatus='TBR') {
           <option value="Paused" ${libraryBookStatus({status:defaultStatus})==='Paused'?'selected':''}>Paused</option>
         </select>
       </div>
-      <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at page</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
+      <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-started">Started</label><input id="add-book-started" type="date"></div>
       <div class="add-book-field"><label for="add-book-finished">Finished</label><input id="add-book-finished" type="date"></div>
@@ -9237,6 +9371,71 @@ async function findOrCreateLibraryRelation(table, name, extra={}) {
   return inserted?.[0]?.id || null;
 }
 
+async function resolveSeriesRecord(seriesId='', seriesName='') {
+  const cached = databaseSeriesRecordFor(seriesId, seriesName);
+  if (cached?.id && cached.status !== undefined) return cached;
+  if (!supabaseSession?.user?.id) return cached;
+  const query = seriesId
+    ? `?select=id,name,status&id=eq.${encodeURIComponent(seriesId)}&limit=1`
+    : `?select=id,name,status&name=eq.${encodeURIComponent(seriesName)}&limit=1`;
+  const rows = await supabaseTableRequest('series', {query});
+  const record = rows?.[0] || cached || null;
+  if (record) cacheDatabaseSeriesRecord(record);
+  return record;
+}
+
+async function promoteSeriesForBookStatus(bookStatus, seriesId='', seriesName='') {
+  if (!['Currently Reading', 'Read'].includes(bookStatus) || (!seriesId && !seriesName) || guestMode) return false;
+  try {
+    const record = await resolveSeriesRecord(seriesId, seriesName);
+    if (!record?.id) return false;
+    const current = normalizeSeriesStatus(record.status);
+    if (!['Not Started', 'Abandoned'].includes(current)) return false;
+    await supabaseTableRequest('series', {
+      method: 'PATCH',
+      query: `?id=eq.${encodeURIComponent(record.id)}`,
+      body: {status: 'In Progress'},
+      prefer: 'return=minimal'
+    });
+    cacheDatabaseSeriesRecord({...record, status: 'In Progress'});
+    return true;
+  } catch (error) {
+    console.warn('Could not update the series status automatically:', error.message);
+    return false;
+  }
+}
+
+async function saveSeriesStatus(seriesId='', seriesName='') {
+  const select = document.getElementById('series-status-select');
+  const message = document.getElementById('series-status-save-message');
+  const status = normalizeSeriesStatus(select?.value);
+  if (!SERIES_STATUS_OPTIONS.includes(status)) return;
+  if (guestMode || !supabaseSession?.user?.id) {
+    if (message) message.textContent = 'Sign in to save a series status.';
+    return;
+  }
+  if (message) message.textContent = 'Saving status...';
+  try {
+    const record = await resolveSeriesRecord(seriesId, seriesName);
+    if (!record?.id) throw new Error('This series is not linked to a Supabase series row.');
+    await supabaseTableRequest('series', {
+      method: 'PATCH',
+      query: `?id=eq.${encodeURIComponent(record.id)}`,
+      body: {status},
+      prefer: 'return=minimal'
+    });
+    cacheDatabaseSeriesRecord({...record, status});
+    rebuildSeriesFromLibraryBooks();
+    buildSeries();
+    if (message) message.textContent = `${status} saved.`;
+  } catch (error) {
+    const errorMessage = String(error?.message || 'The series status could not be saved.');
+    if (message) message.textContent = errorMessage.includes('status') || errorMessage.includes('schema cache')
+      ? 'Run supabase_series_status.sql in Supabase, then try again.'
+      : errorMessage;
+  }
+}
+
 function editionPayloadFromValues(values, sourceEdition={}) {
   const isbns = editionISBNs([], values.isbn);
   const pageCount = Number(values.page_count || sourceEdition.page_count) || null;
@@ -9508,6 +9707,7 @@ async function saveAddedBook() {
       addedReadingSession = Array.isArray(savedReadingSessions) ? savedReadingSessions[0] : savedReadingSessions;
       if (!addedReadingSession?.id) throw new Error('Supabase did not return the new reading session. The book was not added.');
     }
+    await promoteSeriesForBookStatus(status, seriesId, seriesName);
     databaseSaveComplete = true;
     mergeDatabaseBook(databaseBookToLocal({
       ...inserted[0],
@@ -10493,6 +10693,11 @@ async function saveBulkBookEdits() {
         ...patch,
         ...(isReadStatusValue(patch.status) && !hasTimesReadValue(book.times_read) ? {times_read: 1} : {})
       });
+      await promoteSeriesForBookStatus(
+        patch.status,
+        seriesEnabled ? patch.series_id : book.series_id,
+        seriesEnabled ? seriesName : book.series
+      );
     }
     booksBulkSelection.clear();
     booksBulkMode = false;
@@ -10723,7 +10928,7 @@ function openReadingSessionEditor(bookKey, sessionId='') {
         <div class="book-editor-field"><label for="reading-session-status">Status</label><select id="reading-session-status" onchange="updatePausedPageControls()">
           ${['Read','Currently Reading','DNF','Paused'].map(status => `<option value="${status}" ${sessionStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select></div>
-        <div class="book-editor-field" id="reading-session-paused-page-wrap" style="display:none"><label for="reading-session-paused-page">Paused at page</label><input id="reading-session-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
+        <div class="book-editor-field" id="reading-session-paused-page-wrap" style="display:none"><label for="reading-session-paused-page">Paused at</label><input id="reading-session-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
       </div>
       <div class="book-editor-field edit-all"><label for="reading-session-notes">Notes</label><textarea id="reading-session-notes" rows="6">${esc(session.notes || '')}</textarea></div>
     </div>
@@ -10810,6 +11015,7 @@ async function saveReadingSessionEditor() {
       bookPatch.paused_page = null;
     }
     await patchBookRow(book.database_id, bookPatch);
+    await promoteSeriesForBookStatus(statusValue, book.series_id, book.series);
     await loadDatabaseBooks();
     rebuildReadYearBuckets();
     buildHeaderStats();
@@ -11663,7 +11869,7 @@ function openBookEditor(title, source='', key='') {
       </div>
       <div class="book-editor-row publish-row">
         <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
-        <div class="book-editor-field" id="book-editor-paused-page-wrap" style="display:none"><label for="book-editor-paused-page">Paused at page</label><input id="book-editor-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
+        <div class="book-editor-field" id="book-editor-paused-page-wrap" style="display:none"><label for="book-editor-paused-page">Paused at</label><input id="book-editor-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-year">Pub Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
@@ -11763,6 +11969,9 @@ function bookEditorMigrationMessage(error) {
   if (message.includes('paused_page')) {
     return 'Paused-book storage is not enabled yet. Run supabase_paused_books.sql in Supabase, then save again.';
   }
+  if (message.includes('books_status_check') || message.includes('reading_sessions_status_check')) {
+    return 'The database still has the old status rule. Re-run supabase_paused_books.sql in Supabase, then save again.';
+  }
   if (message.includes('year_read')) {
     return 'Year Read storage is not enabled yet. Run supabase_reading_session_year.sql once, then save again.';
   }
@@ -11860,6 +12069,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
   try {
     const authorId = await findOrCreateLibraryRelation('authors', editedAuthor);
     const seriesId = await findOrCreateLibraryRelation('series', editedSeries, {author_id: authorId});
+    updated.series_id = seriesId;
     const mergeTarget = duplicateCanBeMerged ? duplicate : null;
     const mergeRetiredDatabaseId = mergeTarget?.database_id && original.database_id &&
       String(mergeTarget.database_id) !== String(original.database_id)
@@ -11954,6 +12164,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
         }
       }
     }
+    await promoteSeriesForBookStatus(statusValue, seriesId, editedSeries);
     updated.database_id = databaseId;
     if (mergeTarget) removeBookFromLocalData(bookIdentity(mergeTarget), mergeTarget.database_id || '');
     updateLocalEditedBook(original, updated);
@@ -12184,6 +12395,9 @@ async function updateBookStatus(title, status) {
         },
         prefer: 'return=minimal'
       });
+      await promoteSeriesForBookStatus(status, book.series_id, book.series);
+      rebuildSeriesFromLibraryBooks();
+      buildSeries();
       return;
     }
     await fetch(SHEET_URL, {
@@ -12252,13 +12466,14 @@ function buildSeries() {
     </div>
     <div class="series-filter-group">
       <button class="filter-btn active" onclick="filterSeries('all',this)">All</button>
+      <button class="filter-btn" onclick="filterSeries('not-started',this)">Not Started</button>
       <button class="filter-btn" onclick="filterSeries('progress',this)">In Progress</button>
       <button class="filter-btn" onclick="filterSeries('done',this)">Completed</button>
       <button class="filter-btn" onclick="filterSeries('abandoned',this)">Abandoned</button>
     </div>
     <div id="series-grid" class="series-grid"></div>
   `;
-  filterSeries(seriesFilterMode || 'all', panel.querySelector(`.filter-btn:nth-child(${Math.max(1, ['all','progress','done','abandoned'].indexOf(seriesFilterMode || 'all') + 1)})`));
+  filterSeries(seriesFilterMode || 'all', panel.querySelector(`.filter-btn:nth-child(${Math.max(1, ['all','not-started','progress','done','abandoned'].indexOf(seriesFilterMode || 'all') + 1)})`));
 }
 
 function genreForSeries(series) {
@@ -12277,13 +12492,14 @@ function filterSeries(mode, btn) {
   document.querySelectorAll('.series-filter-group .filter-btn').forEach(b=>b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   else {
-    const index = ['all','progress','done','abandoned'].indexOf(seriesFilterMode);
+    const index = ['all','not-started','progress','done','abandoned'].indexOf(seriesFilterMode);
     [...document.querySelectorAll('.series-filter-group .filter-btn')][index]?.classList.add('active');
   }
   let list = DATA.series.filter(s=>s.series && s.series!=='Completed' && s.author!=='Author');
-if (seriesFilterMode==='progress') list = list.filter(s=>s.state ? s.state==='progress' : !s.done);
-if (seriesFilterMode==='done') list = list.filter(s=>s.state ? s.state==='completed' : s.done==='✅');
-if (seriesFilterMode==='abandoned') list = list.filter(s=>s.state==='abandoned');
+if (seriesFilterMode==='not-started') list = list.filter(s=>seriesStatusFromLegacy(s)==='Not Started');
+if (seriesFilterMode==='progress') list = list.filter(s=>seriesStatusFromLegacy(s)==='In Progress');
+if (seriesFilterMode==='done') list = list.filter(s=>s.done==='✅' || s.state==='completed');
+if (seriesFilterMode==='abandoned') list = list.filter(s=>seriesStatusFromLegacy(s)==='Abandoned');
 list = [...list].sort((a,b) => {
   const aValue = seriesSortField === 'author'
     ? authorLastNameKey(a.author)
@@ -12310,12 +12526,13 @@ const pct = s.done === '✅'
   : (total ? Math.min(100, Math.round((read / total) * 100)) : 0);
 
     const r = parseFloat(s.rating);
-    const stateClass = s.state === 'abandoned' ? ' abandoned' : (s.state === 'suspended' ? ' suspended' : '');
+    const seriesStatus = seriesStatusFromLegacy(s);
+    const stateClass = seriesStatus === 'Abandoned' ? ' abandoned' : (seriesStatus === 'Not Started' ? ' not-started' : '');
     const seriesGenre = genreForSeries(s);
     return `<div class="series-card${stateClass}" onclick="openSeriesModal(${JSON.stringify(s).split('"').join('&quot;')}, event)">
       <div class="series-name">${esc(s.series)}</div>
-      <div class="series-author">${esc(s.author)}${seriesGenre ? ` · <span style="color:${genreColor(seriesGenre)}">${esc(seriesGenre)}</span>` : ''}${s.state==='abandoned' ? ' · <span class="series-state-badge abandoned">Abandoned</span>' : s.state==='suspended' ? ' · <span class="series-state-badge suspended">Paused</span>' : ''}</div>
-      ${s.state==='abandoned' && s.reason ? `<div class="series-reason">${esc(s.reason)}</div>` : ''}
+      <div class="series-author">${esc(s.author)}${seriesGenre ? ` · <span style="color:${genreColor(seriesGenre)}">${esc(seriesGenre)}</span>` : ''} · ${seriesStatusBadgeHTML(seriesStatus)}</div>
+      ${seriesStatus==='Abandoned' && s.reason ? `<div class="series-reason">${esc(s.reason)}</div>` : ''}
       <div class="series-progress"><div class="series-bar" style="width:${pct}%"></div></div>
       <div class="series-footer">
         <span style="font-size:0.8rem;color:var(--muted)">${read} / ${total || '?'} books · <span style="color:var(--gold);font-size:0.75rem">click to expand</span></span>
@@ -13379,16 +13596,25 @@ function openSeriesModal(s, evt) {
   document.getElementById('modal-series-name').textContent = s.series;
   const r = parseFloat(s.rating);
   const unread = Math.max(0, (s.total||0) - (s.books_read||0));
+  const seriesStatus = seriesStatusFromLegacy(s, seriesBooks);
   document.getElementById('modal-series-sub').textContent =
     `${s.author} · ${s.books_read||0} of ${s.total||'?'} books read` +
     (!isNaN(r) ? ` · Series rating: ${r}` : '') +
     (s.done==='✅' ? ' · Completed ✅' : '') +
-(s.state==='abandoned' ? ' · Abandoned' : '') +
-(s.state==='suspended' ? ' · Temporarily Suspended' : '');
+    ` · ${seriesStatus}`;
 
-let rows = s.state === 'abandoned' && s.reason
-  ? `<div class="series-reason-callout"><strong>Why it was abandoned</strong><div style="margin-top:0.25rem">${esc(s.reason)}</div></div>`
-  : '';
+let rows = `<div class="series-status-editor">
+  <label for="series-status-select">Series status
+    <select id="series-status-select" ${guestMode ? 'disabled' : ''}>
+      ${SERIES_STATUS_OPTIONS.map(status => `<option value="${status}" ${status === seriesStatus ? 'selected' : ''}>${status}</option>`).join('')}
+    </select>
+  </label>
+  <button class="account-primary" type="button" ${guestMode ? 'disabled' : ''} onclick="saveSeriesStatus(${jsArg(s.id || '')},${jsArg(s.series || '')})">Save Status</button>
+  <span class="series-status-save-message" id="series-status-save-message">${guestMode ? 'Sign in to save status changes.' : ''}</span>
+</div>`;
+if (s.state === 'abandoned' && s.reason) {
+  rows += `<div class="series-reason-callout"><strong>Why it was abandoned</strong><div style="margin-top:0.25rem">${esc(s.reason)}</div></div>`;
+}
   if (seriesBooks.length) {
     rows += seriesBooks.map(b => {
       const coverEl = coverImageHTML(b, 'modal-cover', 'modal-cover');
@@ -14520,6 +14746,7 @@ function buildGuestDemoData() {
       rating: read.length
         ? read.reduce((sum, book) => sum + (Number(book.rating) || 0), 0) / read.length
         : null,
+      status: read.length ? 'In Progress' : 'Not Started',
       state: read.length === group.books.length ? 'completed' : 'progress'
     };
   });
