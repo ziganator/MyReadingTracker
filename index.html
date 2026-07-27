@@ -477,6 +477,28 @@
     color: var(--burnt);
     font-weight: 700;
   }
+  .reading-calendar-scroll {
+    overflow: hidden;
+  }
+  .reading-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .reading-calendar-day,
+  .reading-calendar-bar {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .reading-calendar-title {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .controls input { min-width: 220px; }
   .controls input:focus, .controls select:focus { outline: 2px solid var(--gold); }
   .library-toolbar {
@@ -3538,11 +3560,11 @@
     gap: 0.65rem !important;
   }
 
-  #tab-month [style*="grid-template-columns:repeat(7,1fr)"] {
+  #tab-month .reading-calendar-grid {
     min-width: 760px;
   }
 
-  #tab-month [style*="overflow:hidden;box-shadow"] {
+  #tab-month .reading-calendar-scroll {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
   }
@@ -6312,6 +6334,44 @@ function recordedActivitySpans(book) {
     addSpan(started, finished);
   });
   return spans;
+}
+
+function calendarActivitySpans(book) {
+  const spans = recordedActivitySpans(book);
+  const hasDatedStories = (Array.isArray(book?.short_stories) ? book.short_stories : [])
+    .some(story => localDate(story?.started_on || story?.read_on || story?.finished_on || ''));
+  if (!hasDatedStories || spans.length < 2) return spans;
+
+  const datedSpans = spans
+    .map(span => {
+      const startDate = localDate(span.start);
+      const endDate = localDate(span.end);
+      if (!startDate || !endDate) return null;
+      return startDate <= endDate
+        ? {startDate, endDate}
+        : {startDate: endDate, endDate: startDate};
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.startDate - b.startDate || a.endDate - b.endDate);
+
+  return datedSpans.reduce((merged, span) => {
+    const previous = merged[merged.length - 1];
+    if (!previous) {
+      merged.push({...span});
+      return merged;
+    }
+    const dayAfterPrevious = new Date(previous.endDate);
+    dayAfterPrevious.setDate(dayAfterPrevious.getDate() + 1);
+    if (span.startDate <= dayAfterPrevious) {
+      if (span.endDate > previous.endDate) previous.endDate = span.endDate;
+    } else {
+      merged.push({...span});
+    }
+    return merged;
+  }, []).map(span => ({
+    start: localDateKey(span.startDate),
+    end: localDateKey(span.endDate)
+  }));
 }
 
 function monthKeyFromBook(b) {
@@ -13953,7 +14013,8 @@ function showMonthSummary(yearMonth, updateRoute=true) {
   const daysInMonth = new Date(year, mon, 0).getDate();
   const firstDow = new Date(year, mon-1, 1).getDay(); // 0=Sun
 
-  // Build a map of every recorded reading span, preserving any pause gap.
+  // Build a map of calendar reading spans, preserving pause gaps while
+  // consolidating a short-story collection into one lane.
   const dayBooks = {};
   const bookLane = {};
   let laneCounter = 0;
@@ -13961,7 +14022,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
     const gc = genreColor(b.genre);
     const monthStart = new Date(year, mon-1, 1);
     const monthEnd = new Date(year, mon-1, daysInMonth);
-    recordedActivitySpans(b).forEach((span, spanIndex) => {
+    calendarActivitySpans(b).forEach((span, spanIndex) => {
       const rawStart = localDate(span.start);
       const rawEnd = localDate(span.end);
       if (!rawStart || !rawEnd || rawStart > monthEnd || rawEnd < monthStart) return;
@@ -13969,7 +14030,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       const clampEnd = rawEnd > monthEnd ? monthEnd : rawEnd;
       const sd = clampStart.getDate();
       const ed = clampEnd.getDate();
-      const laneKey = `${b._reading_session_id || b.database_id || bookIdentity(b)}|${bookIndex}|${spanIndex}`;
+      const laneKey = `${b._reading_session_id || b.database_id || bookIdentity(b)}|${bookIndex}`;
       if (!(laneKey in bookLane)) bookLane[laneKey] = laneCounter++ % 4;
       for (let d = sd; d <= ed; d++) {
         if (!dayBooks[d]) dayBooks[d] = [];
@@ -14014,19 +14075,19 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       const radius = `border-radius:${entry.isStart?'4px':'0'} ${entry.isEnd?'4px':'0'} ${entry.isEnd?'4px':'0'} ${entry.isStart?'4px':'0'}`;
       const borderL = entry.isStart ? '' : 'border-left:none;';
       const borderR = entry.isEnd ? '' : 'border-right:none;';
-      const label = entry.isStart ? `<span style="padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:clip;display:block;max-width:100%">${esc(titleShort)}</span>` : '';
-      const barBackground = isPaused ? 'var(--gold)' : (isCurrentlyReading ? 'var(--burnt)' : entry.color);
+      const label = entry.isStart ? `<span class="reading-calendar-title">${esc(titleShort)}</span>` : '';
+      const barBackground = entry.color;
       const barOutline = isPaused || isCurrentlyReading ? 'box-shadow:inset 0 0 0 2px var(--gold-light);' : '';
-      const barTextColor = isPaused ? 'var(--deep)' : '#fff';
+      const barTextColor = contrastingTextColor(barBackground);
       const spanDates = `${entry.span.start}${entry.span.end && entry.span.end !== entry.span.start ? ' → ' + entry.span.end : ''}`;
-      return `<div style="background:${barBackground};color:${barTextColor};font-size:0.7rem;font-weight:600;height:20px;line-height:20px;margin:1px 0;${radius};${borderL}${borderR};${barOutline}overflow:hidden;cursor:pointer;font-family:'Crimson Pro',serif"
+      return `<div class="reading-calendar-bar" style="background:${barBackground};color:${barTextColor};font-size:0.7rem;font-weight:600;height:20px;line-height:20px;margin:1px 0;${radius};${borderL}${borderR};${barOutline}cursor:pointer;font-family:'Crimson Pro',serif"
   title="${esc(b.title)} · ${isPaused ? 'Paused · ' : (isCurrentlyReading ? 'Currently Reading · ' : '')}${esc(spanDates)}"
         data-title="${esc(b.title).replace(/"/g,'&quot;')}" onclick="openMonthBookModal(this.dataset.title, event)">
         ${label}
       </div>`;
     }).join('');
 
-    cells += `<div style="border:1px solid var(--border);min-height:110px;padding:4px;background:${!isValid?'#eef2ff':isWeekend?'#f7f8ff':'var(--card-bg)'};${isToday?'outline:2px solid var(--gold);outline-offset:-2px;':''};position:relative">
+    cells += `<div class="reading-calendar-day" style="border:1px solid var(--border);min-height:110px;padding:4px;background:${!isValid?'#eef2ff':isWeekend?'#f7f8ff':'var(--card-bg)'};${isToday?'outline:2px solid var(--gold);outline-offset:-2px;':''};position:relative">
       <div style="font-size:0.8rem;font-weight:${isToday?'900':'600'};color:${isToday?'#fff':isWeekend?'var(--burnt)':'var(--deep)'};${isToday?'background:var(--gold);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;':''};margin-bottom:3px">${isValid?day:''}</div>
       ${bookBars}
     </div>`;
@@ -14098,8 +14159,8 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       </div>
 
       <!-- Calendar grid -->
-      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 2px 12px var(--shadow)">
-        <div style="display:grid;grid-template-columns:repeat(7,1fr)">
+      <div class="reading-calendar-scroll" style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 2px 12px var(--shadow)">
+        <div class="reading-calendar-grid">
           ${dayHeaders}
           ${cells}
         </div>
