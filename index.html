@@ -2951,7 +2951,7 @@
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
   .book-editor-mode-scope.editor-minimal .book-editor-row.reading-row {
-    grid-template-columns: minmax(112px, 0.55fr) minmax(210px, 1.25fr);
+    grid-template-columns: minmax(112px, 1fr);
   }
   .book-editor-grid .full { grid-column: 2 / -1; }
   .book-editor-grid .edit-all { grid-column: 1 / -1; }
@@ -2982,7 +2982,7 @@
     grid-template-columns: minmax(86px, 0.5fr) minmax(76px, 0.42fr) repeat(2, minmax(126px, 0.75fr)) minmax(82px, 0.46fr) repeat(2, minmax(126px, 0.75fr)) minmax(92px, 0.5fr);
   }
   .book-editor-row.reading-row {
-    grid-template-columns: minmax(105px, 0.52fr) minmax(170px, 0.9fr) minmax(190px, 1.15fr) minmax(168px, 1fr) minmax(140px, 0.78fr);
+    grid-template-columns: minmax(105px, 0.52fr) minmax(190px, 1.15fr) minmax(168px, 1fr) minmax(140px, 0.78fr);
   }
   .book-editor-row.status-row {
     grid-template-columns: minmax(160px, 0.8fr) minmax(260px, 1.35fr) minmax(260px, 1.5fr);
@@ -5010,10 +5010,6 @@ function buildGuestBookClubData() {
   activeBookClubHubId = clubId;
 }
 
-function bookClubName(bookClubId='') {
-  return bookClubs.find(club => String(club.id) === String(bookClubId || ''))?.name || '';
-}
-
 function ownsBookClub(club) {
   if (!club) return false;
   if (guestMode) return String(club.user_id) === 'guest';
@@ -5048,17 +5044,6 @@ function currentUserBookClubInvitations() {
     (!invitation.expires_at || new Date(invitation.expires_at).getTime() > Date.now()) &&
     !isBookClubMember(bookClubById(invitation.club_id))
   );
-}
-
-function bookClubOptionsHTML(selectedId='') {
-  const selected = String(selectedId || '');
-  const options = userBookClubs().map(club =>
-    `<option value="${esc(club.id)}" ${String(club.id) === selected ? 'selected' : ''}>${esc(club.name)}</option>`
-  ).join('');
-  const unavailable = !bookClubsStorageAvailable
-    ? '<option value="" disabled>Run the Book Clubs migration to enable</option>'
-    : '';
-  return `<option value="" ${selected ? '' : 'selected'}>No book club</option>${options}${unavailable}`;
 }
 
 async function saveUserSettings(settings) {
@@ -9205,7 +9190,6 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field"><label for="add-book-rating">Rating</label><input id="add-book-rating" type="number" min="0" max="10" step="0.1"></div>
       <div class="add-book-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
       <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
-      <div class="add-book-field"><label for="add-book-book-club">Book Club</label><select id="add-book-book-club" ${bookClubsStorageAvailable ? '' : 'disabled'}>${bookClubOptionsHTML()}</select></div>
       <div class="add-book-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       <div class="add-book-field editor-optional"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
       <div class="add-book-field"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
@@ -10266,9 +10250,6 @@ async function saveAddedBook() {
       notes: document.getElementById('add-book-notes')?.value.trim() || null,
       ...editionFields
     };
-    if (bookClubsStorageAvailable) {
-      row.book_club_id = document.getElementById('add-book-book-club')?.value || null;
-    }
     const inserted = await insertBookRow(row);
     insertedBookId = inserted[0]?.id || null;
     let insertedEditionId = null;
@@ -12108,7 +12089,6 @@ function renderBookDetailPage(title, source='', key='') {
               ${field('Times Read', b.times_read)}
               ${field('Owned', b.own)}
               ${field('Format', b.format)}
-              ${field('Book Club', bookClubName(b.book_club_id))}
               ${isShortStoryCollection(b) ? field('Full Book', usesFullBookPageCount(b) ? 'Yes' : 'No') : ''}
             </div>
             <div class="book-card-detail-column">
@@ -12507,7 +12487,6 @@ function openBookEditor(title, source='', key='') {
       </div>
       <div class="book-editor-row reading-row">
         <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-book-club">Book Club</label><select id="book-editor-book-club" ${bookClubsStorageAvailable ? '' : 'disabled'}>${bookClubOptionsHTML(book.book_club_id)}</select></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-signed">Signed</label><select id="book-editor-signed">${signedOptionsHTML(book.signed || '')}</select></div>
@@ -12690,9 +12669,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     author_short: editedAuthor,
     series: editedSeries || original.series || '',
     series_position: keepNumber('book-editor-series-position', original.series_position),
-    book_club_id: bookClubsStorageAvailable
-      ? (bookEditorValue('book-editor-book-club') || null)
-      : (original.book_club_id || null),
+    book_club_id: original.book_club_id || null,
     year_pub: keepNumber('book-editor-year', original.year_pub),
     genre: normalizeBookGenre(keepText('book-editor-genre', original.genre)),
     isbn: isbn || original.isbn || '',
@@ -12749,9 +12726,6 @@ async function saveBookEditor(originalTitle, source='', key='') {
     if (changedText(editedAuthor, comparisonBook.author_full || comparisonBook.author || comparisonBook.author_short)) bookPatch.author_id = authorId;
     if (changedText(editedSeries, comparisonBook.series)) bookPatch.series_id = seriesId;
     if (changedValue(updated.series_position, comparisonBook.series_position)) bookPatch.series_position = updated.series_position;
-    if (bookClubsStorageAvailable && changedText(updated.book_club_id, comparisonBook.book_club_id)) {
-      bookPatch.book_club_id = updated.book_club_id || null;
-    }
     if (changedValue(updated.year_pub, comparisonBook.year_pub)) bookPatch.publication_year = updated.year_pub;
     if (changedText(updated.genre, comparisonBook.genre)) bookPatch.genre = updated.genre || null;
     if (changedText(updated.isbn, comparisonBook.isbn)) bookPatch.isbn = updated.isbn || null;
