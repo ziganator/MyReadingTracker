@@ -4458,6 +4458,10 @@
   .club-summary-value { color:var(--deep); font:700 1.65rem 'Playfair Display',serif; }
   .club-summary-label { margin-top:.15rem; color:var(--muted); font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
   .club-manager-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,355px),1fr)); gap:1rem; }
+  .club-discovery { margin-top:1.25rem; padding-top:1.1rem; border-top:2px solid transparent; border-image:var(--accent-gradient) 1; }
+  .club-discovery-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:.85rem; }
+  .club-discovery-head h3 { margin:0; color:var(--deep); font:700 1.35rem 'Playfair Display',serif; }
+  .club-discovery-head p { margin:.2rem 0 0; color:var(--muted); font-size:.84rem; }
   .club-manager-card,.club-hub-panel { min-width:0; padding:1rem; border:1px solid var(--border); border-radius:10px; background:#fff; box-shadow:0 6px 20px rgba(23,45,95,.07); }
   .club-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; padding-bottom:.7rem; border-bottom:1px solid var(--border); }
   .club-card-head h3,.club-hub-panel h3 { margin:0; color:var(--deep); font:700 1.15rem 'Playfair Display',serif; }
@@ -4519,6 +4523,10 @@
   .club-timezone-picker button { min-height:42px; padding:.5rem .75rem; border:1px solid rgba(65,105,225,.42); border-radius:8px; background:#fff; color:var(--deep); cursor:pointer; font:750 .78rem inherit; white-space:nowrap; }
   .club-timezone-picker button:hover { border-color:var(--gold); background:#fff7f0; }
   .club-timezone-help { margin:0; color:var(--muted); font-size:.72rem; line-height:1.35; }
+  .club-enrollment-toggle { display:flex; align-items:flex-start; gap:.65rem; padding:.7rem .75rem; border:1px solid var(--border); border-radius:8px; background:rgba(65,105,225,.045); }
+  .club-enrollment-toggle input { width:auto !important; margin:.18rem 0 0; accent-color:#4169e1; }
+  .club-enrollment-toggle strong { display:block; color:var(--ink); font-size:.86rem; }
+  .club-enrollment-toggle span { display:block; margin-top:.12rem; color:var(--muted); font-size:.74rem; line-height:1.35; }
   .club-form-note { grid-column:1/-1; margin:0; color:var(--muted); font-size:.76rem; }
   .club-roster-list { display:grid; gap:.55rem; margin-bottom:1rem; }
   .club-roster-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.65rem; border-radius:8px; background:rgba(65,105,225,.045); }
@@ -4760,9 +4768,13 @@ let bookCollectionMemberships = new Map();
 let bookClubs = [];
 let bookClubMembers = [];
 let bookClubReads = [];
+let bookClubInvitations = [];
 let bookClubsStorageAvailable = false;
 let bookClubWorkspaceAvailable = false;
+let bookClubInvitationsAvailable = false;
 let activeBookClubHubId = '';
+let showOpenBookClubs = false;
+let pendingClubInvitationToken = '';
 let databaseSeriesRecords = new Map();
 let collectionEditorDraft = null;
 let readingLogYear = 'all';
@@ -4878,8 +4890,10 @@ async function loadBookClubs() {
   bookClubs = [];
   bookClubMembers = [];
   bookClubReads = [];
+  bookClubInvitations = [];
   bookClubsStorageAvailable = false;
   bookClubWorkspaceAvailable = false;
+  bookClubInvitationsAvailable = false;
   if (guestMode) {
     buildGuestBookClubData();
     return;
@@ -4896,11 +4910,19 @@ async function loadBookClubs() {
         supabaseTableRequest('book_club_reads', {query: '?select=*&order=start_date.asc.nullslast,created_at.asc'})
       ]);
       bookClubWorkspaceAvailable = true;
+      try {
+        bookClubInvitations = await supabaseTableRequest('book_club_invitations', {
+          query:'?select=*&order=created_at.desc'
+        });
+        bookClubInvitationsAvailable = true;
+      } catch (error) {
+        console.warn('Book club invitations need the latest supabase_book_clubs.sql migration:',error.message);
+      }
     } catch (error) {
       console.warn('Book club rosters and selections need the latest supabase_book_clubs.sql migration:', error.message);
     }
-    if (!bookClubs.some(club => String(club.id) === String(activeBookClubHubId))) {
-      activeBookClubHubId = bookClubs[0]?.id || '';
+    if (!userBookClubs().some(club => String(club.id) === String(activeBookClubHubId))) {
+      activeBookClubHubId = userBookClubs()[0]?.id || '';
     }
   } catch (error) {
     console.warn('Book clubs are unavailable until supabase_book_clubs.sql is applied:', error.message);
@@ -4922,7 +4944,20 @@ function buildGuestBookClubData() {
     cadence: 'Monthly',
     usual_meeting_day: 'Second Thursday',
     usual_meeting_time: '19:00',
-    timezone: 'America/Los_Angeles'
+    timezone: 'America/Los_Angeles',
+    open_enrollment: false
+  },{
+    id:'guest-club-open',
+    user_id:'guest-community',
+    name:'Speculative Fiction Society',
+    description:'An open monthly club exploring science fiction, fantasy, and speculative ideas from every era.',
+    meeting_format:'Online',
+    online_url:'https://meet.example.com/speculative-fiction',
+    cadence:'Monthly',
+    usual_meeting_day:'Last Sunday',
+    usual_meeting_time:'16:00',
+    timezone:'America/New_York',
+    open_enrollment:true
   }];
   bookClubMembers = [
     {id:'guest-member-1', club_id:clubId, display_name:'Alex Morgan', email:'alex@example.com', role:'Organizer', timezone:'America/Los_Angeles', joined_on:'2025-09-11'},
@@ -4956,8 +4991,12 @@ function buildGuestBookClubData() {
       meeting_format:'In Person', location:'Pasadena Central Library · Study Room B', rating:8.6
     }
   ];
+  bookClubInvitations = [
+    {id:'guest-invite-1',club_id:clubId,token:'11111111-1111-4111-8111-111111111111',email:'reader@example.com',invitee_name:'Taylor Reader',role:'Member',status:'Pending',expires_at:'2026-08-31T23:59:59Z',created_at:'2026-07-28T12:00:00Z'}
+  ];
   bookClubsStorageAvailable = true;
   bookClubWorkspaceAvailable = true;
+  bookClubInvitationsAvailable = true;
   activeBookClubHubId = clubId;
 }
 
@@ -4965,9 +5004,45 @@ function bookClubName(bookClubId='') {
   return bookClubs.find(club => String(club.id) === String(bookClubId || ''))?.name || '';
 }
 
+function ownsBookClub(club) {
+  if (!club) return false;
+  if (guestMode) return String(club.user_id) === 'guest';
+  return Boolean(supabaseSession?.user?.id && String(club.user_id) === String(supabaseSession.user.id));
+}
+
+function isBookClubMember(club) {
+  if (!club) return false;
+  if (guestMode) return String(club.id) === 'guest-club-midnight';
+  const accountId = supabaseSession?.user?.id || '';
+  return bookClubMembers.some(member => String(member.club_id) === String(club.id) && accountId && String(member.account_user_id || '') === String(accountId));
+}
+
+function userBookClubs() {
+  return bookClubs.filter(club => ownsBookClub(club) || isBookClubMember(club));
+}
+
+function ownedBookClubs() {
+  return bookClubs.filter(ownsBookClub);
+}
+
+function discoverableOpenBookClubs() {
+  return bookClubs.filter(club => Boolean(club.open_enrollment) && !ownsBookClub(club) && !isBookClubMember(club));
+}
+
+function currentUserBookClubInvitations() {
+  const email = normalizedKey(supabaseSession?.user?.email || '');
+  if (!email || guestMode) return [];
+  return bookClubInvitations.filter(invitation =>
+    invitation.status === 'Pending' &&
+    normalizedKey(invitation.email) === email &&
+    (!invitation.expires_at || new Date(invitation.expires_at).getTime() > Date.now()) &&
+    !isBookClubMember(bookClubById(invitation.club_id))
+  );
+}
+
 function bookClubOptionsHTML(selectedId='') {
   const selected = String(selectedId || '');
-  const options = bookClubs.map(club =>
+  const options = userBookClubs().map(club =>
     `<option value="${esc(club.id)}" ${String(club.id) === selected ? 'selected' : ''}>${esc(club.name)}</option>`
   ).join('');
   const unavailable = !bookClubsStorageAvailable
@@ -6793,7 +6868,7 @@ function buildHeaderStats() {
 function buildNav() {
   const tabs = [
     ['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
-    ['clubs','Book Clubs'],['club-hub','Club Hub'],['authors','Authors'],['picker','Picker']
+    ['club-hub','Club Hub'],['authors','Authors'],['picker','Picker']
   ];
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
     `<button onclick="switchTab('${id}')" id="nav-${id}" type="button">${label}</button>`
@@ -6896,6 +6971,15 @@ function applyHashRoute() {
     history.replaceState(appHistoryState(), '', '#books');
   } else if (!history.state?.readingTrackerEntry) {
     history.replaceState(appHistoryState(), '', window.location.href);
+  }
+  const invitationRoute = String(window.location.hash || '').match(/^#club-invite\/([0-9a-f-]{36})$/i);
+  if (invitationRoute) {
+    showTab('club-hub','content');
+    if (pendingClubInvitationToken !== invitationRoute[1]) {
+      pendingClubInvitationToken = invitationRoute[1];
+      setTimeout(() => openBookClubInvitation(invitationRoute[1]),0);
+    }
+    return;
   }
   const bookRoute = parseBookRoute();
   if (bookRoute) {
@@ -14094,7 +14178,7 @@ function clubReadsFor(clubId) {
 }
 
 function canManageBookClub(club) {
-  return !guestMode && Boolean(club && supabaseSession?.user?.id && String(club.user_id) === String(supabaseSession.user.id));
+  return !guestMode && ownsBookClub(club);
 }
 
 function currentClubRead(clubId) {
@@ -14212,15 +14296,19 @@ function clubReadCoverHTML(read, className='club-read-cover') {
 function bookClubStorageCallout() {
   if (guestMode) return `<div class="club-callout">This is sample data for the test page. Sign in and run <strong>supabase_book_clubs.sql</strong> when you are ready to create a real club.</div>`;
   if (!bookClubsStorageAvailable) return `<div class="club-callout warning"><strong>Book Clubs need to be enabled.</strong> Run <strong>supabase_book_clubs.sql</strong> in Supabase, then refresh this page.</div>`;
-  if (!bookClubWorkspaceAvailable) return `<div class="club-callout warning"><strong>The basic club list is available, but the manager needs the latest migration.</strong> Re-run <strong>supabase_book_clubs.sql</strong> to add rosters, selections, and meetings.</div>`;
-  return `<div class="club-callout">Test page: club details are live account data. Invitations and group chat are intentionally reserved for the next phase.</div>`;
+  if (!bookClubWorkspaceAvailable || !bookClubInvitationsAvailable) return `<div class="club-callout warning"><strong>The club workspace needs the latest migration.</strong> Re-run <strong>supabase_book_clubs.sql</strong> to add invitations and open enrollment.</div>`;
+  return `<div class="club-callout">Club details, invitations, enrollment, rosters, selections, and meetings are live account data.</div>`;
 }
 
 function buildBookClubs() {
   const panel = document.getElementById('tab-clubs');
   if (!panel) return;
-  const activeReads = bookClubReads.filter(read => read.status === 'Current').length;
-  const scheduled = bookClubReads.filter(read => read.meeting_at && new Date(read.meeting_at).getTime() >= Date.now()).length;
+  const managedClubs = ownedBookClubs();
+  const managedIds = new Set(managedClubs.map(club => String(club.id)));
+  const managedMembers = bookClubMembers.filter(member => managedIds.has(String(member.club_id)));
+  const managedReads = bookClubReads.filter(read => managedIds.has(String(read.club_id)));
+  const activeReads = managedReads.filter(read => read.status === 'Current').length;
+  const scheduled = managedReads.filter(read => read.meeting_at && new Date(read.meeting_at).getTime() >= Date.now()).length;
   const canCreate = !guestMode && bookClubsStorageAvailable;
   panel.innerHTML = `<div class="club-page">
     <div class="club-page-head">
@@ -14232,12 +14320,12 @@ function buildBookClubs() {
     </div>
     ${bookClubStorageCallout()}
     <div class="club-summary-grid">
-      <div class="club-summary-card"><div class="club-summary-value">${bookClubs.length}</div><div class="club-summary-label">Clubs</div></div>
-      <div class="club-summary-card"><div class="club-summary-value">${bookClubMembers.length}</div><div class="club-summary-label">Members</div></div>
+      <div class="club-summary-card"><div class="club-summary-value">${managedClubs.length}</div><div class="club-summary-label">Clubs Managed</div></div>
+      <div class="club-summary-card"><div class="club-summary-value">${managedMembers.length}</div><div class="club-summary-label">Members</div></div>
       <div class="club-summary-card"><div class="club-summary-value">${activeReads}</div><div class="club-summary-label">Current Reads</div></div>
       <div class="club-summary-card"><div class="club-summary-value">${scheduled}</div><div class="club-summary-label">Meetings Ahead</div></div>
     </div>
-    ${bookClubs.length ? `<div class="club-manager-grid">${bookClubs.map(club => bookClubManagerCardHTML(club)).join('')}</div>` : `
+    ${managedClubs.length ? `<div class="club-manager-grid">${managedClubs.map(club => bookClubManagerCardHTML(club)).join('')}</div>` : `
       <div class="club-empty"><h3>No book clubs yet</h3><p>Create your first club, then add members and choose what everyone will read.</p>${canCreate ? `<button class="account-primary" type="button" onclick="openBookClubEditor()">Create a Book Club</button>` : ''}</div>`}
   </div>`;
 }
@@ -14250,7 +14338,7 @@ function bookClubManagerCardHTML(club) {
   const canManage = canManageBookClub(club);
   const schedule = [club.cadence, club.usual_meeting_day, club.usual_meeting_time ? String(club.usual_meeting_time).slice(0,5) : ''].filter(Boolean).join(' · ') || 'Not set';
   return `<article class="club-manager-card">
-    <div class="club-card-head"><div><h3>${esc(club.name)}</h3><div class="club-card-meta">${members.length} member${members.length === 1 ? '' : 's'} · ${reads.length} selection${reads.length === 1 ? '' : 's'}</div></div>${clubStatusHTML(current?.status || 'Planning')}</div>
+    <div class="club-card-head"><div><h3>${esc(club.name)}</h3><div class="club-card-meta">${members.length} member${members.length === 1 ? '' : 's'} · ${reads.length} selection${reads.length === 1 ? '' : 's'} · ${club.open_enrollment ? 'Open Enrollment' : 'Invitation Only'}</div></div>${clubStatusHTML(current?.status || 'Planning')}</div>
     <p class="club-card-description">${esc(club.description || 'No club description yet.')}</p>
     <div class="club-detail-list">
       <div class="club-detail-row"><span>Current selection</span><strong>${esc(current ? `${current.title}${current.author ? ` · ${current.author}` : ''}` : 'None selected')}</strong></div>
@@ -14262,13 +14350,14 @@ function bookClubManagerCardHTML(club) {
       <button class="primary" type="button" onclick="openBookClubHub(${jsArg(club.id)})">View Hub</button>
       <button type="button" onclick="openBookClubEditor(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Edit Club</button>
       <button type="button" onclick="openBookClubMembers(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Members</button>
+      <button type="button" onclick="openBookClubInvitations(${jsArg(club.id)})" ${canManage && bookClubInvitationsAvailable ? '' : 'disabled'}>Invitations</button>
       <button type="button" onclick="openBookClubSelections(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Selections</button>
     </div>
   </article>`;
 }
 
 function openBookClubHub(clubId) {
-  activeBookClubHubId = clubId || bookClubs[0]?.id || '';
+  activeBookClubHubId = clubId || userBookClubs()[0]?.id || '';
   buildBookClubHub();
   switchTab('club-hub');
 }
@@ -14281,18 +14370,51 @@ function selectBookClubHub(clubId) {
 function buildBookClubHub() {
   const panel = document.getElementById('tab-club-hub');
   if (!panel) return;
-  if (!bookClubs.some(club => String(club.id) === String(activeBookClubHubId))) activeBookClubHubId = bookClubs[0]?.id || '';
+  const joinedClubs = userBookClubs();
+  const openClubs = discoverableOpenBookClubs();
+  const pendingInvitations = currentUserBookClubInvitations();
+  if (!joinedClubs.some(club => String(club.id) === String(activeBookClubHubId))) activeBookClubHubId = joinedClubs[0]?.id || '';
   const club = bookClubById(activeBookClubHubId);
   panel.innerHTML = `<div class="club-page">
     <div class="club-page-head">
-      <div><h2>Club Hub <span class="club-test-badge">Test Page</span></h2><p>The member-facing view: what you are reading, where to meet, and what comes next.</p></div>
+      <div><h2>Club Hub <span class="club-test-badge">Test Page</span></h2><p>Your clubs appear first. You can also discover clubs that welcome new members.</p></div>
       <div class="club-hub-toolbar">
-        ${bookClubs.length > 1 ? `<label>Choose Club<select onchange="selectBookClubHub(this.value)">${bookClubs.map(item => `<option value="${esc(item.id)}" ${String(item.id) === String(activeBookClubHubId) ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>` : ''}
-        <button class="account-secondary" type="button" onclick="switchTab('clubs')">Manager</button>
+        ${joinedClubs.length > 1 ? `<label>Your Book Clubs<select onchange="selectBookClubHub(this.value)">${joinedClubs.map(item => `<option value="${esc(item.id)}" ${String(item.id) === String(activeBookClubHubId) ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>` : ''}
+        <button class="account-secondary" type="button" onclick="toggleOpenBookClubs()">${showOpenBookClubs ? 'Hide Open Clubs' : `Show Open Clubs${openClubs.length ? ` (${openClubs.length})` : ''}`}</button>
+        <button class="account-secondary" type="button" onclick="switchTab('clubs')">Manage Clubs</button>
       </div>
     </div>
-    ${!club ? `${bookClubStorageCallout()}<div class="club-empty"><h3>No club to display</h3><p>Create a club in the manager to begin building its member hub.</p></div>` : bookClubHubHTML(club)}
+    ${pendingInvitations.length ? pendingBookClubInvitationsHTML(pendingInvitations) : ''}
+    ${!club ? `<div class="club-empty"><h3>You have not joined a book club yet</h3><p>Browse open clubs below or use an invitation link from a club organizer.</p></div>` : bookClubHubHTML(club)}
+    ${showOpenBookClubs ? openBookClubsHTML(openClubs) : ''}
   </div>`;
+}
+
+function pendingBookClubInvitationsHTML(invitations) {
+  return `<section class="club-callout"><strong>Invitations for You</strong><div class="club-read-list">${invitations.map(invitation => {
+    const club = bookClubById(invitation.club_id);
+    return `<div class="club-read-row" style="grid-template-columns:minmax(0,1fr) auto"><div style="min-width:0"><div class="club-read-title">${esc(club?.name || 'Book Club Invitation')}</div><div class="club-read-meta">Invited as ${esc(invitation.role)}${invitation.expires_at ? ` · Expires ${esc(clubDateLabel(String(invitation.expires_at).slice(0,10)))}` : ''}</div></div><button class="club-link-button primary" type="button" onclick="openJoinBookClub(${jsArg(invitation.club_id)},${jsArg(invitation.token)})">Review Invitation</button></div>`;
+  }).join('')}</div></section>`;
+}
+
+function toggleOpenBookClubs() {
+  showOpenBookClubs = !showOpenBookClubs;
+  buildBookClubHub();
+}
+
+function openBookClubsHTML(clubs) {
+  return `<section class="club-discovery">
+    <div class="club-discovery-head"><div><h3>Open Book Clubs</h3><p>These clubs allow any signed-in reader to join.</p></div></div>
+    ${clubs.length ? `<div class="club-manager-grid">${clubs.map(club => `<article class="club-manager-card">
+      <div class="club-card-head"><div><h3>${esc(club.name)}</h3><div class="club-card-meta">Open Enrollment · ${esc(club.meeting_format || 'In Person')}</div></div>${clubStatusHTML('Open')}</div>
+      <p class="club-card-description">${esc(club.description || 'No club description yet.')}</p>
+      <div class="club-detail-list">
+        <div class="club-detail-row"><span>Schedule</span><strong>${esc([club.cadence,club.usual_meeting_day].filter(Boolean).join(' · ') || 'Flexible')}</strong></div>
+        <div class="club-detail-row"><span>Time zone</span><strong>${esc(timeZoneDisplayLabel(club.timezone || deviceTimeZone()))}</strong></div>
+      </div>
+      <div class="club-card-actions"><button class="primary" type="button" onclick="openJoinBookClub(${jsArg(club.id)})" ${guestMode ? 'disabled' : ''}>${guestMode ? 'Sign In to Join' : 'Join Club'}</button></div>
+    </article>`).join('')}</div>` : `<div class="club-empty"><h3>No open clubs found</h3><p>Invitation-only clubs will not appear here.</p></div>`}
+  </section>`;
 }
 
 function bookClubHubHTML(club) {
@@ -14339,7 +14461,7 @@ function bookClubHubHTML(club) {
       <article class="club-hub-panel"><h3>Coming Up</h3>${clubReadListHTML(upcoming,'No upcoming books have been scheduled.')}</article>
       <article class="club-hub-panel"><h3>Members</h3>${members.length ? `<div class="club-member-grid">${members.map(member => `<div class="club-member"><span class="club-avatar">${esc(clubInitials(member.display_name))}</span><div style="min-width:0"><div class="club-member-name">${esc(member.display_name)}</div><div class="club-member-role">${esc(member.role)}${member.timezone ? ` · ${esc(String(member.timezone).replace(/_/g,' '))}` : ''}</div></div></div>`).join('')}</div>` : '<p class="club-card-meta">No members have been added yet.</p>'}</article>
       <article class="club-hub-panel wide"><h3>Previous Reads</h3>${clubReadListHTML(completed,'Completed selections will appear here.')}</article>
-      <article class="club-hub-panel narrow"><h3>Community</h3><p class="club-card-description" style="min-height:0">Invitations, polls, attendance, and member chat can be added after this test layout is approved.</p><span class="club-status">Coming Later</span></article>
+      <article class="club-hub-panel narrow"><h3>Community</h3><p class="club-card-description" style="min-height:0">Polls, attendance, and member chat can be added after this test layout is approved.</p><span class="club-status">Coming Later</span></article>
     </div>
   </section>`;
 }
@@ -14375,6 +14497,7 @@ function openBookClubEditor(clubId='') {
     <div class="club-form-field full"><label for="club-edit-location">Physical Location</label><input id="club-edit-location" value="${esc(club.usual_location || '')}" placeholder="Library room, café, or address"></div>
     <div class="club-form-field full"><label for="club-edit-url">Online Meeting Link</label><input id="club-edit-url" type="url" value="${esc(club.online_url || '')}" placeholder="https://..."></div>
     <div class="club-form-field full"><label for="club-edit-timezone">Club Time Zone</label>${timeZonePickerHTML('club-edit-timezone',club.timezone || deviceTimeZone())}</div>
+    <label class="club-enrollment-toggle" style="grid-column:1/-1"><input id="club-edit-open-enrollment" type="checkbox" ${club.open_enrollment ? 'checked' : ''}><span><strong>Open Enrollment</strong><span>Anyone with a Reading Tracker account can discover and join this club. Leave this off for invitation-only membership.</span></span></label>
     <p class="club-form-note" id="book-club-form-status"></p>
   </div>${clubId ? `<div class="account-actions" style="margin-top:1rem"><button class="account-secondary" style="color:#9b2020" type="button" onclick="confirmDeleteBookClub(${jsArg(clubId)})">Delete Club</button></div>` : ''}`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClub(${jsArg(clubId)})">Save Club</button>`);
@@ -14396,7 +14519,8 @@ async function saveBookClub(clubId='') {
     usual_meeting_time:document.getElementById('club-edit-time')?.value || null,
     usual_location:document.getElementById('club-edit-location')?.value.trim() || null,
     online_url:document.getElementById('club-edit-url')?.value.trim() || null,
-    timezone:timeZone
+    timezone:timeZone,
+    open_enrollment:Boolean(document.getElementById('club-edit-open-enrollment')?.checked)
   };
   bookClubFormStatus('Saving...');
   try {
@@ -14407,7 +14531,9 @@ async function saveBookClub(clubId='') {
     closeTrackedModal();
     await refreshBookClubPages();
   } catch (error) {
-    const message = /row-level security|violates row-level security/i.test(error.message || '')
+    const message = /open_enrollment/i.test(error.message || '')
+      ? 'Open enrollment is not enabled yet. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
+      : /row-level security|violates row-level security/i.test(error.message || '')
       ? 'Club ownership could not be verified. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
       : error.message;
     bookClubFormStatus(message,true);
@@ -14439,7 +14565,7 @@ function openBookClubMembers(clubId, memberId='') {
   const members = clubMembersFor(clubId);
   const member = members.find(item => String(item.id) === String(memberId)) || {};
   document.getElementById('modal-series-name').textContent = `${club.name} Members`;
-  document.getElementById('modal-series-sub').textContent = `${members.length} roster entr${members.length === 1 ? 'y' : 'ies'} · Account invitations come later.`;
+  document.getElementById('modal-series-sub').textContent = `${members.length} roster entr${members.length === 1 ? 'y' : 'ies'} · Use Invitations to add account-linked members.`;
   document.getElementById('modal-series-body').innerHTML = `${members.length ? `<div class="club-roster-list">${members.map(item => `<div class="club-roster-row"><div><strong>${esc(item.display_name)}</strong><div class="club-card-meta">${esc([item.role,item.email,item.timezone ? String(item.timezone).replace(/_/g,' ') : ''].filter(Boolean).join(' · '))}</div></div><div class="club-roster-actions"><button type="button" onclick="openBookClubMembers(${jsArg(clubId)},${jsArg(item.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubMember(${jsArg(item.id)},${jsArg(clubId)})">Remove</button></div></div>`).join('')}</div>` : ''}
     <div class="club-form-grid">
       <div class="club-form-field"><label for="club-member-name">Display Name</label><input id="club-member-name" value="${esc(member.display_name || '')}"></div>
@@ -14475,6 +14601,174 @@ async function deleteBookClubMember(memberId, clubId) {
     await supabaseTableRequest('book_club_members',{method:'DELETE',query:`?id=eq.${encodeURIComponent(memberId)}`,prefer:'return=minimal'});
     closeTrackedModal(); await refreshBookClubPages(); openBookClubMembers(clubId);
   } catch (error) { showAppDialog('Could Not Remove Member',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); }
+}
+
+function clubInvitationsFor(clubId) {
+  return bookClubInvitations.filter(invitation => String(invitation.club_id) === String(clubId));
+}
+
+function bookClubInvitationLink(token) {
+  return `https://myreadingtracker.pages.dev/#club-invite/${encodeURIComponent(token)}`;
+}
+
+function defaultInvitationExpiry() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return localDateKey(date);
+}
+
+async function copyBookClubInvitation(token, button=null) {
+  const link = bookClubInvitationLink(token);
+  try {
+    await navigator.clipboard.writeText(link);
+    if (button) {
+      const original = button.textContent;
+      button.textContent = 'Copied';
+      setTimeout(() => { button.textContent = original; },1200);
+    }
+  } catch (_) {
+    showAppDialog('Invitation Link',link,'<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
+  }
+}
+
+function openBookClubInvitations(clubId) {
+  const club = bookClubById(clubId);
+  if (!canManageBookClub(club)) return;
+  const invitations = clubInvitationsFor(clubId);
+  document.getElementById('modal-series-name').textContent = `${club.name} Invitations`;
+  document.getElementById('modal-series-sub').textContent = club.open_enrollment
+    ? 'Open enrollment is on, but you can still invite specific readers directly.'
+    : 'Invitation links work only for the email address entered below.';
+  document.getElementById('modal-series-body').innerHTML = `${invitations.length ? `<div class="club-roster-list">${invitations.map(invitation => `<div class="club-roster-row"><div><strong>${esc(invitation.invitee_name || invitation.email)}</strong><div class="club-card-meta">${esc([invitation.email,invitation.role,invitation.status,invitation.expires_at ? `Expires ${clubDateLabel(String(invitation.expires_at).slice(0,10))}` : 'No expiration'].join(' · '))}</div></div><div class="club-roster-actions">${invitation.status === 'Pending' ? `<button type="button" onclick="copyBookClubInvitation(${jsArg(invitation.token)},this)">Copy Link</button><button type="button" onclick="revokeBookClubInvitation(${jsArg(invitation.id)},${jsArg(clubId)})">Revoke</button>` : ''}</div></div>`).join('')}</div>` : ''}
+    <div class="club-form-grid">
+      <div class="club-form-field"><label for="club-invite-name">Name</label><input id="club-invite-name" placeholder="Optional"></div>
+      <div class="club-form-field"><label for="club-invite-email">Email</label><input id="club-invite-email" type="email" autocomplete="email" placeholder="reader@example.com"></div>
+      <div class="club-form-field"><label for="club-invite-role">Role</label><select id="club-invite-role">${['Member','Moderator','Guest'].map(role => `<option>${role}</option>`).join('')}</select></div>
+      <div class="club-form-field"><label for="club-invite-expires">Expires</label><input id="club-invite-expires" type="date" value="${defaultInvitationExpiry()}"></div>
+      <p class="club-form-note">The site creates a private link for you to share. The recipient must sign in with this email address before joining.</p>
+      <p class="club-form-note" id="book-club-form-status"></p>
+    </div>`;
+  openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="createBookClubInvitation(${jsArg(clubId)})">Create Invitation</button>`);
+}
+
+async function createBookClubInvitation(clubId) {
+  const email = document.getElementById('club-invite-email')?.value.trim().toLowerCase() || '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return bookClubFormStatus('Enter a valid email address.',true);
+  const existing = clubInvitationsFor(clubId).find(invitation => invitation.status === 'Pending' && normalizedKey(invitation.email) === normalizedKey(email));
+  if (existing && (!existing.expires_at || new Date(existing.expires_at).getTime() > Date.now())) {
+    return bookClubFormStatus('That email already has a pending invitation. Copy its existing link or revoke it first.',true);
+  }
+  const expiry = document.getElementById('club-invite-expires')?.value || '';
+  const body = {
+    club_id:clubId,
+    email,
+    invitee_name:document.getElementById('club-invite-name')?.value.trim() || null,
+    role:document.getElementById('club-invite-role')?.value || 'Member',
+    expires_at:expiry ? `${expiry}T23:59:59Z` : null
+  };
+  bookClubFormStatus('Creating invitation...');
+  try {
+    if (existing) {
+      await supabaseTableRequest('book_club_invitations',{method:'PATCH',query:`?id=eq.${encodeURIComponent(existing.id)}`,body:{status:'Expired'},prefer:'return=minimal'});
+    }
+    await supabaseTableRequest('book_club_invitations',{method:'POST',body:[body],prefer:'return=representation'});
+    closeTrackedModal();
+    await refreshBookClubPages();
+    openBookClubInvitations(clubId);
+  } catch (error) {
+    const message = String(error.message || '').includes('book_club_invitations')
+      ? 'Invitations are not enabled yet. Re-run supabase_book_clubs.sql, refresh, and try again.'
+      : error.message;
+    bookClubFormStatus(message,true);
+  }
+}
+
+async function revokeBookClubInvitation(invitationId, clubId) {
+  try {
+    await supabaseTableRequest('book_club_invitations',{method:'PATCH',query:`?id=eq.${encodeURIComponent(invitationId)}`,body:{status:'Revoked'},prefer:'return=minimal'});
+    closeTrackedModal();
+    await refreshBookClubPages();
+    openBookClubInvitations(clubId);
+  } catch (error) { bookClubFormStatus(error.message,true); }
+}
+
+function openJoinBookClub(clubId, invitationToken='') {
+  const club = bookClubById(clubId);
+  const invitation = invitationToken
+    ? bookClubInvitations.find(item => String(item.token) === String(invitationToken))
+    : null;
+  if (!club) return showAppDialog('Club Not Available','This club could not be found or is no longer accepting members.','<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
+  const email = supabaseSession?.user?.email || '';
+  const suggestedName = invitation?.invitee_name || supabaseSession?.user?.user_metadata?.full_name || email.split('@')[0] || '';
+  document.getElementById('modal-series-name').textContent = `Join ${club.name}`;
+  document.getElementById('modal-series-sub').textContent = invitation
+    ? `You were invited as ${invitation.role}.`
+    : 'This club has open enrollment.';
+  document.getElementById('modal-series-body').innerHTML = `<div class="club-callout"><strong>${esc(club.name)}</strong>${club.description ? ` · ${esc(club.description)}` : ''}</div>
+    <div class="club-form-grid">
+      <div class="club-form-field"><label for="club-join-name">Display Name</label><input id="club-join-name" value="${esc(suggestedName)}"></div>
+      <div class="club-form-field"><label>Account Email</label><input value="${esc(email)}" disabled></div>
+      <div class="club-form-field full"><label for="club-join-timezone">Your Time Zone</label>${timeZonePickerHTML('club-join-timezone',deviceTimeZone())}</div>
+      <p class="club-form-note">Meeting times will be shown in both the club’s time zone and your time zone when they differ.</p>
+      <p class="club-form-note" id="book-club-form-status"></p>
+    </div>`;
+  openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="joinBookClub(${jsArg(club.id)},${jsArg(invitationToken)})">Join Club</button>`);
+}
+
+async function joinBookClub(clubId, invitationToken='') {
+  if (!supabaseSession?.user?.id || guestMode) return bookClubFormStatus('Sign in before joining a club.',true);
+  const invitation = invitationToken
+    ? bookClubInvitations.find(item => String(item.token) === String(invitationToken))
+    : null;
+  const club = bookClubById(clubId);
+  if (!invitation && !club?.open_enrollment) return bookClubFormStatus('This club is invitation-only.',true);
+  const displayName = document.getElementById('club-join-name')?.value.trim() || '';
+  if (!displayName) return bookClubFormStatus('Enter the name you want other members to see.',true);
+  const timeZone = validTimeZoneInput('club-join-timezone');
+  if (!timeZone) return bookClubFormStatus('Choose a valid time zone or use “Use Mine.”',true);
+  const email = supabaseSession.user.email || '';
+  const body = [{
+    club_id:clubId,
+    account_user_id:supabaseSession.user.id,
+    display_name:displayName,
+    email,
+    role:invitation?.role || 'Member',
+    timezone:timeZone,
+    joined_on:localDateKey()
+  }];
+  bookClubFormStatus('Joining club...');
+  try {
+    await supabaseTableRequest('book_club_members',{method:'POST',body,prefer:'return=minimal'});
+    if (invitation) {
+      await supabaseTableRequest('book_club_invitations',{
+        method:'PATCH',query:`?id=eq.${encodeURIComponent(invitation.id)}`,
+        body:{status:'Accepted',accepted_by:supabaseSession.user.id,accepted_at:new Date().toISOString()},prefer:'return=minimal'
+      }).catch(error => console.warn('Joined club, but could not mark invitation accepted:',error));
+    }
+    pendingClubInvitationToken = '';
+    closeTrackedModal();
+    history.replaceState(appHistoryState(),'','#club-hub');
+    activeBookClubHubId = clubId;
+    showOpenBookClubs = false;
+    await refreshBookClubPages();
+    showTab('club-hub','content');
+  } catch (error) {
+    const message = /row-level security|can_join_book_club|book_club_invitations/i.test(error.message || '')
+      ? 'Joining is not enabled yet. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
+      : /duplicate key|unique constraint/i.test(error.message || '')
+      ? 'This account or email is already on the club roster.'
+      : error.message;
+    bookClubFormStatus(message,true);
+  }
+}
+
+function openBookClubInvitation(token) {
+  const invitation = bookClubInvitations.find(item => String(item.token) === String(token) && item.status === 'Pending');
+  if (!invitation) {
+    showAppDialog('Invitation Not Available','This invitation was not found for the signed-in email address, has expired, or has already been used.','<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
+    return;
+  }
+  openJoinBookClub(invitation.club_id,token);
 }
 
 function openBookClubSelections(clubId) {

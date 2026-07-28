@@ -21,7 +21,8 @@ alter table public.book_clubs
   add column if not exists cadence text,
   add column if not exists usual_meeting_day text,
   add column if not exists usual_meeting_time time,
-  add column if not exists timezone text not null default 'America/Los_Angeles';
+  add column if not exists timezone text not null default 'America/Los_Angeles',
+  add column if not exists open_enrollment boolean not null default false;
 
 alter table public.book_clubs
   drop constraint if exists book_clubs_meeting_format_check;
@@ -161,11 +162,40 @@ create table if not exists public.book_club_reads (
   constraint book_club_reads_rating_check check (rating is null or (rating >= 0 and rating <= 10))
 );
 
+create table if not exists public.book_club_invitations (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.book_clubs(id) on delete cascade,
+  token uuid not null default gen_random_uuid(),
+  email text not null,
+  invitee_name text,
+  role text not null default 'Member',
+  status text not null default 'Pending',
+  expires_at timestamptz,
+  invited_by uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  accepted_by uuid references auth.users(id) on delete set null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint book_club_invitations_email_not_blank check (length(trim(email)) > 0),
+  constraint book_club_invitations_role_check check (role in ('Moderator', 'Member', 'Guest')),
+  constraint book_club_invitations_status_check check (status in ('Pending', 'Accepted', 'Revoked', 'Expired'))
+);
+
+create unique index if not exists book_club_invitations_token_unique
+  on public.book_club_invitations (token);
+
+create unique index if not exists book_club_invitations_pending_email_unique
+  on public.book_club_invitations (club_id, lower(trim(email)))
+  where status = 'Pending';
+
 create index if not exists book_club_members_club_id_idx
   on public.book_club_members (club_id);
 
 create index if not exists book_club_reads_club_status_idx
   on public.book_club_reads (club_id, status, start_date);
+
+create index if not exists book_club_invitations_club_status_idx
+  on public.book_club_invitations (club_id, status, created_at desc);
 
 create or replace function public.touch_book_club_workspace_updated_at()
 returns trigger
@@ -185,6 +215,11 @@ for each row execute function public.touch_book_club_workspace_updated_at();
 drop trigger if exists touch_book_club_reads_updated_at on public.book_club_reads;
 create trigger touch_book_club_reads_updated_at
 before update on public.book_club_reads
+for each row execute function public.touch_book_club_workspace_updated_at();
+
+drop trigger if exists touch_book_club_invitations_updated_at on public.book_club_invitations;
+create trigger touch_book_club_invitations_updated_at
+before update on public.book_club_invitations
 for each row execute function public.touch_book_club_workspace_updated_at();
 
 create or replace function public.owns_book_club(target_club_id uuid)
@@ -218,14 +253,56 @@ as $$
     );
 $$;
 
+create or replace function public.can_join_book_club(target_club_id uuid, requested_role text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.book_clubs
+    where id = target_club_id
+      and open_enrollment = true
+      and requested_role = 'Member'
+  ) or exists (
+    select 1
+    from public.book_club_invitations
+    where club_id = target_club_id
+      and lower(trim(email)) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and role = requested_role
+      and status = 'Pending'
+      and (expires_at is null or expires_at > now())
+  );
+$$;
+
+create or replace function public.has_book_club_invitation(target_club_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.book_club_invitations
+    where club_id = target_club_id
+      and lower(trim(email)) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and status = 'Pending'
+      and (expires_at is null or expires_at > now())
+  );
+$$;
+
 alter table public.book_club_members enable row level security;
 alter table public.book_club_reads enable row level security;
+alter table public.book_club_invitations enable row level security;
 
 drop policy if exists "Users can read their own book clubs" on public.book_clubs;
 drop policy if exists "Owners and members can read book clubs" on public.book_clubs;
 create policy "Owners and members can read book clubs"
   on public.book_clubs for select
-  using (public.can_view_book_club(id));
+  using (open_enrollment = true or public.can_view_book_club(id) or public.has_book_club_invitation(id));
 
 drop policy if exists "Club members can read the roster" on public.book_club_members;
 create policy "Club members can read the roster"
@@ -236,6 +313,15 @@ drop policy if exists "Club owners can add members" on public.book_club_members;
 create policy "Club owners can add members"
   on public.book_club_members for insert
   with check (public.owns_book_club(club_id));
+
+drop policy if exists "Users can join open or invited clubs" on public.book_club_members;
+create policy "Users can join open or invited clubs"
+  on public.book_club_members for insert
+  with check (
+    account_user_id = auth.uid()
+    and lower(trim(coalesce(email, ''))) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and public.can_join_book_club(club_id, role)
+  );
 
 drop policy if exists "Club owners can update members" on public.book_club_members;
 create policy "Club owners can update members"
@@ -269,11 +355,58 @@ create policy "Club owners can remove selections"
   on public.book_club_reads for delete
   using (public.owns_book_club(club_id));
 
+drop policy if exists "Club owners can read invitations" on public.book_club_invitations;
+create policy "Club owners can read invitations"
+  on public.book_club_invitations for select
+  using (public.owns_book_club(club_id));
+
+drop policy if exists "Invitees can read their invitations" on public.book_club_invitations;
+create policy "Invitees can read their invitations"
+  on public.book_club_invitations for select
+  using (
+    lower(trim(email)) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and status = 'Pending'
+    and (expires_at is null or expires_at > now())
+  );
+
+drop policy if exists "Club owners can create invitations" on public.book_club_invitations;
+create policy "Club owners can create invitations"
+  on public.book_club_invitations for insert
+  with check (public.owns_book_club(club_id) and invited_by = auth.uid());
+
+drop policy if exists "Club owners can update invitations" on public.book_club_invitations;
+create policy "Club owners can update invitations"
+  on public.book_club_invitations for update
+  using (public.owns_book_club(club_id))
+  with check (public.owns_book_club(club_id));
+
+drop policy if exists "Invitees can accept invitations" on public.book_club_invitations;
+create policy "Invitees can accept invitations"
+  on public.book_club_invitations for update
+  using (
+    lower(trim(email)) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and status = 'Pending'
+    and (expires_at is null or expires_at > now())
+  )
+  with check (
+    lower(trim(email)) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and status = 'Accepted'
+    and accepted_by = auth.uid()
+  );
+
+drop policy if exists "Club owners can delete invitations" on public.book_club_invitations;
+create policy "Club owners can delete invitations"
+  on public.book_club_invitations for delete
+  using (public.owns_book_club(club_id));
+
 grant select, insert, update, delete on public.book_clubs to authenticated;
 grant select, insert, update, delete on public.book_club_members to authenticated;
 grant select, insert, update, delete on public.book_club_reads to authenticated;
+grant select, insert, update, delete on public.book_club_invitations to authenticated;
 grant execute on function public.owns_book_club(uuid) to authenticated;
 grant execute on function public.can_view_book_club(uuid) to authenticated;
+grant execute on function public.can_join_book_club(uuid, text) to authenticated;
+grant execute on function public.has_book_club_invitation(uuid) to authenticated;
 
 comment on table public.book_club_members is
   'Roster entries for a book club. account_user_id links a roster entry to a Reading Tracker account when invitations are added.';
@@ -283,3 +416,6 @@ comment on column public.book_club_members.timezone is
 
 comment on table public.book_club_reads is
   'Current, upcoming, and completed club selections with reading and meeting details.';
+
+comment on table public.book_club_invitations is
+  'Email invitations with shareable tokens for joining private book clubs.';
