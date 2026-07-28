@@ -484,6 +484,9 @@
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
+  .reading-calendar-mobile {
+    display: none;
+  }
   .reading-calendar-day,
   .reading-calendar-bar {
     min-width: 0;
@@ -1912,6 +1915,14 @@
   font: 1.05rem 'Crimson Pro', serif;
   padding: 0.62rem 0.7rem;
 }
+.search-page-row .account-primary {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.62rem 1rem;
+}
 .search-page-controls {
   display: flex;
   align-items: center;
@@ -1956,6 +1967,11 @@
 }
   @media (max-width: 600px) {
     .search-page-row { grid-template-columns: 1fr; }
+    #tab-search .section-head {
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
     .book-search-result { grid-template-columns: 42px minmax(0, 1fr); }
     .book-search-result-badge { grid-column: 2; justify-self: start; }
     .book-edition-row { grid-template-columns: 42px minmax(0, 1fr); }
@@ -2894,6 +2910,49 @@
     gap: 0.75rem;
     align-items: start;
   }
+  .editor-view-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: rgba(65,105,225,0.055);
+  }
+  .editor-view-bar span {
+    color: var(--deep);
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+  .editor-view-toggle {
+    min-height: 38px;
+    border: 1px solid var(--burnt);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--burnt);
+    cursor: pointer;
+    font-weight: 800;
+    padding: 0.4rem 0.75rem;
+  }
+  .editor-view-toggle[aria-pressed="true"] {
+    background: var(--accent-gradient);
+    color: #fff;
+  }
+  .book-editor-mode-scope.editor-minimal .editor-optional {
+    display: none !important;
+  }
+  .book-editor-mode-scope.editor-minimal .book-editor-row.status-row {
+    display: none;
+  }
+  .book-editor-mode-scope.editor-minimal .book-editor-row.publish-row,
+  .book-editor-mode-scope.editor-minimal .book-editor-row.publish-row.paused-layout {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .book-editor-mode-scope.editor-minimal .book-editor-row.reading-row {
+    grid-template-columns: minmax(112px, 0.55fr) minmax(210px, 1.25fr);
+  }
   .book-editor-grid .full { grid-column: 2 / -1; }
   .book-editor-grid .edit-all { grid-column: 1 / -1; }
   .book-editor-grid .edit-span-2 { grid-column: span 2; }
@@ -2923,7 +2982,7 @@
     grid-template-columns: minmax(86px, 0.5fr) minmax(76px, 0.42fr) repeat(2, minmax(126px, 0.75fr)) minmax(82px, 0.46fr) repeat(2, minmax(126px, 0.75fr)) minmax(92px, 0.5fr);
   }
   .book-editor-row.reading-row {
-    grid-template-columns: minmax(112px, 0.55fr) minmax(230px, 1.35fr) minmax(190px, 1fr) minmax(170px, 0.9fr);
+    grid-template-columns: minmax(105px, 0.52fr) minmax(170px, 0.9fr) minmax(190px, 1.15fr) minmax(168px, 1fr) minmax(140px, 0.78fr);
   }
   .book-editor-row.status-row {
     grid-template-columns: minmax(160px, 0.8fr) minmax(260px, 1.35fr) minmax(260px, 1.5fr);
@@ -3125,12 +3184,22 @@
     }
   }
   @media (max-width: 600px) {
+    .editor-view-bar {
+      position: sticky;
+      top: -0.8rem;
+      z-index: 8;
+      margin: -0.15rem 0 0.85rem;
+      background: rgba(255,255,255,0.96);
+    }
     .book-editor-row.series-row,
     .book-editor-row.core-row,
     .book-editor-row.publish-row,
     .book-editor-row.publish-row.paused-layout,
     .book-editor-row.reading-row,
     .book-editor-row.status-row {
+      grid-template-columns: 1fr;
+    }
+    .book-editor-mode-scope.editor-minimal .book-editor-row.reading-row {
       grid-template-columns: 1fr;
     }
   }
@@ -3561,12 +3630,69 @@
   }
 
   #tab-month .reading-calendar-grid {
-    min-width: 760px;
+    display: none;
   }
 
   #tab-month .reading-calendar-scroll {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
+    display: none;
+  }
+
+  #tab-month .reading-calendar-mobile {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+
+  .reading-calendar-mobile-title {
+    margin: 0 0 0.15rem;
+    color: var(--deep);
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  .reading-calendar-mobile-row {
+    display: grid;
+    grid-template-columns: 5px minmax(0, 1fr);
+    gap: 0.65rem;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: rgba(247,248,255,0.82);
+    cursor: pointer;
+  }
+
+  .reading-calendar-mobile-accent {
+    width: 5px;
+    height: 100%;
+  }
+
+  .reading-calendar-mobile-copy {
+    min-width: 0;
+    padding: 0.58rem 0.65rem 0.58rem 0;
+    text-align: left;
+  }
+
+  .reading-calendar-mobile-book {
+    display: block;
+    overflow: hidden;
+    color: var(--deep);
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reading-calendar-mobile-meta {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.3;
   }
 
   .table-wrap {
@@ -3760,24 +3886,60 @@
   }
 
   .book-card-main {
-    grid-template-columns: 105px 1fr;
+    grid-template-columns: 92px minmax(0, 1fr);
     gap: 0.8rem;
   }
 
-  .book-card-cover img { width: 100px; }
+  .book-card-cover img { width: 88px; }
+  .generated-book-cover.detail-cover {
+    min-height: 132px;
+  }
 
   .book-card-middle {
-    display: block;
+    display: contents;
     min-width: 0;
   }
 
-  .book-card-detail-grid {
-    grid-template-columns: 1fr;
-    gap: 0.3rem;
+  .book-card-middle .series-position-box {
+    grid-column: 2;
+    align-self: start;
+    display: grid;
+    gap: 0.1rem;
+    margin: 0;
+    text-align: center;
   }
 
-  .book-card-middle > div {
-    margin-bottom: 0.3rem;
+  .book-card-detail-grid {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    padding-top: 0.1rem;
+  }
+
+  .book-card-main.no-series .book-card-detail-grid {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: 1fr;
+  }
+
+  .book-card-detail-column {
+    gap: 0.45rem;
+  }
+
+  .book-card-detail-column > div {
+    min-height: 44px;
+    border-radius: 6px;
+    background: rgba(65,105,225,0.055);
+    padding: 0.42rem 0.5rem;
+  }
+
+  .book-card-detail-column strong {
+    display: block;
+    margin-bottom: 0.08rem;
+    color: var(--muted);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .book-card-rating {
@@ -4482,6 +4644,8 @@ let readTimesReadCleanupAttempted = false;
 let pageCountSyncRunning = false;
 let libraryCollections = [];
 let bookCollectionMemberships = new Map();
+let bookClubs = [];
+let bookClubsStorageAvailable = false;
 let databaseSeriesRecords = new Map();
 let collectionEditorDraft = null;
 let readingLogYear = 'all';
@@ -4591,6 +4755,35 @@ async function loadUserSettings() {
     console.warn('User settings are unavailable until the user_settings migration is applied:', error.message);
     customGenreColors = {};
   }
+}
+
+async function loadBookClubs() {
+  bookClubs = [];
+  bookClubsStorageAvailable = false;
+  if (guestMode || !supabaseSession?.user?.id) return;
+  try {
+    bookClubs = await supabaseTableRequest('book_clubs', {
+      query: '?select=id,name,description,created_at&order=name.asc'
+    });
+    bookClubsStorageAvailable = true;
+  } catch (error) {
+    console.warn('Book clubs are unavailable until supabase_book_clubs.sql is applied:', error.message);
+  }
+}
+
+function bookClubName(bookClubId='') {
+  return bookClubs.find(club => String(club.id) === String(bookClubId || ''))?.name || '';
+}
+
+function bookClubOptionsHTML(selectedId='') {
+  const selected = String(selectedId || '');
+  const options = bookClubs.map(club =>
+    `<option value="${esc(club.id)}" ${String(club.id) === selected ? 'selected' : ''}>${esc(club.name)}</option>`
+  ).join('');
+  const unavailable = !bookClubsStorageAvailable
+    ? '<option value="" disabled>Run the Book Clubs migration to enable</option>'
+    : '';
+  return `<option value="" ${selected ? '' : 'selected'}>No book club</option>${options}${unavailable}`;
 }
 
 async function saveUserSettings(settings) {
@@ -7787,6 +7980,7 @@ function databaseBookToLocal(book) {
     author_short: author,
     series,
     series_id: book.series_id || null,
+    book_club_id: book.book_club_id || null,
     series_position: book.series_position ?? null,
     year_pub: publicationDate
       ? Number(String(publicationDate).slice(0, 4))
@@ -8296,6 +8490,39 @@ let searchPagePage = 1;
 let searchPagePerPage = 25;
 let bookEditorEditionCandidates = [];
 let selectedBookEditorEdition = null;
+const BOOK_EDITOR_VIEW_STORAGE_KEY = 'reading-tracker-book-editor-view';
+let bookEditorMinimalMode = (() => {
+  try { return localStorage.getItem(BOOK_EDITOR_VIEW_STORAGE_KEY) !== 'full'; }
+  catch (_) { return true; }
+})();
+
+function applyBookEditorViewMode() {
+  document.querySelectorAll('.book-editor-mode-scope').forEach(scope =>
+    scope.classList.toggle('editor-minimal', bookEditorMinimalMode)
+  );
+  const button = document.getElementById('book-editor-minimal-toggle');
+  if (button) {
+    button.setAttribute('aria-pressed', bookEditorMinimalMode ? 'true' : 'false');
+    button.textContent = bookEditorMinimalMode ? 'Minimal: On' : 'Minimal: Off';
+  }
+  const label = document.getElementById('book-editor-view-label');
+  if (label) label.textContent = bookEditorMinimalMode
+    ? 'Essential fields are shown'
+    : 'All book fields are shown';
+}
+
+function toggleBookEditorViewMode() {
+  bookEditorMinimalMode = !bookEditorMinimalMode;
+  try { localStorage.setItem(BOOK_EDITOR_VIEW_STORAGE_KEY, bookEditorMinimalMode ? 'minimal' : 'full'); } catch (_) {}
+  applyBookEditorViewMode();
+}
+
+function bookEditorViewToggleHTML() {
+  return `<div class="editor-view-bar">
+    <span id="book-editor-view-label"></span>
+    <button class="editor-view-toggle" id="book-editor-minimal-toggle" type="button" onclick="toggleBookEditorViewMode()">Minimal: On</button>
+  </div>`;
+}
 
 function assignableCollections() {
   return libraryCollections.filter(collection =>
@@ -8645,6 +8872,7 @@ function openAddBookDialog(defaultStatus='TBR') {
   document.getElementById('modal-series-name').textContent = 'Add a Book';
   document.getElementById('modal-series-sub').textContent = 'Enter the details yourself or look up an ISBN.';
   document.getElementById('modal-series-body').innerHTML = `
+    ${bookEditorViewToggleHTML()}
     <div class="add-book-mode">
       <button id="add-mode-manual" class="active" type="button" onclick="setAddBookMode('manual')">Enter Manually</button>
       <button id="add-mode-isbn" type="button" onclick="setAddBookMode('isbn')">Look Up ISBN</button>
@@ -8657,7 +8885,7 @@ function openAddBookDialog(defaultStatus='TBR') {
     <div class="picker-settings-status add-book-status-message" id="add-book-status-message"
       role="status" aria-live="polite"></div>
     <div class="edition-picker" id="add-book-edition-picker"></div>
-    <div class="add-book-fields">
+    <div class="add-book-fields book-editor-mode-scope">
       <button class="add-book-cover" id="add-book-cover" type="button"
         onclick="document.getElementById('add-book-cover-url')?.focus()">
         <span>Click to add a cover-image link</span>
@@ -8672,7 +8900,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field"><label for="add-book-series">Series</label><input id="add-book-series" type="text"></div>
         <div class="add-book-field series-position"><label for="add-book-series-position">Book #</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
       </div>
-      <div class="add-book-field"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
+      <div class="add-book-field editor-optional"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text"></div>
       <div class="add-book-field"><label for="add-book-status">Status</label>
         <select id="add-book-status" onchange="updatePausedPageControls()">
@@ -8687,28 +8915,30 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field" id="add-book-paused-on-wrap" style="display:none"><label for="add-book-paused-on">Paused On</label><input id="add-book-paused-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field" id="add-book-resumed-on-wrap" style="display:none"><label for="add-book-resumed-on">Resumed On</label><input id="add-book-resumed-on" type="date" onchange="updatePausedPageControls()"></div>
-      <div class="add-book-field"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
+      <div class="add-book-field editor-optional"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-started">Started</label><input id="add-book-started" type="date"></div>
       <div class="add-book-field"><label for="add-book-finished">Finished</label><input id="add-book-finished" type="date"></div>
       <div class="add-book-field"><label for="add-book-rating">Rating</label><input id="add-book-rating" type="number" min="0" max="10" step="0.1"></div>
       <div class="add-book-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
       <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
-      <div class="add-book-field"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
-      <div class="add-book-field"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
+      <div class="add-book-field"><label for="add-book-book-club">Book Club</label><select id="add-book-book-club" ${bookClubsStorageAvailable ? '' : 'disabled'}>${bookClubOptionsHTML()}</select></div>
+      <div class="add-book-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
+      <div class="add-book-field editor-optional"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
       <div class="add-book-field"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
-      <div class="add-book-field"><label for="add-book-language">Language</label><input id="add-book-language" type="text" value="${esc(DEFAULT_BOOK_LANGUAGE)}"></div>
-      <div class="add-book-field"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
-      <div class="add-book-field"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
-      <label class="add-book-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+      <div class="add-book-field editor-optional"><label for="add-book-language">Language</label><input id="add-book-language" type="text" value="${esc(DEFAULT_BOOK_LANGUAGE)}"></div>
+      <div class="add-book-field editor-optional"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
+      <div class="add-book-field editor-optional"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
+      <label class="add-book-check editor-optional"><input id="add-book-owned" type="checkbox"> Owned</label>
       <label class="add-book-check" id="add-book-full-book-wrap" style="display:none"><input id="add-book-full-book-read" type="checkbox"> Full Book</label>
-      <div class="add-book-field full"><label for="add-book-synopsis">Synopsis</label><textarea id="add-book-synopsis" rows="5" placeholder="ISBN lookup will fill this when Open Library has a description."></textarea></div>
-      <div class="add-book-field full"><label for="add-book-notes">Notes</label><textarea id="add-book-notes" rows="3"></textarea></div>
+      <div class="add-book-field full editor-optional"><label for="add-book-synopsis">Synopsis</label><textarea id="add-book-synopsis" rows="5" placeholder="ISBN lookup will fill this when Open Library has a description."></textarea></div>
+      <div class="add-book-field full editor-optional"><label for="add-book-notes">Notes</label><textarea id="add-book-notes" rows="3"></textarea></div>
     </div>
     <div class="account-actions">
       <button class="account-secondary" type="button" onclick="closeTrackedModal()">Cancel</button>
     </div>
   `;
   openModal(null, 'add-book', true, '<button class="account-primary" id="add-book-save" type="button" onclick="saveAddedBook()">Save Book</button>');
+  applyBookEditorViewMode();
   updateShortStoryFullBookControls();
   updatePausedPageControls();
 }
@@ -9752,6 +9982,9 @@ async function saveAddedBook() {
       notes: document.getElementById('add-book-notes')?.value.trim() || null,
       ...editionFields
     };
+    if (bookClubsStorageAvailable) {
+      row.book_club_id = document.getElementById('add-book-book-club')?.value || null;
+    }
     const inserted = await insertBookRow(row);
     insertedBookId = inserted[0]?.id || null;
     let insertedEditionId = null;
@@ -9829,6 +10062,8 @@ async function saveAddedBook() {
       ? 'Paused-book storage is not enabled yet. Run supabase_paused_books.sql in Supabase, then save again.'
       : errorMessage.includes('editions')
       ? 'Edition storage is not enabled yet. Run the Supabase editions migration, then save again.'
+      : errorMessage.includes('book_club_id') || errorMessage.includes('book_clubs')
+      ? 'Book Club assignments are not enabled yet. Run supabase_book_clubs.sql in Supabase, refresh, then save again.'
       : errorMessage.includes('received_date_text') || errorMessage.includes('collections')
         ? 'Run the collections and received-date migration, then save again.'
         : error.message;
@@ -11556,7 +11791,7 @@ function renderBookDetailPage(title, source='', key='') {
         </div>
       </div>
 
-      <div class="book-card-main">
+      <div class="book-card-main ${b.series && b.series_position ? 'has-series' : 'no-series'}">
 
         <div class="book-card-cover">
 
@@ -11589,6 +11824,7 @@ function renderBookDetailPage(title, source='', key='') {
               ${field('Times Read', b.times_read)}
               ${field('Owned', b.own)}
               ${field('Format', b.format)}
+              ${field('Book Club', bookClubName(b.book_club_id))}
               ${isShortStoryCollection(b) ? field('Full Book', usesFullBookPageCount(b) ? 'Yes' : 'No') : ''}
             </div>
             <div class="book-card-detail-column">
@@ -11935,7 +12171,8 @@ function openBookEditor(title, source='', key='') {
   document.getElementById('modal-series-name').textContent = 'Edit Book';
   document.getElementById('modal-series-sub').textContent = book.title || title;
   document.getElementById('modal-series-body').innerHTML = `
-    <div class="book-editor-grid">
+    ${bookEditorViewToggleHTML()}
+    <div class="book-editor-grid book-editor-mode-scope">
       <input id="book-editor-database-id" type="hidden" value="${esc(book.database_id || '')}">
       <input id="book-editor-route-key" type="hidden" value="${esc(editorBookKey)}">
       <button class="book-editor-cover-tile" type="button"
@@ -11975,20 +12212,21 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
       </div>
       <div class="book-editor-row publish-row">
-        <div class="book-editor-field"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
         <div class="book-editor-field" id="book-editor-paused-page-wrap" style="display:none"><label for="book-editor-paused-page">Paused at</label><input id="book-editor-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
         <div class="book-editor-field" id="book-editor-paused-on-wrap" style="display:none"><label for="book-editor-paused-on">Paused On</label><input id="book-editor-paused-on" type="date" value="${esc(book.paused_on || '')}" onchange="updatePausedPageControls()"></div>
         <div class="book-editor-field" id="book-editor-resumed-on-wrap" style="display:none"><label for="book-editor-resumed-on">Resumed On</label><input id="book-editor-resumed-on" type="date" value="${esc(book.resumed_on || '')}" onchange="updatePausedPageControls()"></div>
-        <div class="book-editor-field"><label for="book-editor-year">Pub Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-year">Pub Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
-        <div class="book-editor-field"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" placeholder="YYYY" title="Summary year" value="${esc(readYearForBook(book) || '')}"><small class="book-editor-hint">Summary year</small></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" placeholder="YYYY" title="Summary year" value="${esc(readYearForBook(book) || '')}"><small class="book-editor-hint">Summary year</small></div>
       </div>
       <div class="book-editor-row reading-row">
         <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
-        <div class="book-editor-field"><label for="book-editor-signed">Signed</label><select id="book-editor-signed">${signedOptionsHTML(book.signed || '')}</select></div>
+        <div class="book-editor-field"><label for="book-editor-book-club">Book Club</label><select id="book-editor-book-club" ${bookClubsStorageAvailable ? '' : 'disabled'}>${bookClubOptionsHTML(book.book_club_id)}</select></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-signed">Signed</label><select id="book-editor-signed">${signedOptionsHTML(book.signed || '')}</select></div>
       </div>
       <div class="book-editor-row status-row">
         <div class="book-editor-field"><label for="book-editor-language">Language</label><input id="book-editor-language" value="${esc(normalizeBookLanguage(book.language))}"></div>
@@ -11996,19 +12234,19 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-event">Event</label><input id="book-editor-event" value="${esc(book.event || '')}"></div>
       </div>
       <div class="book-editor-checks">
-        <label class="book-editor-check" for="book-editor-owned"><input id="book-editor-owned" type="checkbox" ${ownedValue(book.own)?'checked':''}><span>Owned</span></label>
-        <label class="book-editor-check" for="book-editor-reread"><input id="book-editor-reread" type="checkbox" ${isReread ? 'checked' : ''}><span>Reread</span></label>
+        <label class="book-editor-check editor-optional" for="book-editor-owned"><input id="book-editor-owned" type="checkbox" ${ownedValue(book.own)?'checked':''}><span>Owned</span></label>
+        <label class="book-editor-check editor-optional" for="book-editor-reread"><input id="book-editor-reread" type="checkbox" ${isReread ? 'checked' : ''}><span>Reread</span></label>
         <label class="book-editor-check" id="book-editor-full-book-wrap" for="book-editor-full-book-read"><input id="book-editor-full-book-read" type="checkbox" ${usesFullBookPageCount(book) ? 'checked' : ''}><span>Full Book</span></label>
       </div>
-      <div class="book-editor-field edit-all">
+      <div class="book-editor-field edit-all editor-optional">
         ${bookEditionsHTML(book, 'editor')}
       </div>
-      <div class="book-editor-field edit-all">
+      <div class="book-editor-field edit-all editor-optional">
         <label for="book-editor-synopsis">Synopsis</label>
         <textarea id="book-editor-synopsis" rows="7">${esc(book.synopsis || '')}</textarea>
         <button class="editor-button" type="button" style="margin-top:0.45rem" onclick="lookupSynopsisForEditor()">Find Synopsis Online</button>
       </div>
-      <div class="book-editor-field edit-all"><label for="book-editor-thoughts">Thoughts</label><textarea id="book-editor-thoughts" rows="6">${esc(book.thoughts || '')}</textarea></div>
+      <div class="book-editor-field edit-all editor-optional"><label for="book-editor-thoughts">Thoughts</label><textarea id="book-editor-thoughts" rows="6">${esc(book.thoughts || '')}</textarea></div>
     </div>
     <div class="account-actions" style="margin-top:1rem">
       <button class="account-secondary" type="button" onclick="openBookDetailByTitle(${jsArg(title)},${jsArg(source)})">Cancel</button>
@@ -12018,6 +12256,7 @@ function openBookEditor(title, source='', key='') {
     <div class="picker-settings-status" id="book-editor-status-message"></div>
   `;
   openModal(null, 'book-editor', true, `<button class="account-primary" type="button" onclick="confirmBookEditorSave(${jsArg(title)},${jsArg(source)},${jsArg(key || bookRouteKey(book))})">Save Changes</button>`);
+  applyBookEditorViewMode();
   updateShortStoryFullBookControls();
   updatePausedPageControls();
   updateBookEditorCoverPreview();
@@ -12066,6 +12305,9 @@ function bookEditorMigrationMessage(error) {
   }
   if (message.includes('book_collections') || message.includes('collections')) {
     return 'Collections are not enabled yet. Run the collections and received-date migration, then save again.';
+  }
+  if (message.includes('book_club_id') || message.includes('book_clubs')) {
+    return 'Book Club assignments are not enabled yet. Run supabase_book_clubs.sql in Supabase, refresh, then save again.';
   }
   if (['publisher', 'publication_date', 'page_count', 'language'].some(column =>
     message.includes(`'${column}'`) || message.includes(`books.${column}`)
@@ -12164,6 +12406,9 @@ async function saveBookEditor(originalTitle, source='', key='') {
     author_short: editedAuthor,
     series: editedSeries || original.series || '',
     series_position: keepNumber('book-editor-series-position', original.series_position),
+    book_club_id: bookClubsStorageAvailable
+      ? (bookEditorValue('book-editor-book-club') || null)
+      : (original.book_club_id || null),
     year_pub: keepNumber('book-editor-year', original.year_pub),
     genre: normalizeBookGenre(keepText('book-editor-genre', original.genre)),
     isbn: isbn || original.isbn || '',
@@ -12220,6 +12465,9 @@ async function saveBookEditor(originalTitle, source='', key='') {
     if (changedText(editedAuthor, comparisonBook.author_full || comparisonBook.author || comparisonBook.author_short)) bookPatch.author_id = authorId;
     if (changedText(editedSeries, comparisonBook.series)) bookPatch.series_id = seriesId;
     if (changedValue(updated.series_position, comparisonBook.series_position)) bookPatch.series_position = updated.series_position;
+    if (bookClubsStorageAvailable && changedText(updated.book_club_id, comparisonBook.book_club_id)) {
+      bookPatch.book_club_id = updated.book_club_id || null;
+    }
     if (changedValue(updated.year_pub, comparisonBook.year_pub)) bookPatch.publication_year = updated.year_pub;
     if (changedText(updated.genre, comparisonBook.genre)) bookPatch.genre = updated.genre || null;
     if (changedText(updated.isbn, comparisonBook.isbn)) bookPatch.isbn = updated.isbn || null;
@@ -13921,21 +14169,30 @@ function showMonthSummary(yearMonth, updateRoute=true) {
   // consolidating a short-story collection into one lane.
   const dayBooks = {};
   const bookLane = {};
+  const mobileTimelineEntries = [];
+  const calendarMonthStart = new Date(year, mon-1, 1);
+  const calendarMonthEnd = new Date(year, mon-1, daysInMonth);
+  const calendarDateKey = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   let laneCounter = 0;
   calendarBooks.forEach((b, bookIndex) => {
     const gc = genreColor(b.genre);
-    const monthStart = new Date(year, mon-1, 1);
-    const monthEnd = new Date(year, mon-1, daysInMonth);
     calendarActivitySpans(b).forEach((span, spanIndex) => {
       const rawStart = localDate(span.start);
       const rawEnd = localDate(span.end);
-      if (!rawStart || !rawEnd || rawStart > monthEnd || rawEnd < monthStart) return;
-      const clampStart = rawStart < monthStart ? monthStart : rawStart;
-      const clampEnd = rawEnd > monthEnd ? monthEnd : rawEnd;
+      if (!rawStart || !rawEnd || rawStart > calendarMonthEnd || rawEnd < calendarMonthStart) return;
+      const clampStart = rawStart < calendarMonthStart ? calendarMonthStart : rawStart;
+      const clampEnd = rawEnd > calendarMonthEnd ? calendarMonthEnd : rawEnd;
       const sd = clampStart.getDate();
       const ed = clampEnd.getDate();
       const laneKey = `${b._reading_session_id || b.database_id || bookIdentity(b)}|${bookIndex}`;
       if (!(laneKey in bookLane)) bookLane[laneKey] = laneCounter++ % 4;
+      mobileTimelineEntries.push({
+        book: b,
+        color: gc,
+        start: calendarDateKey(clampStart),
+        end: calendarDateKey(clampEnd),
+        order: bookIndex + (spanIndex / 100)
+      });
       for (let d = sd; d <= ed; d++) {
         if (!dayBooks[d]) dayBooks[d] = [];
         dayBooks[d].push({
@@ -14001,6 +14258,22 @@ function showMonthSummary(yearMonth, updateRoute=true) {
   const dayHeaders = DOW.map(d =>
     `<div style="background:var(--deep);color:var(--gold-light);font-family:'Playfair Display',serif;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;padding:6px 4px;text-align:center;text-transform:uppercase">${d}</div>`
   ).join('');
+
+  const mobileTimelineHTML = mobileTimelineEntries
+    .sort((a,b) => a.start.localeCompare(b.start) || a.order - b.order)
+    .map(entry => {
+      const b = entry.book;
+      const status = libraryBookStatus(b);
+      const statusText = status === 'Paused' ? ' · Paused' : (status === 'Currently Reading' ? ' · Currently Reading' : '');
+      const dates = entry.end && entry.end !== entry.start ? `${entry.start} → ${entry.end}` : entry.start;
+      return `<button class="reading-calendar-mobile-row" type="button" data-title="${esc(b.title).replace(/"/g,'&quot;')}" onclick="openMonthBookModal(this.dataset.title, event)">
+        <span class="reading-calendar-mobile-accent" style="background:${entry.color}"></span>
+        <span class="reading-calendar-mobile-copy">
+          <span class="reading-calendar-mobile-book">${esc(b.title)}</span>
+          <span class="reading-calendar-mobile-meta">${esc(dates)}${statusText}${b.genre ? ` · ${esc(b.genre)}` : ''}</span>
+        </span>
+      </button>`;
+    }).join('');
 
   const monthBookList = books.length
     ? `<div class="library-list">${books.map(b => `
@@ -14068,6 +14341,10 @@ function showMonthSummary(yearMonth, updateRoute=true) {
           ${dayHeaders}
           ${cells}
         </div>
+      </div>
+      <div class="reading-calendar-mobile">
+        <div class="reading-calendar-mobile-title">Reading Timeline</div>
+        ${mobileTimelineHTML || '<p style="color:var(--muted);font-style:italic;margin:0">No dated reading activity this month.</p>'}
       </div>
 
       <!-- Legend -->
@@ -14758,6 +15035,7 @@ async function startTracker() {
   }
   await loadUserSettings();
   await loadCollections();
+  await loadBookClubs();
   rebuildReadYearBuckets();
   rebuildSeriesFromLibraryBooks();
 
@@ -14910,6 +15188,7 @@ async function startGuestDemo() {
   });
   buildGuestDemoData();
   await loadCollections();
+  await loadBookClubs();
   rebuildRereadPool();
   unlockTracker();
   updateAccountUI();
