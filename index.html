@@ -14187,8 +14187,23 @@ function clubReadsFor(clubId) {
   return bookClubReads.filter(read => String(read.club_id) === String(clubId));
 }
 
+function isBookClubModerator(club) {
+  if (!club || guestMode || !supabaseSession?.user?.id) return false;
+  return clubMembersFor(club.id).some(member =>
+    String(member.account_user_id || '') === String(supabaseSession.user.id) && member.role === 'Moderator'
+  );
+}
+
 function canManageBookClub(club) {
+  return !guestMode && (ownsBookClub(club) || isBookClubModerator(club));
+}
+
+function canAdministerBookClub(club) {
   return !guestMode && ownsBookClub(club);
+}
+
+function managedBookClubs() {
+  return guestMode ? ownedBookClubs() : bookClubs.filter(canManageBookClub);
 }
 
 function currentClubRead(clubId) {
@@ -14313,7 +14328,7 @@ function bookClubStorageCallout() {
 function buildBookClubs() {
   const panel = document.getElementById('tab-clubs');
   if (!panel) return;
-  const managedClubs = ownedBookClubs();
+  const managedClubs = managedBookClubs();
   const managedIds = new Set(managedClubs.map(club => String(club.id)));
   const managedMembers = bookClubMembers.filter(member => managedIds.has(String(member.club_id)));
   const managedReads = bookClubReads.filter(read => managedIds.has(String(read.club_id)));
@@ -14346,6 +14361,7 @@ function bookClubManagerCardHTML(club, placement='manager') {
   const current = currentClubRead(club.id);
   const meeting = nextClubMeeting(club.id);
   const canManage = canManageBookClub(club);
+  const canAdminister = canAdministerBookClub(club);
   const schedule = [club.cadence, club.usual_meeting_day, club.usual_meeting_time ? String(club.usual_meeting_time).slice(0,5) : ''].filter(Boolean).join(' · ') || 'Not set';
   const meetingLink = meeting?.online_url || club.online_url || '';
   const actions = placement === 'hub'
@@ -14353,7 +14369,7 @@ function bookClubManagerCardHTML(club, placement='manager') {
     : `<button class="primary" type="button" onclick="openBookClubHub(${jsArg(club.id)})">View Hub</button>
       <button type="button" onclick="openBookClubEditor(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Edit Club</button>
       <button type="button" onclick="openBookClubMembers(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Members</button>
-      <button type="button" onclick="openBookClubInvitations(${jsArg(club.id)})" ${canManage && bookClubInvitationsAvailable ? '' : 'disabled'}>Invitations</button>
+      <button type="button" onclick="openBookClubInvitations(${jsArg(club.id)})" ${canAdminister && bookClubInvitationsAvailable ? '' : 'disabled'} title="${canAdminister ? 'Manage invitations' : 'Only the Organizer can manage invitations'}">Invitations</button>
       <button type="button" onclick="openBookClubSelections(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Selections</button>`;
   return `<article class="club-manager-card">
     <div class="club-card-head"><div><h3>${esc(club.name)}</h3><div class="club-card-meta">${members.length} member${members.length === 1 ? '' : 's'} · ${reads.length} selection${reads.length === 1 ? '' : 's'} · ${club.open_enrollment ? 'Open Enrollment' : 'Invitation Only'}</div></div>${clubStatusHTML(current?.status || 'Planning')}</div>
@@ -14520,6 +14536,7 @@ function bookClubSelectionInputValue(inputId, clubId) {
 function openBookClubEditor(clubId='') {
   const club = bookClubById(clubId) || {};
   if (clubId && !canManageBookClub(club)) return;
+  const canAdminister = !clubId || canAdministerBookClub(club);
   const reads = clubId ? clubReadsFor(clubId).sort((a,b) => String(a.title || '').localeCompare(String(b.title || ''))) : [];
   const current = reads.find(read => read.status === 'Current') || null;
   const meeting = clubId ? nextClubMeeting(clubId) : null;
@@ -14542,9 +14559,9 @@ function openBookClubEditor(clubId='') {
       <div class="club-form-field"><label for="club-edit-meeting-selection">Next Meeting For</label>${bookClubSelectionInputHTML('club-edit-meeting-selection',reads,meeting,`bookClubEditorMeetingChanged(${jsArg(clubId)})`)}</div>
       <div class="club-form-field"><label for="club-edit-next-meeting">Next Meeting (Club Time Zone)</label><input id="club-edit-next-meeting" type="datetime-local" value="${esc(clubDateTimeInputValue(meeting?.meeting_at,club.timezone || deviceTimeZone()))}"></div>
     </section>` : `<section class="club-form-section"><h3>Reading &amp; Meeting</h3><p>Save the club first, then edit it to choose a current selection and schedule the next meeting.</p></section>`}
-    <label class="club-enrollment-toggle" style="grid-column:1/-1"><input id="club-edit-open-enrollment" type="checkbox" ${club.open_enrollment ? 'checked' : ''}><span><strong>Open Enrollment</strong><span>Anyone with a Reading Tracker account can discover and join this club. Leave this off for invitation-only membership.</span></span></label>
+    ${canAdminister ? `<label class="club-enrollment-toggle" style="grid-column:1/-1"><input id="club-edit-open-enrollment" type="checkbox" ${club.open_enrollment ? 'checked' : ''}><span><strong>Open Enrollment</strong><span>Anyone with a Reading Tracker account can discover and join this club. Leave this off for invitation-only membership.</span></span></label>` : `<div class="club-callout" style="grid-column:1/-1;margin:0"><strong>${club.open_enrollment ? 'Open Enrollment' : 'Invitation Only'}</strong> · Only the Organizer can change enrollment and invitation settings.</div>`}
     <p class="club-form-note" id="book-club-form-status"></p>
-  </div>${clubId ? `<div class="account-actions" style="margin-top:1rem"><button class="account-secondary" style="color:#9b2020" type="button" onclick="confirmDeleteBookClub(${jsArg(clubId)})">Delete Club</button></div>` : ''}`;
+  </div>${clubId && canAdminister ? `<div class="account-actions" style="margin-top:1rem"><button class="account-secondary" style="color:#9b2020" type="button" onclick="confirmDeleteBookClub(${jsArg(clubId)})">Delete Club</button></div>` : ''}`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClub(${jsArg(clubId)})">Save Club</button>`);
   setTimeout(() => document.getElementById('club-edit-name')?.focus(),0);
 }
@@ -14579,9 +14596,9 @@ async function saveBookClub(clubId='') {
     usual_meeting_time:document.getElementById('club-edit-time')?.value || null,
     usual_location:document.getElementById('club-edit-location')?.value.trim() || null,
     online_url:document.getElementById('club-edit-url')?.value.trim() || null,
-    timezone:timeZone,
-    open_enrollment:Boolean(document.getElementById('club-edit-open-enrollment')?.checked)
+    timezone:timeZone
   };
+  if (!clubId || canAdministerBookClub(bookClubById(clubId))) body.open_enrollment = Boolean(document.getElementById('club-edit-open-enrollment')?.checked);
   bookClubFormStatus('Saving...');
   try {
     await supabaseTableRequest('book_clubs',{
@@ -14595,7 +14612,7 @@ async function saveBookClub(clubId='') {
     const message = /open_enrollment/i.test(error.message || '')
       ? 'Open enrollment is not enabled yet. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
       : /row-level security|violates row-level security/i.test(error.message || '')
-      ? 'Club ownership could not be verified. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
+      ? 'Your club permissions could not be verified. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
       : error.message;
     bookClubFormStatus(message,true);
   }
@@ -14626,6 +14643,7 @@ async function saveBookClubQuickSchedule(clubId, currentReadId='', meetingReadId
 let pendingBookClubDeleteId = '';
 function confirmDeleteBookClub(clubId) {
   const club = bookClubById(clubId);
+  if (!canAdministerBookClub(club)) return;
   pendingBookClubDeleteId = clubId;
   showAppDialog('Delete Book Club?',`Delete “${club?.name || 'this club'}” and its roster, selections, and meeting history? Books will remain in your library.`,`<button class="account-primary" style="background:#9b2020" type="button" onclick="deletePendingBookClub()">Delete Club</button><button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>`);
 }
@@ -14635,6 +14653,7 @@ async function deletePendingBookClub() {
   pendingBookClubDeleteId = '';
   closeAppDialog();
   if (!clubId) return;
+  if (!canAdministerBookClub(bookClubById(clubId))) return;
   try {
     await supabaseTableRequest('book_clubs',{method:'DELETE',query:`?id=eq.${encodeURIComponent(clubId)}`,prefer:'return=minimal'});
     closeTrackedModal();
@@ -14645,14 +14664,17 @@ async function deletePendingBookClub() {
 function openBookClubMembers(clubId, memberId='') {
   const club = bookClubById(clubId);
   if (!canManageBookClub(club)) return;
+  const canAdminister = canAdministerBookClub(club);
   const members = clubMembersFor(clubId);
   const member = members.find(item => String(item.id) === String(memberId)) || {};
+  if (memberId && member.role === 'Organizer' && !canAdminister) return;
+  const allowedRoles = canAdminister ? ['Organizer','Moderator','Member','Guest'] : ['Moderator','Member','Guest'];
   document.getElementById('modal-series-name').textContent = `${club.name} Members`;
   document.getElementById('modal-series-sub').textContent = `${members.length} roster entr${members.length === 1 ? 'y' : 'ies'} · Use Invitations to add account-linked members.`;
-  document.getElementById('modal-series-body').innerHTML = `${members.length ? `<div class="club-roster-list">${members.map(item => `<div class="club-roster-row"><div><strong>${esc(item.display_name)}</strong><div class="club-card-meta">${esc([item.role,item.email,item.timezone ? String(item.timezone).replace(/_/g,' ') : ''].filter(Boolean).join(' · '))}</div></div><div class="club-roster-actions"><button type="button" onclick="openBookClubMembers(${jsArg(clubId)},${jsArg(item.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubMember(${jsArg(item.id)},${jsArg(clubId)})">Remove</button></div></div>`).join('')}</div>` : ''}
+  document.getElementById('modal-series-body').innerHTML = `${members.length ? `<div class="club-roster-list">${members.map(item => { const canChange = canAdminister || item.role !== 'Organizer'; return `<div class="club-roster-row"><div><strong>${esc(item.display_name)}</strong><div class="club-card-meta">${esc([item.role,item.email,item.timezone ? String(item.timezone).replace(/_/g,' ') : ''].filter(Boolean).join(' · '))}</div></div><div class="club-roster-actions">${canChange ? `<button type="button" onclick="openBookClubMembers(${jsArg(clubId)},${jsArg(item.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubMember(${jsArg(item.id)},${jsArg(clubId)})">Remove</button>` : '<span class="club-status">Organizer</span>'}</div></div>`; }).join('')}</div>` : ''}
     <div class="club-form-grid">
       <div class="club-form-field"><label for="club-member-name">Display Name</label><input id="club-member-name" value="${esc(member.display_name || '')}"></div>
-      <div class="club-form-field"><label for="club-member-role">Role</label><select id="club-member-role">${['Organizer','Moderator','Member','Guest'].map(value => `<option ${member.role === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
+      <div class="club-form-field"><label for="club-member-role">Role</label><select id="club-member-role">${allowedRoles.map(value => `<option ${member.role === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
       <div class="club-form-field"><label for="club-member-email">Email</label><input id="club-member-email" type="email" value="${esc(member.email || '')}" placeholder="Optional until invitations are added"></div>
       <div class="club-form-field"><label for="club-member-joined">Joined</label><input id="club-member-joined" type="date" value="${esc(member.joined_on || '')}"></div>
       <div class="club-form-field full"><label for="club-member-timezone">Member Time Zone</label>${timeZonePickerHTML('club-member-timezone',member.timezone || club.timezone || deviceTimeZone())}</div>
@@ -14662,11 +14684,17 @@ function openBookClubMembers(clubId, memberId='') {
 }
 
 async function saveBookClubMember(clubId, memberId='') {
+  const club = bookClubById(clubId);
+  if (!canManageBookClub(club)) return;
+  const existingMember = clubMembersFor(clubId).find(item => String(item.id) === String(memberId));
+  if (existingMember?.role === 'Organizer' && !canAdministerBookClub(club)) return bookClubFormStatus('Only the Organizer can edit an Organizer roster entry.',true);
   const displayName = document.getElementById('club-member-name')?.value.trim() || '';
   if (!displayName) return bookClubFormStatus('Enter the member’s name.',true);
   const timeZone = validTimeZoneInput('club-member-timezone');
   if (!timeZone) return bookClubFormStatus('Choose a time zone from the suggestions or use “Use Mine.”',true);
-  const body = {club_id:clubId,display_name:displayName,email:document.getElementById('club-member-email')?.value.trim() || null,role:document.getElementById('club-member-role')?.value || 'Member',timezone:timeZone,joined_on:document.getElementById('club-member-joined')?.value || null};
+  const role = document.getElementById('club-member-role')?.value || 'Member';
+  if (role === 'Organizer' && !canAdministerBookClub(club)) return bookClubFormStatus('Only the Organizer can assign the Organizer role.',true);
+  const body = {club_id:clubId,display_name:displayName,email:document.getElementById('club-member-email')?.value.trim() || null,role,timezone:timeZone,joined_on:document.getElementById('club-member-joined')?.value || null};
   bookClubFormStatus('Saving...');
   try {
     await supabaseTableRequest('book_club_members',{method:memberId ? 'PATCH' : 'POST',query:memberId ? `?id=eq.${encodeURIComponent(memberId)}` : '',body:memberId ? body : [body],prefer:'return=representation'});
@@ -14675,11 +14703,17 @@ async function saveBookClubMember(clubId, memberId='') {
 }
 
 function confirmDeleteBookClubMember(memberId, clubId) {
+  const club = bookClubById(clubId);
+  const member = clubMembersFor(clubId).find(item => String(item.id) === String(memberId));
+  if (!canManageBookClub(club) || (member?.role === 'Organizer' && !canAdministerBookClub(club))) return;
   showAppDialog('Remove Member?','Remove this person from the club roster? Their Reading Tracker account and books will not be affected.',`<button class="account-primary" style="background:#9b2020" type="button" onclick="deleteBookClubMember(${jsArg(memberId)},${jsArg(clubId)})">Remove</button><button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>`);
 }
 
 async function deleteBookClubMember(memberId, clubId) {
   closeAppDialog();
+  const club = bookClubById(clubId);
+  const member = clubMembersFor(clubId).find(item => String(item.id) === String(memberId));
+  if (!canManageBookClub(club) || (member?.role === 'Organizer' && !canAdministerBookClub(club))) return;
   try {
     await supabaseTableRequest('book_club_members',{method:'DELETE',query:`?id=eq.${encodeURIComponent(memberId)}`,prefer:'return=minimal'});
     closeTrackedModal(); await refreshBookClubPages(); openBookClubMembers(clubId);
@@ -14716,7 +14750,7 @@ async function copyBookClubInvitation(token, button=null) {
 
 function openBookClubInvitations(clubId) {
   const club = bookClubById(clubId);
-  if (!canManageBookClub(club)) return;
+  if (!canAdministerBookClub(club)) return;
   const invitations = clubInvitationsFor(clubId);
   document.getElementById('modal-series-name').textContent = `${club.name} Invitations`;
   document.getElementById('modal-series-sub').textContent = club.open_enrollment
@@ -14735,6 +14769,7 @@ function openBookClubInvitations(clubId) {
 }
 
 async function createBookClubInvitation(clubId) {
+  if (!canAdministerBookClub(bookClubById(clubId))) return bookClubFormStatus('Only the Organizer can create invitations.',true);
   const email = document.getElementById('club-invite-email')?.value.trim().toLowerCase() || '';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return bookClubFormStatus('Enter a valid email address.',true);
   const existing = clubInvitationsFor(clubId).find(invitation => invitation.status === 'Pending' && normalizedKey(invitation.email) === normalizedKey(email));
@@ -14767,6 +14802,7 @@ async function createBookClubInvitation(clubId) {
 }
 
 async function revokeBookClubInvitation(invitationId, clubId) {
+  if (!canAdministerBookClub(bookClubById(clubId))) return;
   try {
     await supabaseTableRequest('book_club_invitations',{method:'PATCH',query:`?id=eq.${encodeURIComponent(invitationId)}`,body:{status:'Revoked'},prefer:'return=minimal'});
     closeTrackedModal();

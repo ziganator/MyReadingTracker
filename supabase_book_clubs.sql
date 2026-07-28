@@ -237,6 +237,33 @@ as $$
   );
 $$;
 
+create or replace function public.is_book_club_moderator(target_club_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.book_club_members
+    where club_id = target_club_id
+      and account_user_id = auth.uid()
+      and role = 'Moderator'
+  );
+$$;
+
+create or replace function public.can_moderate_book_club(target_club_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.owns_book_club(target_club_id)
+    or public.is_book_club_moderator(target_club_id);
+$$;
+
 create or replace function public.can_view_book_club(target_club_id uuid)
 returns boolean
 language sql
@@ -252,6 +279,80 @@ as $$
         and account_user_id = auth.uid()
     );
 $$;
+
+create or replace function public.protect_book_club_moderator_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.owns_book_club(old.id) then
+    return new;
+  end if;
+  if public.is_book_club_moderator(old.id) then
+    if new.user_id is distinct from old.user_id then
+      raise exception 'Only the Organizer can change club ownership.' using errcode = '42501';
+    end if;
+    if new.open_enrollment is distinct from old.open_enrollment then
+      raise exception 'Only the Organizer can change open enrollment.' using errcode = '42501';
+    end if;
+    return new;
+  end if;
+  raise exception 'Only an Organizer or Moderator can update this club.' using errcode = '42501';
+end;
+$$;
+
+drop trigger if exists protect_book_club_moderator_update on public.book_clubs;
+create trigger protect_book_club_moderator_update
+before update on public.book_clubs
+for each row execute function public.protect_book_club_moderator_update();
+
+create or replace function public.protect_book_club_member_management()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_club_id uuid;
+begin
+  target_club_id := case when tg_op = 'DELETE' then old.club_id else new.club_id end;
+  if public.owns_book_club(target_club_id) then
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    if new.role = 'Organizer' then
+      raise exception 'Only the Organizer can assign the Organizer role.' using errcode = '42501';
+    end if;
+  elsif tg_op = 'UPDATE' then
+    if old.role = 'Organizer' or new.role = 'Organizer' then
+      raise exception 'Only the Organizer can manage Organizer roster entries.' using errcode = '42501';
+    end if;
+  elsif old.role = 'Organizer' then
+    raise exception 'Only the Organizer can remove an Organizer roster entry.' using errcode = '42501';
+  end if;
+  if public.is_book_club_moderator(target_club_id) then
+    if tg_op = 'INSERT' then
+      if new.account_user_id is not null then
+        raise exception 'Moderators cannot link roster entries to user accounts.' using errcode = '42501';
+      end if;
+    elsif tg_op = 'UPDATE' then
+      if new.account_user_id is distinct from old.account_user_id then
+        raise exception 'Moderators cannot change linked user accounts.' using errcode = '42501';
+      end if;
+    end if;
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_book_club_member_management on public.book_club_members;
+create trigger protect_book_club_member_management
+before insert or update or delete on public.book_club_members
+for each row execute function public.protect_book_club_member_management();
 
 create or replace function public.can_join_book_club(target_club_id uuid, requested_role text)
 returns boolean
@@ -304,15 +405,23 @@ create policy "Owners and members can read book clubs"
   on public.book_clubs for select
   using (open_enrollment = true or public.can_view_book_club(id) or public.has_book_club_invitation(id));
 
+drop policy if exists "Users can update their own book clubs" on public.book_clubs;
+drop policy if exists "Owners and moderators can update book clubs" on public.book_clubs;
+create policy "Owners and moderators can update book clubs"
+  on public.book_clubs for update
+  using (public.can_moderate_book_club(id))
+  with check (public.can_moderate_book_club(id));
+
 drop policy if exists "Club members can read the roster" on public.book_club_members;
 create policy "Club members can read the roster"
   on public.book_club_members for select
   using (public.can_view_book_club(club_id));
 
 drop policy if exists "Club owners can add members" on public.book_club_members;
-create policy "Club owners can add members"
+drop policy if exists "Club managers can add members" on public.book_club_members;
+create policy "Club managers can add members"
   on public.book_club_members for insert
-  with check (public.owns_book_club(club_id));
+  with check (public.can_moderate_book_club(club_id));
 
 drop policy if exists "Users can join open or invited clubs" on public.book_club_members;
 create policy "Users can join open or invited clubs"
@@ -324,15 +433,17 @@ create policy "Users can join open or invited clubs"
   );
 
 drop policy if exists "Club owners can update members" on public.book_club_members;
-create policy "Club owners can update members"
+drop policy if exists "Club managers can update members" on public.book_club_members;
+create policy "Club managers can update members"
   on public.book_club_members for update
-  using (public.owns_book_club(club_id))
-  with check (public.owns_book_club(club_id));
+  using (public.can_moderate_book_club(club_id))
+  with check (public.can_moderate_book_club(club_id));
 
 drop policy if exists "Club owners can remove members" on public.book_club_members;
-create policy "Club owners can remove members"
+drop policy if exists "Club managers can remove members" on public.book_club_members;
+create policy "Club managers can remove members"
   on public.book_club_members for delete
-  using (public.owns_book_club(club_id));
+  using (public.can_moderate_book_club(club_id));
 
 drop policy if exists "Club members can read selections" on public.book_club_reads;
 create policy "Club members can read selections"
@@ -340,20 +451,23 @@ create policy "Club members can read selections"
   using (public.can_view_book_club(club_id));
 
 drop policy if exists "Club owners can add selections" on public.book_club_reads;
-create policy "Club owners can add selections"
+drop policy if exists "Club managers can add selections" on public.book_club_reads;
+create policy "Club managers can add selections"
   on public.book_club_reads for insert
-  with check (public.owns_book_club(club_id));
+  with check (public.can_moderate_book_club(club_id));
 
 drop policy if exists "Club owners can update selections" on public.book_club_reads;
-create policy "Club owners can update selections"
+drop policy if exists "Club managers can update selections" on public.book_club_reads;
+create policy "Club managers can update selections"
   on public.book_club_reads for update
-  using (public.owns_book_club(club_id))
-  with check (public.owns_book_club(club_id));
+  using (public.can_moderate_book_club(club_id))
+  with check (public.can_moderate_book_club(club_id));
 
 drop policy if exists "Club owners can remove selections" on public.book_club_reads;
-create policy "Club owners can remove selections"
+drop policy if exists "Club managers can remove selections" on public.book_club_reads;
+create policy "Club managers can remove selections"
   on public.book_club_reads for delete
-  using (public.owns_book_club(club_id));
+  using (public.can_moderate_book_club(club_id));
 
 drop policy if exists "Club owners can read invitations" on public.book_club_invitations;
 create policy "Club owners can read invitations"
@@ -404,6 +518,8 @@ grant select, insert, update, delete on public.book_club_members to authenticate
 grant select, insert, update, delete on public.book_club_reads to authenticated;
 grant select, insert, update, delete on public.book_club_invitations to authenticated;
 grant execute on function public.owns_book_club(uuid) to authenticated;
+grant execute on function public.is_book_club_moderator(uuid) to authenticated;
+grant execute on function public.can_moderate_book_club(uuid) to authenticated;
 grant execute on function public.can_view_book_club(uuid) to authenticated;
 grant execute on function public.can_join_book_club(uuid, text) to authenticated;
 grant execute on function public.has_book_club_invitation(uuid) to authenticated;
@@ -419,3 +535,6 @@ comment on table public.book_club_reads is
 
 comment on table public.book_club_invitations is
   'Email invitations with shareable tokens for joining private book clubs.';
+
+comment on function public.can_moderate_book_club(uuid) is
+  'Allows the club owner or an account-linked Moderator to manage club details, roster entries, selections, meetings, and discussions.';
