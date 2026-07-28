@@ -4508,7 +4508,7 @@
   .club-member { display:flex; align-items:center; gap:.55rem; min-width:0; padding:.55rem; border-radius:8px; background:rgba(65,105,225,.045); }
   .club-avatar { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; border-radius:50%; background:var(--accent-gradient); color:#fff; font-size:.68rem; font-weight:900; }
   .club-member-name { overflow:hidden; font-size:.8rem; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
-  .club-member-role { color:var(--muted); font-size:.68rem; }
+  .club-member-role { color:var(--muted); font-size:.68rem; overflow-wrap:anywhere; }
   .club-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
   .club-form-field { display:grid; gap:.28rem; min-width:0; }
   .club-form-field.full { grid-column:1/-1; }
@@ -4921,10 +4921,10 @@ function buildGuestBookClubData() {
     timezone: 'America/Los_Angeles'
   }];
   bookClubMembers = [
-    {id:'guest-member-1', club_id:clubId, display_name:'Alex Morgan', email:'alex@example.com', role:'Organizer', joined_on:'2025-09-11'},
-    {id:'guest-member-2', club_id:clubId, display_name:'Jordan Lee', email:'jordan@example.com', role:'Moderator', joined_on:'2025-09-11'},
-    {id:'guest-member-3', club_id:clubId, display_name:'Sam Rivera', email:'sam@example.com', role:'Member', joined_on:'2025-10-09'},
-    {id:'guest-member-4', club_id:clubId, display_name:'Priya Shah', email:'priya@example.com', role:'Member', joined_on:'2026-01-08'}
+    {id:'guest-member-1', club_id:clubId, display_name:'Alex Morgan', email:'alex@example.com', role:'Organizer', timezone:'America/Los_Angeles', joined_on:'2025-09-11'},
+    {id:'guest-member-2', club_id:clubId, display_name:'Jordan Lee', email:'jordan@example.com', role:'Moderator', timezone:'America/New_York', joined_on:'2025-09-11'},
+    {id:'guest-member-3', club_id:clubId, display_name:'Sam Rivera', email:'sam@example.com', role:'Member', timezone:'Europe/London', joined_on:'2025-10-09'},
+    {id:'guest-member-4', club_id:clubId, display_name:'Priya Shah', email:'priya@example.com', role:'Member', timezone:'Asia/Kolkata', joined_on:'2026-01-08'}
   ];
   const dracula = findBook('Dracula');
   const frankenstein = findBook('Frankenstein');
@@ -13994,6 +13994,60 @@ function renderPicker(isShuffled) {
   if (lbl) lbl.textContent = isShuffled ? '🎲 Shuffle Again' : '🎲 Shuffle';
 }
 // ─── Book Clubs ───────────────────────────────────────────────
+const FALLBACK_TIME_ZONES = [
+  'UTC','Pacific/Honolulu','America/Anchorage','America/Los_Angeles','America/Phoenix','America/Denver',
+  'America/Chicago','America/Mexico_City','America/New_York','America/Toronto','America/Halifax',
+  'America/St_Johns','America/Sao_Paulo','America/Argentina/Buenos_Aires','Atlantic/Azores',
+  'Europe/London','Europe/Dublin','Europe/Lisbon','Europe/Paris','Europe/Berlin','Europe/Rome',
+  'Europe/Athens','Europe/Helsinki','Europe/Istanbul','Europe/Moscow','Africa/Cairo','Africa/Johannesburg',
+  'Asia/Jerusalem','Asia/Dubai','Asia/Karachi','Asia/Kolkata','Asia/Dhaka','Asia/Bangkok','Asia/Singapore',
+  'Asia/Hong_Kong','Asia/Shanghai','Asia/Tokyo','Asia/Seoul','Australia/Perth','Australia/Adelaide',
+  'Australia/Brisbane','Australia/Sydney','Pacific/Auckland'
+];
+
+function deviceTimeZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }
+  catch (_) { return 'UTC'; }
+}
+
+function supportedTimeZones() {
+  let zones = [];
+  try {
+    if (typeof Intl.supportedValuesOf === 'function') zones = Intl.supportedValuesOf('timeZone');
+  } catch (_) {}
+  return [...new Set([deviceTimeZone(),...zones,...FALLBACK_TIME_ZONES].filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b));
+}
+
+function timeZoneOffsetLabel(timeZone) {
+  try {
+    return new Intl.DateTimeFormat('en-US',{timeZone,timeZoneName:'shortOffset'})
+      .formatToParts(new Date()).find(part => part.type === 'timeZoneName')?.value || '';
+  } catch (_) { return ''; }
+}
+
+function timeZoneDisplayLabel(timeZone) {
+  if (!timeZone) return 'Time zone not set';
+  const friendly = String(timeZone).replace(/_/g,' ');
+  const offset = timeZoneOffsetLabel(timeZone);
+  return offset ? `${friendly} · ${offset}` : friendly;
+}
+
+function timeZoneOptionsHTML(selectedTimeZone='') {
+  const selected = selectedTimeZone || deviceTimeZone();
+  const device = deviceTimeZone();
+  const zones = supportedTimeZones();
+  if (selected && !zones.includes(selected)) zones.push(selected);
+  const grouped = new Map();
+  zones.filter(zone => zone !== device).sort((a,b) => a.localeCompare(b)).forEach(zone => {
+    const region = zone.includes('/') ? zone.split('/')[0] : 'Universal';
+    if (!grouped.has(region)) grouped.set(region,[]);
+    grouped.get(region).push(zone);
+  });
+  return `<option value="${esc(device)}" ${selected === device ? 'selected' : ''}>Device time zone — ${esc(timeZoneDisplayLabel(device))}</option>` +
+    [...grouped.entries()].map(([region,group]) => `<optgroup label="${esc(region)}">${group.map(zone => `<option value="${esc(zone)}" ${selected === zone ? 'selected' : ''}>${esc(timeZoneDisplayLabel(zone))}</option>`).join('')}</optgroup>`).join('');
+}
+
 function bookClubById(clubId='') {
   return bookClubs.find(club => String(club.id) === String(clubId || '')) || null;
 }
@@ -14030,20 +14084,56 @@ function clubDateLabel(value) {
   return date && !isNaN(date) ? date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : String(value);
 }
 
-function clubDateTimeLabel(value) {
+function clubDateTimeLabel(value, timeZone='') {
   if (!value) return 'Not scheduled';
   const date = new Date(value);
   return isNaN(date) ? String(value) : date.toLocaleString('en-US',{
-    weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'
+    weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit',
+    ...(timeZone ? {timeZone,timeZoneName:'short'} : {})
   });
 }
 
-function clubDateTimeInputValue(value) {
+function clubDateTimeInputValue(value, timeZone='') {
   if (!value) return '';
   const date = new Date(value);
   if (isNaN(date)) return String(value).slice(0,16);
+  if (timeZone) {
+    try {
+      const values = Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
+        timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+      }).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type,part.value]));
+      return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+    } catch (_) {}
+  }
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return offsetDate.toISOString().slice(0,16);
+}
+
+function clubDateTimeToISO(localValue, timeZone='') {
+  if (!localValue) return null;
+  if (!timeZone) return new Date(localValue).toISOString();
+  const match = String(localValue).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return new Date(localValue).toISOString();
+  const [,year,month,day,hour,minute] = match;
+  const requestedWallTime = Date.UTC(Number(year),Number(month)-1,Number(day),Number(hour),Number(minute));
+  let candidate = requestedWallTime;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US',{
+      timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+    });
+    for (let pass=0; pass<3; pass++) {
+      const values = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+        .filter(part => part.type !== 'literal').map(part => [part.type,part.value]));
+      const observedWallTime = Date.UTC(Number(values.year),Number(values.month)-1,Number(values.day),Number(values.hour),Number(values.minute));
+      candidate += requestedWallTime - observedWallTime;
+    }
+    return new Date(candidate).toISOString();
+  } catch (_) { return new Date(localValue).toISOString(); }
+}
+
+function viewerBookClubTimeZone(clubId) {
+  const accountId = supabaseSession?.user?.id || '';
+  return clubMembersFor(clubId).find(member => accountId && String(member.account_user_id || '') === String(accountId))?.timezone || deviceTimeZone();
 }
 
 function clubMeetingFormat(club, read=null) {
@@ -14131,7 +14221,7 @@ function bookClubManagerCardHTML(club) {
     <p class="club-card-description">${esc(club.description || 'No club description yet.')}</p>
     <div class="club-detail-list">
       <div class="club-detail-row"><span>Current selection</span><strong>${esc(current ? `${current.title}${current.author ? ` · ${current.author}` : ''}` : 'None selected')}</strong></div>
-      <div class="club-detail-row"><span>Next meeting</span><strong>${esc(meeting ? clubDateTimeLabel(meeting.meeting_at) : 'Not scheduled')}</strong></div>
+      <div class="club-detail-row"><span>Next meeting</span><strong>${esc(meeting ? clubDateTimeLabel(meeting.meeting_at,club.timezone) : 'Not scheduled')}</strong></div>
       <div class="club-detail-row"><span>Meeting style</span><strong>${esc(club.meeting_format || 'In Person')}</strong></div>
       <div class="club-detail-row"><span>Usual schedule</span><strong>${esc(schedule)}</strong></div>
     </div>
@@ -14181,6 +14271,8 @@ function bookClubHubHTML(club) {
   const progress = clubReadProgress(current);
   const format = clubMeetingFormat(club,current);
   const meetingLink = current?.online_url || club.online_url || '';
+  const viewerTimeZone = viewerBookClubTimeZone(club.id);
+  const showViewerTime = current?.meeting_at && viewerTimeZone && viewerTimeZone !== club.timezone;
   const dateRange = current ? `${clubDateLabel(current.start_date)} – ${clubDateLabel(current.end_date)}` : 'Reading dates not set';
   return `<section aria-label="${esc(club.name)} member hub">
     <div class="club-callout"><strong>${esc(club.name)}</strong>${club.description ? ` · ${esc(club.description)}` : ''}</div>
@@ -14195,7 +14287,8 @@ function bookClubHubHTML(club) {
       </div>
       <aside class="club-meeting-card">
         <h3>Next Discussion</h3>
-        <p><strong>${esc(clubDateTimeLabel(current.meeting_at))}</strong></p>
+        <p><strong>${esc(clubDateTimeLabel(current.meeting_at,club.timezone))}</strong></p>
+        ${showViewerTime ? `<p><strong>Your time:</strong> ${esc(clubDateTimeLabel(current.meeting_at,viewerTimeZone))}</p>` : ''}
         <p>${esc(format)} · ${esc(clubMeetingLocation(club,current))}</p>
         ${meetingLink ? `<p><a href="${esc(meetingLink)}" target="_blank" rel="noopener">Open online meeting</a></p>` : ''}
         ${current.meeting_at ? `<button class="club-link-button" type="button" onclick="downloadBookClubMeetingICS(${jsArg(current.id)})">Add to Calendar</button>` : ''}
@@ -14207,10 +14300,11 @@ function bookClubHubHTML(club) {
         <div class="club-detail-row"><span>Cadence</span><strong>${esc(club.cadence || 'Not set')}</strong></div>
         <div class="club-detail-row"><span>Usual meeting</span><strong>${esc([club.usual_meeting_day,club.usual_meeting_time ? String(club.usual_meeting_time).slice(0,5) : ''].filter(Boolean).join(' · ') || 'Not set')}</strong></div>
         <div class="club-detail-row"><span>Format</span><strong>${esc(club.meeting_format || 'In Person')}</strong></div>
+        <div class="club-detail-row"><span>Club time zone</span><strong>${esc(timeZoneDisplayLabel(club.timezone || deviceTimeZone()))}</strong></div>
         <div class="club-detail-row"><span>Members</span><strong>${members.length}</strong></div>
       </div></article>
       <article class="club-hub-panel"><h3>Coming Up</h3>${clubReadListHTML(upcoming,'No upcoming books have been scheduled.')}</article>
-      <article class="club-hub-panel"><h3>Members</h3>${members.length ? `<div class="club-member-grid">${members.map(member => `<div class="club-member"><span class="club-avatar">${esc(clubInitials(member.display_name))}</span><div style="min-width:0"><div class="club-member-name">${esc(member.display_name)}</div><div class="club-member-role">${esc(member.role)}</div></div></div>`).join('')}</div>` : '<p class="club-card-meta">No members have been added yet.</p>'}</article>
+      <article class="club-hub-panel"><h3>Members</h3>${members.length ? `<div class="club-member-grid">${members.map(member => `<div class="club-member"><span class="club-avatar">${esc(clubInitials(member.display_name))}</span><div style="min-width:0"><div class="club-member-name">${esc(member.display_name)}</div><div class="club-member-role">${esc(member.role)}${member.timezone ? ` · ${esc(String(member.timezone).replace(/_/g,' '))}` : ''}</div></div></div>`).join('')}</div>` : '<p class="club-card-meta">No members have been added yet.</p>'}</article>
       <article class="club-hub-panel wide"><h3>Previous Reads</h3>${clubReadListHTML(completed,'Completed selections will appear here.')}</article>
       <article class="club-hub-panel narrow"><h3>Community</h3><p class="club-card-description" style="min-height:0">Invitations, polls, attendance, and member chat can be added after this test layout is approved.</p><span class="club-status">Coming Later</span></article>
     </div>
@@ -14247,7 +14341,7 @@ function openBookClubEditor(clubId='') {
     <div class="club-form-field"><label for="club-edit-time">Usual Time</label><input id="club-edit-time" type="time" value="${esc(String(club.usual_meeting_time || '').slice(0,5))}"></div>
     <div class="club-form-field full"><label for="club-edit-location">Physical Location</label><input id="club-edit-location" value="${esc(club.usual_location || '')}" placeholder="Library room, café, or address"></div>
     <div class="club-form-field full"><label for="club-edit-url">Online Meeting Link</label><input id="club-edit-url" type="url" value="${esc(club.online_url || '')}" placeholder="https://..."></div>
-    <div class="club-form-field full"><label for="club-edit-timezone">Time Zone</label><input id="club-edit-timezone" value="${esc(club.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles')}"></div>
+    <div class="club-form-field full"><label for="club-edit-timezone">Club Time Zone</label><select id="club-edit-timezone">${timeZoneOptionsHTML(club.timezone || deviceTimeZone())}</select></div>
     <p class="club-form-note" id="book-club-form-status"></p>
   </div>${clubId ? `<div class="account-actions" style="margin-top:1rem"><button class="account-secondary" style="color:#9b2020" type="button" onclick="confirmDeleteBookClub(${jsArg(clubId)})">Delete Club</button></div>` : ''}`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClub(${jsArg(clubId)})">Save Club</button>`);
@@ -14259,7 +14353,6 @@ async function saveBookClub(clubId='') {
   if (!name) return bookClubFormStatus('Enter a club name.',true);
   if (!supabaseSession?.user?.id || guestMode) return bookClubFormStatus('Sign in to save a club.',true);
   const body = {
-    user_id:supabaseSession.user.id,
     name,
     description:document.getElementById('club-edit-description')?.value.trim() || null,
     meeting_format:document.getElementById('club-edit-format')?.value || 'In Person',
@@ -14268,17 +14361,22 @@ async function saveBookClub(clubId='') {
     usual_meeting_time:document.getElementById('club-edit-time')?.value || null,
     usual_location:document.getElementById('club-edit-location')?.value.trim() || null,
     online_url:document.getElementById('club-edit-url')?.value.trim() || null,
-    timezone:document.getElementById('club-edit-timezone')?.value.trim() || 'America/Los_Angeles'
+    timezone:document.getElementById('club-edit-timezone')?.value || deviceTimeZone()
   };
   bookClubFormStatus('Saving...');
   try {
     await supabaseTableRequest('book_clubs',{
       method:clubId ? 'PATCH' : 'POST', query:clubId ? `?id=eq.${encodeURIComponent(clubId)}` : '',
-      body:clubId ? body : [body], prefer:'return=representation'
+      body:clubId ? body : [body], prefer:'return=minimal'
     });
     closeTrackedModal();
     await refreshBookClubPages();
-  } catch (error) { bookClubFormStatus(error.message,true); }
+  } catch (error) {
+    const message = /row-level security|violates row-level security/i.test(error.message || '')
+      ? 'Club ownership could not be verified. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
+      : error.message;
+    bookClubFormStatus(message,true);
+  }
 }
 
 let pendingBookClubDeleteId = '';
@@ -14307,12 +14405,13 @@ function openBookClubMembers(clubId, memberId='') {
   const member = members.find(item => String(item.id) === String(memberId)) || {};
   document.getElementById('modal-series-name').textContent = `${club.name} Members`;
   document.getElementById('modal-series-sub').textContent = `${members.length} roster entr${members.length === 1 ? 'y' : 'ies'} · Account invitations come later.`;
-  document.getElementById('modal-series-body').innerHTML = `${members.length ? `<div class="club-roster-list">${members.map(item => `<div class="club-roster-row"><div><strong>${esc(item.display_name)}</strong><div class="club-card-meta">${esc([item.role,item.email].filter(Boolean).join(' · '))}</div></div><div class="club-roster-actions"><button type="button" onclick="openBookClubMembers(${jsArg(clubId)},${jsArg(item.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubMember(${jsArg(item.id)},${jsArg(clubId)})">Remove</button></div></div>`).join('')}</div>` : ''}
+  document.getElementById('modal-series-body').innerHTML = `${members.length ? `<div class="club-roster-list">${members.map(item => `<div class="club-roster-row"><div><strong>${esc(item.display_name)}</strong><div class="club-card-meta">${esc([item.role,item.email,item.timezone ? String(item.timezone).replace(/_/g,' ') : ''].filter(Boolean).join(' · '))}</div></div><div class="club-roster-actions"><button type="button" onclick="openBookClubMembers(${jsArg(clubId)},${jsArg(item.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubMember(${jsArg(item.id)},${jsArg(clubId)})">Remove</button></div></div>`).join('')}</div>` : ''}
     <div class="club-form-grid">
       <div class="club-form-field"><label for="club-member-name">Display Name</label><input id="club-member-name" value="${esc(member.display_name || '')}"></div>
       <div class="club-form-field"><label for="club-member-role">Role</label><select id="club-member-role">${['Organizer','Moderator','Member','Guest'].map(value => `<option ${member.role === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
       <div class="club-form-field"><label for="club-member-email">Email</label><input id="club-member-email" type="email" value="${esc(member.email || '')}" placeholder="Optional until invitations are added"></div>
       <div class="club-form-field"><label for="club-member-joined">Joined</label><input id="club-member-joined" type="date" value="${esc(member.joined_on || '')}"></div>
+      <div class="club-form-field full"><label for="club-member-timezone">Member Time Zone</label><select id="club-member-timezone">${timeZoneOptionsHTML(member.timezone || club.timezone || deviceTimeZone())}</select></div>
       <p class="club-form-note" id="book-club-form-status"></p>
     </div>`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClubMember(${jsArg(clubId)},${jsArg(memberId)})">${memberId ? 'Save Member' : 'Add Member'}</button>`);
@@ -14321,7 +14420,7 @@ function openBookClubMembers(clubId, memberId='') {
 async function saveBookClubMember(clubId, memberId='') {
   const displayName = document.getElementById('club-member-name')?.value.trim() || '';
   if (!displayName) return bookClubFormStatus('Enter the member’s name.',true);
-  const body = {club_id:clubId,display_name:displayName,email:document.getElementById('club-member-email')?.value.trim() || null,role:document.getElementById('club-member-role')?.value || 'Member',joined_on:document.getElementById('club-member-joined')?.value || null};
+  const body = {club_id:clubId,display_name:displayName,email:document.getElementById('club-member-email')?.value.trim() || null,role:document.getElementById('club-member-role')?.value || 'Member',timezone:document.getElementById('club-member-timezone')?.value || null,joined_on:document.getElementById('club-member-joined')?.value || null};
   bookClubFormStatus('Saving...');
   try {
     await supabaseTableRequest('book_club_members',{method:memberId ? 'PATCH' : 'POST',query:memberId ? `?id=eq.${encodeURIComponent(memberId)}` : '',body:memberId ? body : [body],prefer:'return=representation'});
@@ -14366,7 +14465,7 @@ function openBookClubReadEditor(clubId, readId='') {
     <div class="club-form-field"><label for="club-read-rating">Club Rating / 10</label><input id="club-read-rating" type="number" min="0" max="10" step="0.1" value="${esc(read.rating ?? '')}"></div>
     <div class="club-form-field"><label for="club-read-start">Reading Starts</label><input id="club-read-start" type="date" value="${esc(read.start_date || '')}"></div>
     <div class="club-form-field"><label for="club-read-end">Reading Ends</label><input id="club-read-end" type="date" value="${esc(read.end_date || '')}"></div>
-    <div class="club-form-field full"><label for="club-read-meeting">Discussion Meeting</label><input id="club-read-meeting" type="datetime-local" value="${esc(clubDateTimeInputValue(read.meeting_at))}"></div>
+    <div class="club-form-field full"><label for="club-read-meeting">Discussion Meeting (${esc(String(club.timezone || deviceTimeZone()).replace(/_/g,' '))})</label><input id="club-read-meeting" type="datetime-local" value="${esc(clubDateTimeInputValue(read.meeting_at,club.timezone || deviceTimeZone()))}"></div>
     <div class="club-form-field"><label for="club-read-format">Meeting Format</label><select id="club-read-format"><option value="">Use club default</option>${['In Person','Online','Hybrid'].map(value => `<option ${read.meeting_format === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
     <div class="club-form-field"><label for="club-read-location">Physical Location</label><input id="club-read-location" value="${esc(read.location || '')}" placeholder="Use club default if blank"></div>
     <div class="club-form-field full"><label for="club-read-url">Online Meeting Link</label><input id="club-read-url" type="url" value="${esc(read.online_url || '')}" placeholder="Use club default if blank"></div>
@@ -14401,7 +14500,7 @@ async function saveBookClubRead(clubId, readId='') {
     author:document.getElementById('club-read-author')?.value.trim() || null,
     cover_url:document.getElementById('club-read-cover')?.value.trim() || null,
     status:document.getElementById('club-read-status')?.value || 'Upcoming', start_date:startDate, end_date:endDate,
-    meeting_at:meetingValue ? new Date(meetingValue).toISOString() : null,
+    meeting_at:meetingValue ? clubDateTimeToISO(meetingValue,bookClubById(clubId)?.timezone || deviceTimeZone()) : null,
     meeting_format:document.getElementById('club-read-format')?.value || null,
     location:document.getElementById('club-read-location')?.value.trim() || null,
     online_url:document.getElementById('club-read-url')?.value.trim() || null,

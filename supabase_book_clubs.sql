@@ -3,13 +3,16 @@
 
 create table if not exists public.book_clubs (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   name text not null,
   description text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint book_clubs_name_not_blank check (length(trim(name)) > 0)
 );
+
+alter table public.book_clubs
+  alter column user_id set default auth.uid();
 
 alter table public.book_clubs
   add column if not exists meeting_format text not null default 'In Person',
@@ -113,12 +116,16 @@ create table if not exists public.book_club_members (
   display_name text not null,
   email text,
   role text not null default 'Member',
+  timezone text,
   joined_on date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint book_club_members_name_not_blank check (length(trim(display_name)) > 0),
   constraint book_club_members_role_check check (role in ('Organizer', 'Moderator', 'Member', 'Guest'))
 );
+
+alter table public.book_club_members
+  add column if not exists timezone text;
 
 create unique index if not exists book_club_members_account_unique
   on public.book_club_members (club_id, account_user_id)
@@ -270,6 +277,9 @@ grant execute on function public.can_view_book_club(uuid) to authenticated;
 
 comment on table public.book_club_members is
   'Roster entries for a book club. account_user_id links a roster entry to a Reading Tracker account when invitations are added.';
+
+comment on column public.book_club_members.timezone is
+  'The member IANA time zone used to present club meeting times across locations.';
 
 comment on table public.book_club_reads is
   'Current, upcoming, and completed club selections with reading and meeting details.';
