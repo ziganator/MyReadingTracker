@@ -4515,6 +4515,10 @@
   .club-form-field label { color:var(--muted); font-size:.67rem; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }
   .club-form-field input,.club-form-field select,.club-form-field textarea { width:100%; min-width:0; padding:.62rem .68rem; background:#fff; color:var(--ink); }
   .club-form-field textarea { min-height:84px; resize:vertical; }
+  .club-timezone-picker { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.45rem; }
+  .club-timezone-picker button { min-height:42px; padding:.5rem .75rem; border:1px solid rgba(65,105,225,.42); border-radius:8px; background:#fff; color:var(--deep); cursor:pointer; font:750 .78rem inherit; white-space:nowrap; }
+  .club-timezone-picker button:hover { border-color:var(--gold); background:#fff7f0; }
+  .club-timezone-help { margin:0; color:var(--muted); font-size:.72rem; line-height:1.35; }
   .club-form-note { grid-column:1/-1; margin:0; color:var(--muted); font-size:.76rem; }
   .club-roster-list { display:grid; gap:.55rem; margin-bottom:1rem; }
   .club-roster-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.65rem; border-radius:8px; background:rgba(65,105,225,.045); }
@@ -14033,19 +14037,48 @@ function timeZoneDisplayLabel(timeZone) {
   return offset ? `${friendly} · ${offset}` : friendly;
 }
 
-function timeZoneOptionsHTML(selectedTimeZone='') {
-  const selected = selectedTimeZone || deviceTimeZone();
+function timeZoneSuggestionOptionsHTML() {
   const device = deviceTimeZone();
-  const zones = supportedTimeZones();
-  if (selected && !zones.includes(selected)) zones.push(selected);
-  const grouped = new Map();
-  zones.filter(zone => zone !== device).sort((a,b) => a.localeCompare(b)).forEach(zone => {
-    const region = zone.includes('/') ? zone.split('/')[0] : 'Universal';
-    if (!grouped.has(region)) grouped.set(region,[]);
-    grouped.get(region).push(zone);
-  });
-  return `<option value="${esc(device)}" ${selected === device ? 'selected' : ''}>Device time zone — ${esc(timeZoneDisplayLabel(device))}</option>` +
-    [...grouped.entries()].map(([region,group]) => `<optgroup label="${esc(region)}">${group.map(zone => `<option value="${esc(zone)}" ${selected === zone ? 'selected' : ''}>${esc(timeZoneDisplayLabel(zone))}</option>`).join('')}</optgroup>`).join('');
+  const prioritized = [...new Set([device,...FALLBACK_TIME_ZONES,...supportedTimeZones()])];
+  return prioritized.map(zone => `<option value="${esc(zone)}" label="${esc(timeZoneDisplayLabel(zone))}"></option>`).join('');
+}
+
+function timeZonePickerHTML(inputId, selectedTimeZone='') {
+  const selected = selectedTimeZone || deviceTimeZone();
+  const listId = `${inputId}-choices`;
+  return `<div class="club-timezone-picker">
+    <input id="${esc(inputId)}" type="text" list="${esc(listId)}" value="${esc(selected)}" autocomplete="off" spellcheck="false" placeholder="Start typing a city or region" onfocus="this.select()">
+    <button type="button" onclick="useDeviceTimeZone(${jsArg(inputId)})">Use Mine</button>
+  </div>
+  <p class="club-timezone-help">Type a city such as “New York” or “London,” or choose a matching suggestion.</p>
+  <datalist id="${esc(listId)}">${timeZoneSuggestionOptionsHTML()}</datalist>`;
+}
+
+function useDeviceTimeZone(inputId) {
+  const input = document.getElementById(inputId);
+  if (input) input.value = deviceTimeZone();
+}
+
+function validTimeZoneInput(inputId, fallback='') {
+  const input = document.getElementById(inputId);
+  const value = input?.value.trim() || fallback;
+  if (!value) return '';
+  try {
+    new Intl.DateTimeFormat('en-US',{timeZone:value}).format(new Date());
+    return value;
+  } catch (_) {
+    const needle = normalizedKey(String(value).replace(/_/g,' '));
+    const matches = supportedTimeZones().filter(zone => {
+      const friendly = String(zone).replace(/_/g,' ');
+      const city = friendly.split('/').pop();
+      return normalizedKey(friendly) === needle || normalizedKey(city) === needle;
+    });
+    if (matches.length === 1) {
+      if (input) input.value = matches[0];
+      return matches[0];
+    }
+    return '';
+  }
 }
 
 function bookClubById(clubId='') {
@@ -14341,7 +14374,7 @@ function openBookClubEditor(clubId='') {
     <div class="club-form-field"><label for="club-edit-time">Usual Time</label><input id="club-edit-time" type="time" value="${esc(String(club.usual_meeting_time || '').slice(0,5))}"></div>
     <div class="club-form-field full"><label for="club-edit-location">Physical Location</label><input id="club-edit-location" value="${esc(club.usual_location || '')}" placeholder="Library room, café, or address"></div>
     <div class="club-form-field full"><label for="club-edit-url">Online Meeting Link</label><input id="club-edit-url" type="url" value="${esc(club.online_url || '')}" placeholder="https://..."></div>
-    <div class="club-form-field full"><label for="club-edit-timezone">Club Time Zone</label><select id="club-edit-timezone">${timeZoneOptionsHTML(club.timezone || deviceTimeZone())}</select></div>
+    <div class="club-form-field full"><label for="club-edit-timezone">Club Time Zone</label>${timeZonePickerHTML('club-edit-timezone',club.timezone || deviceTimeZone())}</div>
     <p class="club-form-note" id="book-club-form-status"></p>
   </div>${clubId ? `<div class="account-actions" style="margin-top:1rem"><button class="account-secondary" style="color:#9b2020" type="button" onclick="confirmDeleteBookClub(${jsArg(clubId)})">Delete Club</button></div>` : ''}`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClub(${jsArg(clubId)})">Save Club</button>`);
@@ -14352,6 +14385,8 @@ async function saveBookClub(clubId='') {
   const name = document.getElementById('club-edit-name')?.value.trim() || '';
   if (!name) return bookClubFormStatus('Enter a club name.',true);
   if (!supabaseSession?.user?.id || guestMode) return bookClubFormStatus('Sign in to save a club.',true);
+  const timeZone = validTimeZoneInput('club-edit-timezone');
+  if (!timeZone) return bookClubFormStatus('Choose a time zone from the suggestions or use “Use Mine.”',true);
   const body = {
     name,
     description:document.getElementById('club-edit-description')?.value.trim() || null,
@@ -14361,7 +14396,7 @@ async function saveBookClub(clubId='') {
     usual_meeting_time:document.getElementById('club-edit-time')?.value || null,
     usual_location:document.getElementById('club-edit-location')?.value.trim() || null,
     online_url:document.getElementById('club-edit-url')?.value.trim() || null,
-    timezone:document.getElementById('club-edit-timezone')?.value || deviceTimeZone()
+    timezone:timeZone
   };
   bookClubFormStatus('Saving...');
   try {
@@ -14411,7 +14446,7 @@ function openBookClubMembers(clubId, memberId='') {
       <div class="club-form-field"><label for="club-member-role">Role</label><select id="club-member-role">${['Organizer','Moderator','Member','Guest'].map(value => `<option ${member.role === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
       <div class="club-form-field"><label for="club-member-email">Email</label><input id="club-member-email" type="email" value="${esc(member.email || '')}" placeholder="Optional until invitations are added"></div>
       <div class="club-form-field"><label for="club-member-joined">Joined</label><input id="club-member-joined" type="date" value="${esc(member.joined_on || '')}"></div>
-      <div class="club-form-field full"><label for="club-member-timezone">Member Time Zone</label><select id="club-member-timezone">${timeZoneOptionsHTML(member.timezone || club.timezone || deviceTimeZone())}</select></div>
+      <div class="club-form-field full"><label for="club-member-timezone">Member Time Zone</label>${timeZonePickerHTML('club-member-timezone',member.timezone || club.timezone || deviceTimeZone())}</div>
       <p class="club-form-note" id="book-club-form-status"></p>
     </div>`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClubMember(${jsArg(clubId)},${jsArg(memberId)})">${memberId ? 'Save Member' : 'Add Member'}</button>`);
@@ -14420,7 +14455,9 @@ function openBookClubMembers(clubId, memberId='') {
 async function saveBookClubMember(clubId, memberId='') {
   const displayName = document.getElementById('club-member-name')?.value.trim() || '';
   if (!displayName) return bookClubFormStatus('Enter the member’s name.',true);
-  const body = {club_id:clubId,display_name:displayName,email:document.getElementById('club-member-email')?.value.trim() || null,role:document.getElementById('club-member-role')?.value || 'Member',timezone:document.getElementById('club-member-timezone')?.value || null,joined_on:document.getElementById('club-member-joined')?.value || null};
+  const timeZone = validTimeZoneInput('club-member-timezone');
+  if (!timeZone) return bookClubFormStatus('Choose a time zone from the suggestions or use “Use Mine.”',true);
+  const body = {club_id:clubId,display_name:displayName,email:document.getElementById('club-member-email')?.value.trim() || null,role:document.getElementById('club-member-role')?.value || 'Member',timezone:timeZone,joined_on:document.getElementById('club-member-joined')?.value || null};
   bookClubFormStatus('Saving...');
   try {
     await supabaseTableRequest('book_club_members',{method:memberId ? 'PATCH' : 'POST',query:memberId ? `?id=eq.${encodeURIComponent(memberId)}` : '',body:memberId ? body : [body],prefer:'return=representation'});
