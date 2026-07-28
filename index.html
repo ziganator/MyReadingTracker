@@ -2283,6 +2283,10 @@
   .author-library-book .modal-cover, .author-library-book .modal-cover-ph { width: 54px; height: 78px; }
   .author-bibliography-note { margin: 0; color: var(--muted); font-size: 0.84rem; }
   .author-bibliography-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 0.45rem; }
+  .author-bibliography-section { display: grid; gap: 0.65rem; }
+  .author-bibliography-section + .author-bibliography-section { margin-top: 0.8rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+  .author-bibliography-section h4 { margin: 0; color: var(--burnt); font: 700 1.05rem 'Playfair Display',serif; }
+  .author-bibliography-section h4 span { color: var(--muted); font: 700 0.75rem 'Crimson Pro',serif; }
   .author-bibliography-item {
     display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0.65rem; align-items: baseline;
     min-width: 0; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 6px;
@@ -6004,8 +6008,8 @@ function downloadLibraryCSVTemplate() {
 
 function exportLibraryCSV() {
   const rows = allLibraryBooks()
-    .sort((a, b) => authorLastNameKey(a.author_full || a.author || a.author_short)
-      .localeCompare(authorLastNameKey(b.author_full || b.author || b.author_short)) ||
+    .sort((a, b) => authorLastNameKey(displayBookContributor(a))
+      .localeCompare(authorLastNameKey(displayBookContributor(b))) ||
       String(a.title).localeCompare(String(b.title)))
     .map(book => [
       book.title, book.author_full || book.author || book.author_short, book.series, book.series_position,
@@ -6028,8 +6032,8 @@ function missingPageCountBooks() {
       (!isShortStoryCollection(book) || usesFullBookPageCount(book)) &&
       !(Number(book.page_count) > 0)
     )
-    .sort((a, b) => authorLastNameKey(a.author_full || a.author || a.author_short)
-      .localeCompare(authorLastNameKey(b.author_full || b.author || b.author_short)) ||
+    .sort((a, b) => authorLastNameKey(displayBookContributor(a))
+      .localeCompare(authorLastNameKey(displayBookContributor(b))) ||
       String(a.title || '').localeCompare(String(b.title || '')));
 }
 
@@ -6595,6 +6599,33 @@ function esc(s) {
 function jsArg(value) {
   return esc(JSON.stringify(value || ''));
 }
+function contributorNames(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.flatMap(contributorNames).filter(Boolean);
+  if (typeof value === 'object') return contributorNames(value.name || value.full_name || value.author || value.editor);
+  const text=String(value).trim();
+  if (!text) return [];
+  return text
+    .split(/\s*(?:;|\||,|\s+&\s+|\s+and\s+)\s*/i)
+    .map(name=>name.trim())
+    .filter(Boolean);
+}
+function cleanContributorRole(name) {
+  return String(name||'')
+    .replace(/^\s*(?:edited\s+by|editor(?:s)?\s*:)\s*/i,'')
+    .replace(/\s*[([]?\s*(?:editor|ed\.)\s*[)\]]?\s*$/i,'')
+    .trim();
+}
+function primaryContributorName(value) {
+  const names=contributorNames(value);
+  if (!names.length) return '';
+  const editor=names.find(name=>/\b(?:editor|ed\.)\b/i.test(name)||/^edited\s+by\b/i.test(name));
+  return cleanContributorRole(editor||names[0]);
+}
+function displayBookContributor(book) {
+  const editor=book?.editor||book?.editors||book?.edited_by||book?.editor_full;
+  return primaryContributorName(editor)||primaryContributorName(book?.author_full||book?.author||book?.author_short)||'Unknown Author';
+}
 function genreColor(g) {
   const k = (g||'').toLowerCase().replace(/[^a-z]/g,'');
   if (customGenreColors[k]) return customGenreColors[k];
@@ -6911,7 +6942,7 @@ function openCurrentlyReadingModal(evt) {
     return `<div class="modal-book-row" style="cursor:pointer" ${bookClickAttributes(book)}>
       ${coverImageHTML(book,'modal-cover','modal-cover')}
       <div class="modal-book-info"><div class="modal-book-title">${esc(book.title||'Untitled')}</div>
-        <div class="modal-book-meta">${authorProfileButton(book.author_full||book.author||book.author_short||'Unknown Author')}${book.series?` · ${seriesLabelHTML(book)}`:''}</div>
+        <div class="modal-book-meta">${authorProfileButton(book)}${book.series?` · ${seriesLabelHTML(book)}`:''}</div>
         ${dates?`<div class="modal-book-meta">${esc(dates)}</div>`:''}
       </div>
     </div>`;
@@ -6945,7 +6976,7 @@ function buildHeaderStats() {
       + '<div style="text-align:left">'
       + '<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.15em;color:var(--gold);font-weight:700;margin-bottom:0.15rem">📖 Currently Reading</div>'
       + '<div style="font-family:Playfair Display,serif;font-size:1.1rem;font-weight:700;color:var(--gold-light);line-height:1.2">' + esc(cur.title) + '</div>'
-      + '<div style="font-size:0.85rem;color:#bac7ed;margin-top:0.1rem">' + authorProfileButton(cur.author_full||cur.author||'') + '</div>'
+      + '<div style="font-size:0.85rem;color:#bac7ed;margin-top:0.1rem">' + authorProfileButton(cur) + '</div>'
       + '<div style="font-size:0.75rem;color:var(--gold);margin-top:0.1rem">' + esc(cur.genre||'') + '</div>'
       + '</div></div>';
   } else if (currentBooks.length > 1) {
@@ -7363,7 +7394,7 @@ function statsRatingsHTML(reads, library) {
   return `<div class="stats-card-grid">${statsCard('✅',completed.length?`${Math.round((completed.length-dnf)/completed.length*100)}%`:'—','Completion Rate')}${statsCard('🚫',dnf,'DNF Books')}${statsCard('🔁',reads.filter(book=>book._is_reread_session || Number(book.times_read)>1).length,'Reread Entries')}</div><div class="stats-chart-grid">
     ${statsChart('Rating Distribution',statsBarChart([...ratingCounts.entries()].sort((a,b)=>Number(a[0])-Number(b[0])).map(([rating,count])=>[`${rating} ★`,count])))}
     ${statsChart('Highest-Rated Genres',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:12}))}
-    ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:15,authorLinks:true}))}
+    ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(reads,displayBookContributor),{limit:15,authorLinks:true}))}
     ${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:12}))}
   </div>`;
 }
@@ -7377,7 +7408,7 @@ function statsGenresHTML(reads) {
 }
 
 function statsAuthorsHTML(reads) {
-  const counts=statsCountBy(reads,b=>b.author_full||b.author||'Unknown');
+  const counts=statsCountBy(reads,displayBookContributor);
   const repeats=counts.filter(([,count])=>count>1).reduce((sum,[,count])=>sum+count,0);
   const authors=getAuthorStats(reads,1);
   const maxCount=Math.max(1,...authors.map(author=>author.count||0));
@@ -7394,7 +7425,7 @@ function statsAuthorsHTML(reads) {
   return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read')}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors')}${statsCard('🔁',reads.length?`${Math.round(repeats/reads.length*100)}%`:'—','Repeat-Author Share')}</div>
     <div class="stats-chart-grid">
       ${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20,authorLinks:true}))}
-      ${statsChart('Highest-Rated Authors',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:20,authorLinks:true}))}
+      ${statsChart('Highest-Rated Authors',statsBarChart(statsAverageBy(reads,displayBookContributor),{limit:20,authorLinks:true}))}
       <section class="stats-chart author-directory"><h3>Author Directory</h3>
         <div class="author-directory-toolbar"><input type="search" placeholder="Find an author" aria-label="Find an author" oninput="filterStatsAuthors(this.value)"></div>
         <p class="stats-note">Click any author to see their profile and the books already in your library.</p>
@@ -8050,7 +8081,7 @@ function showYear(year) {
         ${coverEl}
         <div style="flex:1;min-width:0">
           <div class="card-title">${esc(b.title)}</div>
-          <div class="card-author">${authorProfileButton(b.author)}</div>
+          <div class="card-author">${authorProfileButton(b)}</div>
           <div style="margin-top:0.3rem">${ratingDisplay(b.rating)}</div>
           ${seriesLabelForBook(b) ? `<div class="book-series" title="${esc(seriesLabelForBook(b)).replace(/"/g,'&quot;')}" style="max-width:100%;margin-top:0.2rem;font-size:0.8rem;line-height:1.3;overflow-wrap:anywhere;word-break:break-word">${seriesLabelHTML(b)}</div>` : ''}
           ${pages ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.2rem">${pageMetric(pages)} pages</div>` : ''}
@@ -8240,7 +8271,7 @@ function allLibraryBooks() {
 
 function genericBookCoverHTML(book, size='card-cover', imageClass='') {
   const title = book?.title || 'Untitled';
-  const author = book?.author_full || book?.author || book?.author_short || 'Unknown Author';
+  const author = displayBookContributor(book);
   return `<div class="generated-book-cover ${size} ${esc(imageClass)}" style="--cover-color:${genreColor(book?.genre)}" aria-label="Cover for ${esc(title)}">
     <span class="generated-cover-title">${esc(title)}</span>
     <span class="generated-cover-author">${esc(author)}</span>
@@ -8261,8 +8292,8 @@ function coverImageHTML(book, size, imageClass, extraStyle='') {
   if (!book?.cover_url) return genericBookCoverHTML(book, size, imageClass);
   return `<img class="${imageClass}" src="${esc(book.cover_url)}" alt="Cover for ${esc(book.title || 'Untitled')}"
     style="${extraStyle}"
-    onload="validateCoverImage(this,${jsArg(book.title)},${jsArg(book.author_full || book.author || book.author_short)},${jsArg(book.genre)},${jsArg(size)})"
-    onerror="replaceMissingCover(this,${jsArg(book.title)},${jsArg(book.author_full || book.author || book.author_short)},${jsArg(book.genre)},${jsArg(size)})">`;
+    onload="validateCoverImage(this,${jsArg(book.title)},${jsArg(displayBookContributor(book))},${jsArg(book.genre)},${jsArg(size)})"
+    onerror="replaceMissingCover(this,${jsArg(book.title)},${jsArg(displayBookContributor(book))},${jsArg(book.genre)},${jsArg(size)})">`;
 }
 
 function seriesLabelForBook(book) {
@@ -8391,6 +8422,7 @@ function databaseBookToLocal(book) {
     title: book.title || '',
     author_full: author,
     author_short: author,
+    editor: book.editor || book.editors || book.edited_by || '',
     series,
     series_id: book.series_id || null,
     book_club_id: book.book_club_id || null,
@@ -9131,7 +9163,7 @@ function renderCollectionEditorBooks(search='') {
       <label class="picker-book-choice">
         <input type="checkbox" value="${esc(id)}" ${collectionEditorDraft.selectedBookIds.has(id) ? 'checked' : ''}
           onchange="toggleCollectionEditorBook(this.value,this.checked)">
-        <span>${esc(book.title)}<small>${authorProfileButton(book.author_full || book.author || book.author_short || '')}${book.series ? ' · ' + seriesLabelHTML(book) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
+        <span>${esc(book.title)}<small>${authorProfileButton(book)}${book.series ? ' · ' + seriesLabelHTML(book) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
       </label>
     `;
   }).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
@@ -9464,7 +9496,7 @@ function editionDisplayMeta(edition) {
 
 function searchResultDisplayMeta(edition) {
   return [
-    (edition.authors || []).join(', '),
+    primaryContributorName(edition.editors || edition.authors || []),
     String(edition.publication_date || '').slice(0, 4),
     edition.publisher,
     edition.isbn_13 || edition.isbn_10,
@@ -10554,7 +10586,7 @@ function renderLibraryCollection(books, scope, view) {
             ${seriesLabel ? `<div class="library-list-series" title="${esc(seriesLabel).replace(/"/g,'&quot;')}">${seriesLabelHTML(book)}</div>` : ''}
             ${amazonWishlistLinkHTML(book)}
           </div>
-          <div class="library-list-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
+          <div class="library-list-author">${authorProfileButton(book)}</div>
           <div class="library-list-detail library-list-genre">${esc(book.genre || '—')}</div>
           <div class="library-list-detail library-list-status">${libraryRatingOrStatus(book)}</div>
         </div>`;
@@ -10574,7 +10606,7 @@ function renderLibraryCollection(books, scope, view) {
         ${coverImageHTML(book, 'minimal-cover', 'library-minimal-cover')}
         <div class="library-minimal-rating">${libraryRatingOrStatus(book)}</div>
         <div class="library-minimal-title">${esc(book.title || 'Untitled')}</div>
-        <div class="library-minimal-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
+        <div class="library-minimal-author">${authorProfileButton(book)}</div>
         ${amazonWishlistLinkHTML(book, 'Amazon')}
       </div>`;
     }).join('')}</div>`;
@@ -10586,9 +10618,9 @@ function renderLibraryCollection(books, scope, view) {
       const spine = spineAppearance(book);
       return `<div class="book-spine" ${bookClickAttributes(book, sourceForBook(book), scope)}
         style="--spine-height:${spine.height}px;--spine-color:${spine.color};--spine-text-color:${spine.textColor};--spine-width:${spine.width}px;--spine-columns:${spine.columns}"
-        title="${esc(`${book.title || 'Untitled'} — ${book.author_full || book.author || 'Unknown Author'}`).replace(/"/g,'&quot;')}">
+        title="${esc(`${book.title || 'Untitled'} — ${displayBookContributor(book)}`).replace(/"/g,'&quot;')}">
         <div class="book-spine-copy">
-          <span class="book-spine-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</span>
+          <span class="book-spine-author">${authorProfileButton(book)}</span>
           <span class="book-spine-title">${esc(book.title || 'Untitled')}</span>
         </div>
       </div>`;
@@ -10621,7 +10653,7 @@ function renderLibraryCollection(books, scope, view) {
       <div class="library-card-copy">
         ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
         <div class="library-card-title">${esc(book.title || 'Untitled')}</div>
-        <div class="library-card-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
+        <div class="library-card-author">${authorProfileButton(book)}</div>
         ${seriesLabel ? `<div class="library-card-series" title="${esc(seriesLabel).replace(/"/g,'&quot;')}">${seriesLabelHTML(book)}</div>` : ''}
         ${yearLine ? `<div class="library-card-years">${esc(yearLine)}</div>` : ''}
         ${amazonWishlistLinkHTML(book)}
@@ -10995,7 +11027,7 @@ function compareBooksByLevel(a, b, field, sortDirection) {
   const direction = sortDirection === 'desc' ? -1 : 1;
   const textValue = (book, field) => {
     if (field === 'title') return book.title || '';
-    if (field === 'author') return authorLastNameKey(book.author_full || book.author || '');
+    if (field === 'author') return authorLastNameKey(displayBookContributor(book));
     if (field === 'series') return book.series || '';
     return book.genre || '';
   };
@@ -11068,7 +11100,7 @@ function seriesPositionSortValue(book) {
 function defaultBookSortContext(list) {
   const seriesFirstYears = new Map();
   list.forEach(book => {
-    const author = authorLastNameKey(book.author_full || book.author || '');
+    const author = authorLastNameKey(displayBookContributor(book));
     const series = normalizedKey(book.series || '');
     if (!author || !series) return;
     const key = `${author}|${series}`;
@@ -11079,7 +11111,7 @@ function defaultBookSortContext(list) {
 }
 
 function defaultBookGroupInfo(book, context) {
-  const author = authorLastNameKey(book.author_full || book.author || '');
+  const author = authorLastNameKey(displayBookContributor(book));
   const seriesName = String(book.series || '').trim();
   const seriesKey = normalizedKey(seriesName);
   const year = publicationSortYear(book);
@@ -12191,7 +12223,7 @@ function renderBookDetailPage(title, source='', key='') {
         </div>
 
         <div class="book-card-author">
-          ${authorProfileButton(b.author_full || b.author || 'Unknown Author')}
+          ${authorProfileButton(b)}
         </div>
       </div>
 
@@ -13280,10 +13312,10 @@ if (seriesFilterMode==='done') list = list.filter(s=>s.done==='✅' || s.state==
 if (seriesFilterMode==='abandoned') list = list.filter(s=>seriesStatusFromLegacy(s)==='Abandoned');
 list = [...list].sort((a,b) => {
   const aValue = seriesSortField === 'author'
-    ? authorLastNameKey(a.author)
+    ? authorLastNameKey(primaryContributorName(a.author))
     : seriesSortField === 'genre' ? genreForSeries(a) : String(a.series || '');
   const bValue = seriesSortField === 'author'
-    ? authorLastNameKey(b.author)
+    ? authorLastNameKey(primaryContributorName(b.author))
     : seriesSortField === 'genre' ? genreForSeries(b) : String(b.series || '');
   return aValue.localeCompare(bValue, undefined, {sensitivity:'base', numeric:true}) ||
     String(a.series || '').localeCompare(String(b.series || ''), undefined, {sensitivity:'base'});
@@ -13400,8 +13432,7 @@ function normalizeAuthorName(name) {
 }
 function bookAuthorMatches(book, author) {
   const target = normalizeAuthorName(author);
-  return [book.author_full, book.author, book.author_short]
-    .some(name => normalizeAuthorName(name) === target);
+  return normalizeAuthorName(displayBookContributor(book)) === target;
 }
 function ownsBook(book) {
   const own = String(book.own || '').trim().toLowerCase();
@@ -13427,7 +13458,7 @@ const openLibraryAuthorCache = new Map();
 const authorBibliographyCache = new Map();
 
 function authorProfileButton(author, className='') {
-  const name=String(author||'').trim();
+  const name=typeof author==='object'&&author!==null?displayBookContributor(author):primaryContributorName(author);
   if (!name) return '';
   return `<button class="author-profile-link ${esc(className)}" type="button" onclick="openAuthorProfile(${jsArg(name)},event)">${esc(name)}</button>`;
 }
@@ -13564,12 +13595,37 @@ function waitForOpenLibraryRateLimit() {
   return new Promise(resolve=>setTimeout(resolve,1050));
 }
 
+function bibliographyLanguage() {
+  const locale=String(navigator.language||document.documentElement.lang||'en').toLowerCase();
+  const ui=locale.split(/[-_]/)[0]||'en';
+  const openLibraryCodes={
+    en:'eng',ja:'jpn',fr:'fre',de:'ger',es:'spa',it:'ita',pt:'por',nl:'dut',ru:'rus',
+    zh:'chi',ko:'kor',ar:'ara',hi:'hin',pl:'pol',sv:'swe',da:'dan',no:'nor',fi:'fin',
+    cs:'cze',el:'gre',he:'heb',tr:'tur',uk:'ukr',vi:'vie',id:'ind',th:'tha'
+  };
+  let label=ui.toUpperCase();
+  try { label=new Intl.DisplayNames([locale],{type:'language'}).of(ui)||label; } catch (_) {}
+  return {ui,openLibrary:openLibraryCodes[ui]||(ui.length===3?ui:'eng'),label};
+}
+
+function bibliographyCollectionWork(work) {
+  const text=String(work.title||'').toLowerCase();
+  return work.collaboration&&((work.author_names||[]).length>=4||/\b(antholog(?:y|ies)|short stor(?:y|ies)|collected stor(?:y|ies)|selected stor(?:y|ies)|complete stor(?:y|ies)|story collection|stories and tales|year['’]s best|best of|reader|omnibus)\b/.test(text));
+}
+
+function bibliographyWorkSort(a,b) {
+  const aYear=Number(a.first_publish_year)||9999;
+  const bYear=Number(b.first_publish_year)||9999;
+  return aYear-bYear||String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'});
+}
+
 async function loadAuthorBibliography(author) {
-  const cacheKey=normalizeAuthorName(author);
+  const language=bibliographyLanguage();
+  const cacheKey=`${normalizeAuthorName(author)}:${language.openLibrary}`;
   if (authorBibliographyCache.has(cacheKey)) return authorBibliographyCache.get(cacheKey);
   const match=await resolveOpenLibraryAuthor(author);
   if (!match?.key) {
-    const empty={author:null,works:[],total:0,truncated:false};
+    const empty={author:null,works:[],groups:{solo:[],collaborations:[],collections:[]},total:0,truncated:false,language};
     authorBibliographyCache.set(cacheKey,empty);
     return empty;
   }
@@ -13581,12 +13637,29 @@ async function loadAuthorBibliography(author) {
   const limit=1000;
   const maximum=5000;
   do {
-    const response=await fetch(`https://openlibrary.org/authors/${encodeURIComponent(authorKey)}/works.json?limit=${limit}&offset=${offset}`);
+    const params=new URLSearchParams({
+      q:`author_key:${authorKey} language:${language.openLibrary}`,
+      fields:'key,title,author_name,author_key,first_publish_year,editions,editions.key,editions.title,editions.language',
+      lang:language.ui,limit:String(limit),offset:String(offset)
+    });
+    const response=await fetch(`https://openlibrary.org/search.json?${params}`);
     if (!response.ok) throw new Error(`Open Library returned ${response.status}`);
     const payload=await response.json();
-    const batch=Array.isArray(payload.entries)?payload.entries:[];
-    works.push(...batch);
-    total=Number(payload.size)||works.length;
+    const batch=Array.isArray(payload.docs)?payload.docs:[];
+    works.push(...batch.map(work=>{
+      const edition=(work.editions?.docs||[]).find(item=>(item.language||[]).includes(language.openLibrary))||work.editions?.docs?.[0];
+      const authorKeys=(work.author_key||[]).map(key=>String(key).replace(/^\/authors\//,''));
+      const names=work.author_name||[];
+      const collaboration=authorKeys.some(key=>key!==authorKey)||names.length>1;
+      return {
+        key:work.key||edition?.key||'',
+        title:edition?.title||work.title||'',
+        first_publish_year:Number(work.first_publish_year)||null,
+        author_names:names,
+        collaboration
+      };
+    }));
+    total=Number(payload.numFound??payload.num_found)||works.length;
     offset+=batch.length;
     if (!batch.length||offset>=total||offset>=maximum) break;
     await waitForOpenLibraryRateLimit();
@@ -13597,14 +13670,21 @@ async function loadAuthorBibliography(author) {
     if (!key||seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'}));
-  const result={author:{...match,key:authorKey},works:unique,total,truncated:offset<total};
+  });
+  const groups={solo:[],collaborations:[],collections:[]};
+  unique.forEach(work=>{
+    if (bibliographyCollectionWork(work)) groups.collections.push(work);
+    else if (work.collaboration) groups.collaborations.push(work);
+    else groups.solo.push(work);
+  });
+  Object.values(groups).forEach(group=>group.sort(bibliographyWorkSort));
+  const result={author:{...match,key:authorKey},works:unique,groups,total,truncated:offset<total,language};
   authorBibliographyCache.set(cacheKey,result);
   return result;
 }
 
 function bibliographyYear(work) {
-  return String(work.first_publish_date||'').match(/\b(1[0-9]{3}|20[0-9]{2})\b/)?.[0]||'';
+  return String(work.first_publish_year||work.first_publish_date||'').match(/\b(1[0-9]{3}|20[0-9]{2})\b/)?.[0]||'';
 }
 
 function filterAuthorBibliography(value) {
@@ -13612,6 +13692,20 @@ function filterAuthorBibliography(value) {
   document.querySelectorAll('.author-bibliography-item').forEach(item=>{
     item.style.display=!query||String(item.dataset.workSearch||'').includes(query)?'':'none';
   });
+  document.querySelectorAll('.author-bibliography-section').forEach(section=>{
+    section.style.display=[...section.querySelectorAll('.author-bibliography-item')].some(item=>item.style.display!=='none')?'':'none';
+  });
+}
+
+function bibliographyWorkHTML(work) {
+  const path=String(work.key||'').startsWith('/')?work.key:`/works/${work.key||''}`;
+  const collaborators=(work.author_names||[]).map(primaryContributorName).filter(Boolean).join(', ');
+  return `<a class="author-bibliography-item" data-work-search="${esc(normalizedKey([work.title,collaborators].join(' ')))}" href="https://openlibrary.org${esc(path)}" target="_blank" rel="noopener" title="${esc(collaborators).replace(/"/g,'&quot;')}"><span>${esc(work.title||'Untitled')}</span><small>${esc(bibliographyYear(work))}</small></a>`;
+}
+
+function bibliographySectionHTML(title,works) {
+  if (!works.length) return '';
+  return `<section class="author-bibliography-section"><h4>${esc(title)} <span>${works.length}</span></h4><div class="author-bibliography-list">${works.map(bibliographyWorkHTML).join('')}</div></section>`;
 }
 
 async function openAuthorBibliography(author) {
@@ -13626,16 +13720,13 @@ async function openAuthorBibliography(author) {
     const result=await loadAuthorBibliography(name);
     if (body.dataset.authorProfile!==`bibliography:${normalizeAuthorName(name)}`) return;
     const count=result.works.length;
-    document.getElementById('modal-series-sub').textContent=`${count} unique work${count===1?'':'s'} listed by Open Library`;
+    document.getElementById('modal-series-sub').textContent=`${count} ${result.language.label}-language work${count===1?'':'s'} listed by Open Library`;
     const openLibrarySearch=`https://openlibrary.org/search/authors?q=${encodeURIComponent(name)}`;
     const sourceUrl=result.author?`https://openlibrary.org/authors/${encodeURIComponent(result.author.key)}`:openLibrarySearch;
     body.innerHTML=`<div class="author-profile">
       <div class="author-profile-section-head"><div class="author-profile-actions"><button class="account-secondary" type="button" onclick="openAuthorProfile(${jsArg(name)},null,false)">← Author Profile</button></div><a class="author-source" href="${esc(sourceUrl)}" target="_blank" rel="noopener">View on Open Library ↗</a></div>
-      <p class="author-bibliography-note">Works are consolidated across editions. ${result.truncated?`Open Library reports ${result.total} works; the first ${count} unique titles are shown.`:'Titles and dates depend on Open Library’s catalog.'}</p>
-      ${count?`<div class="author-directory-toolbar"><input type="search" placeholder="Find a title" aria-label="Find a title in this bibliography" oninput="filterAuthorBibliography(this.value)"></div><div class="author-bibliography-list">${result.works.map(work=>{
-        const path=String(work.key||'').startsWith('/')?work.key:`/works/${work.key||''}`;
-        return `<a class="author-bibliography-item" data-work-search="${esc(normalizedKey(work.title))}" href="https://openlibrary.org${esc(path)}" target="_blank" rel="noopener"><span>${esc(work.title||'Untitled')}</span><small>${esc(bibliographyYear(work))}</small></a>`;
-      }).join('')}</div>`:`<div class="author-bio-card no-photo"><p>No Open Library bibliography was found for this author.</p></div>`}
+      <p class="author-bibliography-note">Showing only works with an edition in ${esc(result.language.label)}. Works are consolidated across editions. ${result.truncated?`Open Library reports ${result.total} matching works; the first ${count} unique titles are shown.`:'Titles, credits, and dates depend on Open Library’s catalog.'}</p>
+      ${count?`<div class="author-directory-toolbar"><input type="search" placeholder="Find a title" aria-label="Find a title in this bibliography" oninput="filterAuthorBibliography(this.value)"></div>${bibliographySectionHTML('Published Works',result.groups.solo)}${bibliographySectionHTML('Collaborations',result.groups.collaborations)}${bibliographySectionHTML('Anthologies & Short Story Collections',result.groups.collections)}`:`<div class="author-bio-card no-photo"><p>No ${esc(result.language.label)}-language Open Library bibliography was found for this author.</p></div>`}
     </div>`;
   } catch (error) {
     console.warn('Could not load author bibliography:',error);
@@ -13652,7 +13743,7 @@ function getAuthorStats(books=DATA.books,minimum=3) {
   books
     .filter(b => libraryBookStatus(b) === 'Read')
     .forEach(b => {
-      const author = b.author_full || b.author || b.author_short;
+      const author = displayBookContributor(b);
       const key = normalizeAuthorName(author);
       if (!key) return;
       if (!authors.has(key)) {
@@ -14106,7 +14197,7 @@ function renderCustomCategoryBooks(search='') {
     <label class="picker-book-choice">
       <input type="checkbox" ${customCategoryDraft.book_titles.includes(book.title) ? 'checked' : ''}
         onchange="toggleCustomCategoryBook(${jsArg(book.title)},this.checked)">
-      <span>${esc(book.title)}<small>${authorProfileButton(book.author_full || book.author || '')}</small></span>
+      <span>${esc(book.title)}<small>${authorProfileButton(book)}</small></span>
     </label>
   `).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
 }
@@ -14341,7 +14432,7 @@ function renderPicker(isShuffled) {
       ${coverEl}
       <div style="flex:1;min-width:0">
         <div class="picker-title">${esc(b.title||'—')}</div>
-        <div class="picker-author">${authorProfileButton(b.author || b.author_full || '')}</div>
+        <div class="picker-author">${authorProfileButton(b)}</div>
       </div>
       <span class="picker-cat">${esc(b.category)}</span>
     </div>`;
@@ -14360,7 +14451,7 @@ function renderPicker(isShuffled) {
       ${coverEl}
       <div style="flex:1;min-width:0">
         <div class="picker-title">${esc(b.title)}</div>
-        <div class="picker-author">${authorProfileButton(b.author)}${rating}</div>
+        <div class="picker-author">${authorProfileButton(b)}${rating}</div>
       </div>
       <span class="picker-cat">Reread</span>
     </div>`;
@@ -14802,7 +14893,7 @@ function bookClubFormStatus(message, isError=false) {
 function bookClubSelectionInputLabel(read) {
   if (!read) return '';
   const dates = read.start_date || read.end_date ? [clubDateLabel(read.start_date),clubDateLabel(read.end_date)].join(' – ') : '';
-  return [read.title,read.author,dates,read.status].filter(Boolean).join(' · ');
+  return [read.title,primaryContributorName(read.author),dates,read.status].filter(Boolean).join(' · ');
 }
 
 function bookClubSelectionInputHTML(inputId, reads, selectedRead=null, changeHandler='') {
@@ -15193,7 +15284,7 @@ function openBookClubReadEditor(clubId, readId='') {
   document.getElementById('modal-series-name').textContent = readId ? 'Edit Club Selection' : 'Add Club Selection';
   document.getElementById('modal-series-sub').textContent = club.name;
   document.getElementById('modal-series-body').innerHTML = `<div class="club-form-grid">
-    <div class="club-form-field full"><label for="club-read-book">Library Book</label><select id="club-read-book" onchange="bookClubReadBookChanged()"><option value="">Enter a title manually</option>${library.map(book => `<option value="${esc(book.database_id)}" ${String(read.book_id || '') === String(book.database_id) ? 'selected' : ''}>${esc(book.title)} — ${esc(book.author_full || book.author || '')}</option>`).join('')}</select></div>
+    <div class="club-form-field full"><label for="club-read-book">Library Book</label><select id="club-read-book" onchange="bookClubReadBookChanged()"><option value="">Enter a title manually</option>${library.map(book => `<option value="${esc(book.database_id)}" ${String(read.book_id || '') === String(book.database_id) ? 'selected' : ''}>${esc(book.title)} — ${esc(displayBookContributor(book))}</option>`).join('')}</select></div>
     <div class="club-form-field"><label for="club-read-title">Title</label><input id="club-read-title" value="${esc(read.title || '')}"></div>
     <div class="club-form-field"><label for="club-read-author">Author</label><input id="club-read-author" value="${esc(read.author || '')}"></div>
     <div class="club-form-field"><label for="club-read-status">Status</label><select id="club-read-status">${['Current','Upcoming','Completed'].map(value => `<option ${read.status === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
@@ -15407,7 +15498,7 @@ function toggleMonth(key, monthLabel, books, evt) {
       ${coverEl}
       <div class="modal-book-info">
         <div class="modal-book-title">${esc(b.title)}</div>
-        <div class="modal-book-meta">${authorProfileButton(b.author)} · ${ratingDisplay(b.rating)}${b.format ? ' ' + formatBadge(b.format) : ''}</div>
+        <div class="modal-book-meta">${authorProfileButton(b)} · ${ratingDisplay(b.rating)}${b.format ? ' ' + formatBadge(b.format) : ''}</div>
         ${dates||days ? `<div style="font-size:0.78rem;color:#a09080;margin-top:0.15rem">${dates}${dates&&days?' · ':''} ${days}</div>` : ''}
       </div>
     </div>`;
@@ -15427,7 +15518,7 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     return `<div class="monthly-cover-tile" role="button" tabindex="0" ${bookClickAttributes(book, 'calendar')} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
       ${coverImageHTML(book, 'gallery-cover', 'gallery-cover')}
       <div class="monthly-cover-title">${esc(book.title || 'Untitled')}</div>
-      <div class="monthly-cover-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
+      <div class="monthly-cover-author">${authorProfileButton(book)}</div>
       ${dates ? `<div class="monthly-cover-author">${esc(dates)}</div>` : ''}
     </div>`;
   }).join('');
@@ -15767,7 +15858,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
           ${coverImageHTML(b, 'list-cover', 'library-list-cover')}
           <div>
             <div class="library-list-title">${esc(b.title || 'Untitled')}</div>
-            <div class="library-list-author">${authorProfileButton(b.author_full || b.author || 'Unknown Author')}</div>
+            <div class="library-list-author">${authorProfileButton(b)}</div>
           </div>
           <div class="library-list-detail">${esc(b.genre || '—')}</div>
           <div class="library-list-detail">${pageCountForBook(b) ? `${pageMetric(pageCountForBook(b))} pages` : '—'}</div>
@@ -16226,6 +16317,7 @@ if (dnf || endDNF) status = 'DNF';
       title,
       author_full:  lastAuthorFull,
       author_short: lastAuthorLast,
+      editor:        isArr ? '' : (get('Editor', -1) || get('Editors', -1)),
       genre:        normalizeBookGenre(get('Genre', 8)),
       series,
       series_position: getNum('Series Position', -1) || getNum('Book in Series', -1) || null,
