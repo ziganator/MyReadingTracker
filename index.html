@@ -96,6 +96,23 @@
     margin-top: 1.5rem; padding-top: 1.5rem;
     border-top: 1px solid rgba(255,122,0,0.3);
   }
+  .current-reading-collage {
+    position: relative; display: grid; grid-template-columns: repeat(2, 42px); grid-auto-rows: 38px;
+    width: 84px; height: 76px; overflow: hidden; flex: 0 0 84px;
+    border: 2px solid rgba(255,255,255,0.65); border-radius: 6px; background: var(--aged);
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.35);
+  }
+  .current-reading-collage .header-collage-cover {
+    width: 42px !important; height: 38px !important; min-width: 0 !important; min-height: 0 !important;
+    object-fit: cover; border-radius: 0; box-shadow: none; padding: 2px !important; overflow: hidden;
+  }
+  .current-reading-collage .generated-cover-title { font-size: 0.3rem; -webkit-line-clamp: 3; }
+  .current-reading-collage .generated-cover-author { display: none; }
+  .current-reading-collage-count {
+    position: absolute; right: 3px; bottom: 3px; display: grid; place-items: center;
+    min-width: 23px; height: 23px; padding: 0 5px; border-radius: 999px;
+    background: rgba(23,45,95,0.92); color: #fff; font-size: 0.68rem; font-weight: 800;
+  }
   .stat-item { text-align: center; }
   .stat-num { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--gold-light); line-height: 1; }
   .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #9aa8cf; margin-top: 0.2rem; }
@@ -1788,7 +1805,8 @@
   .modal-book-title { font-weight: 600; font-size: 0.95rem; color: var(--deep); }
   .modal-book-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
 .modal-box.author-books-modal {
-  height: min(560px, calc(100vh - 2rem));
+  width: min(860px, calc(100% - 2rem));
+  height: min(760px, calc(100vh - 2rem));
 }
 .modal-box.custom-category-modal {
   width: min(600px, calc(100% - 2rem));
@@ -2233,6 +2251,52 @@
   }
   .author-count { font-size: 0.82rem; color: var(--muted); text-align: right; }
   .author-avg { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.95rem; }
+  .author-profile-link {
+    appearance: none; border: 0; background: transparent; color: inherit; cursor: pointer;
+    font: inherit; line-height: inherit; margin: 0; padding: 0; text-align: inherit;
+    text-decoration: underline; text-decoration-color: rgba(65,105,225,0.45); text-underline-offset: 2px;
+  }
+  .author-profile-link:hover, .author-profile-link:focus-visible { color: var(--burnt); text-decoration-color: currentColor; }
+  .author-directory { grid-column: 1 / -1; }
+  .author-directory-toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.85rem; }
+  .author-directory-toolbar input {
+    width: min(360px, 100%); min-height: 40px; padding: 0.48rem 0.65rem;
+    border: 1px solid var(--border); border-radius: 5px; background: #fff; color: var(--ink);
+  }
+  .author-profile { display: grid; gap: 1rem; }
+  .author-bio-card { display: grid; grid-template-columns: 120px minmax(0,1fr); gap: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); }
+  .author-bio-card.no-photo { grid-template-columns: 1fr; }
+  .author-portrait { width: 120px; height: 160px; border-radius: 6px; object-fit: cover; background: var(--aged); }
+  .author-bio-copy { min-width: 0; }
+  .author-bio-copy p { margin: 0; line-height: 1.55; }
+  .author-source { display: inline-block; margin-top: 0.65rem; color: var(--burnt); font-size: 0.82rem; font-weight: 700; }
+  .author-profile-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+  .author-profile-section-head h4 { margin: 0; color: var(--burnt); font: 700 1.08rem 'Playfair Display',serif; }
+  .author-profile-actions { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+  .author-library-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 0.65rem; }
+  .author-library-book {
+    display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 0.65rem; align-items: center;
+    min-width: 0; padding: 0.6rem; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--card-bg); cursor: pointer; text-align: left;
+  }
+  .author-library-book:hover { background: var(--aged); }
+  .author-library-book .modal-cover, .author-library-book .modal-cover-ph { width: 54px; height: 78px; }
+  .author-bibliography-note { margin: 0; color: var(--muted); font-size: 0.84rem; }
+  .author-bibliography-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 0.45rem; }
+  .author-bibliography-item {
+    display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0.65rem; align-items: baseline;
+    min-width: 0; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--ink); background: var(--card-bg); text-decoration: none;
+  }
+  .author-bibliography-item:hover { border-color: #4169e1; background: var(--aged); }
+  .author-bibliography-item span:first-child { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+  .author-bibliography-item small { color: var(--muted); white-space: nowrap; }
+
+  @media (max-width: 600px) {
+    .author-bio-card { grid-template-columns: 78px minmax(0,1fr); padding: 0.75rem; }
+    .author-portrait { width: 78px; height: 108px; }
+    .author-library-grid, .author-bibliography-list { grid-template-columns: 1fr; }
+  }
 
   /* ─── Book Picker ─────────────────────────────── */
   .picker-grid {
@@ -4598,7 +4662,6 @@
   <div class="tab-panel" id="tab-clubs"></div>
   <div class="tab-panel" id="tab-club-hub"></div>
   <div class="tab-panel" id="tab-tbr"></div>
-  <div class="tab-panel" id="tab-authors"></div>
   <div class="tab-panel" id="tab-picker"></div>
   <div class="tab-panel" id="tab-book-detail"></div>
 </main>
@@ -6017,7 +6080,7 @@ function openMissingPageCountReport() {
         <div class="modal-book-row">
           <div class="modal-book-info">
             <div class="modal-book-title">${esc(title)}</div>
-            <div class="modal-book-meta">${esc(author)} · ISBN ${esc(isbn)}</div>
+            <div class="modal-book-meta">${authorProfileButton(author)} · ISBN ${esc(isbn)}</div>
             <div class="modal-book-meta">${esc([status, format, publisher, year].filter(Boolean).join(' · '))}</div>
             <div class="modal-book-meta" style="margin-top:0.15rem;color:var(--burnt)">${esc(lookupStatus)}</div>
           </div>
@@ -6819,18 +6882,56 @@ function monthYearLabelFromKey(monthKey) {
 }
 
 // ─── Header Stats ─────────────────────────────────────────────
+function currentlyReadingBooks() {
+  return allLibraryBooks()
+    .filter(book=>libraryBookStatus(book)==='Currently Reading')
+    .sort((a,b)=>String(a.start||'').localeCompare(String(b.start||''))||String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'}));
+}
+
+function currentReadingCollageHTML(books) {
+  const visible=books.slice(0,4);
+  return `<div class="current-reading-collage" aria-hidden="true">${visible.map(book=>coverImageHTML(book,'header-collage-cover','header-collage-cover')).join('')}${books.length>4?`<span class="current-reading-collage-count">+${books.length-4}</span>`:''}</div>`;
+}
+
+function openCurrentlyReadingModal(evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const books=currentlyReadingBooks();
+  if (books.length===1) {
+    const target=document.createElement('span');
+    target.dataset.title=books[0].title||'';
+    target.dataset.bookKey=bookRouteKey(books[0]);
+    openBookDetail(target,evt);
+    return;
+  }
+  document.getElementById('modal-series-name').textContent='Currently Reading';
+  document.getElementById('modal-series-sub').textContent=`${books.length} books in progress`;
+  document.getElementById('modal-series-body').innerHTML=books.length?books.map(book=>{
+    const dates=[book.start?`Started ${book.start}`:'',book.paused_page?`Page ${book.paused_page}`:''].filter(Boolean).join(' · ');
+    return `<div class="modal-book-row" style="cursor:pointer" ${bookClickAttributes(book)}>
+      ${coverImageHTML(book,'modal-cover','modal-cover')}
+      <div class="modal-book-info"><div class="modal-book-title">${esc(book.title||'Untitled')}</div>
+        <div class="modal-book-meta">${authorProfileButton(book.author_full||book.author||book.author_short||'Unknown Author')}${book.series?` · ${seriesLabelHTML(book)}`:''}</div>
+        ${dates?`<div class="modal-book-meta">${esc(dates)}</div>`:''}
+      </div>
+    </div>`;
+  }).join(''):'<p class="stats-note">No books are currently marked as Currently Reading.</p>';
+  openModal(evt);
+}
+
 function buildHeaderStats() {
   rebuildReadYearBuckets();
   rebuildSeriesFromLibraryBooks();
   // Currently reading widget (rendered inline with stats below)
-  const cur = DATA.books.find(b => b.status === 'Currently Reading');
+  const currentBooks = currentlyReadingBooks();
+  const cur = currentBooks[0];
   const books = allReadBooks().filter(b => b.rating && String(b.rating)!=='DNF' && String(b.rating)!=='*');
   const rated = books.map(b => parseFloat(b.rating)).filter(n => !isNaN(n));
   const avg = rated.length ? (rated.reduce((a,b)=>a+b,0)/rated.length).toFixed(2) : '—';
   const seriesCount = DATA.series.length;
   // Build currently reading block for inline use
   let curHTML = '';
-  if (cur) {
+  if (cur && currentBooks.length === 1) {
     const coverImg = coverImageHTML(
       cur,
       'header-cover',
@@ -6844,9 +6945,18 @@ function buildHeaderStats() {
       + '<div style="text-align:left">'
       + '<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.15em;color:var(--gold);font-weight:700;margin-bottom:0.15rem">📖 Currently Reading</div>'
       + '<div style="font-family:Playfair Display,serif;font-size:1.1rem;font-weight:700;color:var(--gold-light);line-height:1.2">' + esc(cur.title) + '</div>'
-      + '<div style="font-size:0.85rem;color:#bac7ed;margin-top:0.1rem">' + esc(cur.author_full||'') + '</div>'
+      + '<div style="font-size:0.85rem;color:#bac7ed;margin-top:0.1rem">' + authorProfileButton(cur.author_full||cur.author||'') + '</div>'
       + '<div style="font-size:0.75rem;color:var(--gold);margin-top:0.1rem">' + esc(cur.genre||'') + '</div>'
       + '</div></div>';
+  } else if (currentBooks.length > 1) {
+    curHTML='<div class="current-reading-widget" role="button" tabindex="0" onclick="openCurrentlyReadingModal(event)" onkeydown="if(event.key===\x27Enter\x27||event.key===\x27 \x27){event.preventDefault();openCurrentlyReadingModal(event)}"'
+      +' style="position:relative;z-index:1;display:flex;align-items:center;gap:0.85rem;background:rgba(255,255,255,0.07);border:1px solid rgba(255,122,0,0.35);border-radius:10px;padding:0.6rem 1.1rem;margin-left:1rem;cursor:pointer">'
+      +currentReadingCollageHTML(currentBooks)
+      +'<div style="text-align:left;min-width:0">'
+      +'<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.15em;color:var(--gold);font-weight:700;margin-bottom:0.15rem">📖 Currently Reading</div>'
+      +'<div style="font-family:Playfair Display,serif;font-size:1.1rem;font-weight:700;color:var(--gold-light);line-height:1.2">'+currentBooks.length+' Books in Progress</div>'
+      +'<div style="font-size:0.8rem;color:#bac7ed;margin-top:0.15rem">Open your active reading list</div>'
+      +'</div></div>';
   }
 
   document.getElementById('headerStats').innerHTML = `
@@ -6863,7 +6973,7 @@ function buildHeaderStats() {
 function buildNav() {
   const tabs = [
     ['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
-    ['club-hub','Club Hub'],['authors','Authors'],['picker','Picker']
+    ['club-hub','Club Hub'],['picker','Picker']
   ];
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
     `<button onclick="switchTab('${id}')" id="nav-${id}" type="button">${label}</button>`
@@ -6991,7 +7101,13 @@ function applyHashRoute() {
   if (requested === 'log') {
     history.replaceState(appHistoryState(), '', '#log-detail');
   }
-  const validTabs = ['log-detail','stats','search','books','series','clubs','club-hub','authors','picker','month'];
+  if (requested === 'authors') {
+    statsSection = 'authors';
+    history.replaceState(appHistoryState(), '', '#stats');
+    showTab('stats', 'content');
+    return;
+  }
+  const validTabs = ['log-detail','stats','search','books','series','clubs','club-hub','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   showTab(
     validTabs.includes(normalizedRequested) ? normalizedRequested : 'books',
@@ -7105,7 +7221,7 @@ function statsBarChart(entries, options={}) {
   if (!clean.length) return '';
   const max = Math.max(1, ...clean.map(([,value]) => Number(value)));
   return `<div class="stats-bars">${clean.map(([label,value,display]) => `<div class="stats-bar-row" title="${esc(label).replace(/"/g,'&quot;')}">
-    <span class="stats-bar-label">${esc(label)}</span><span class="stats-bar-track"><span class="stats-bar-fill" style="display:block;width:${Math.max(1,(Number(value)/max)*100)}%;${options.color ? `background:${options.color};` : ''}"></span></span>
+    <span class="stats-bar-label">${options.authorLinks?authorProfileButton(label):esc(label)}</span><span class="stats-bar-track"><span class="stats-bar-fill" style="display:block;width:${Math.max(1,(Number(value)/max)*100)}%;${options.color ? `background:${options.color};` : ''}"></span></span>
     <span class="stats-bar-value">${esc(display ?? value)}</span></div>`).join('')}</div>`;
 }
 
@@ -7247,7 +7363,7 @@ function statsRatingsHTML(reads, library) {
   return `<div class="stats-card-grid">${statsCard('✅',completed.length?`${Math.round((completed.length-dnf)/completed.length*100)}%`:'—','Completion Rate')}${statsCard('🚫',dnf,'DNF Books')}${statsCard('🔁',reads.filter(book=>book._is_reread_session || Number(book.times_read)>1).length,'Reread Entries')}</div><div class="stats-chart-grid">
     ${statsChart('Rating Distribution',statsBarChart([...ratingCounts.entries()].sort((a,b)=>Number(a[0])-Number(b[0])).map(([rating,count])=>[`${rating} ★`,count])))}
     ${statsChart('Highest-Rated Genres',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:12}))}
-    ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:15}))}
+    ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:15,authorLinks:true}))}
     ${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:12}))}
   </div>`;
 }
@@ -7263,7 +7379,35 @@ function statsGenresHTML(reads) {
 function statsAuthorsHTML(reads) {
   const counts=statsCountBy(reads,b=>b.author_full||b.author||'Unknown');
   const repeats=counts.filter(([,count])=>count>1).reduce((sum,[,count])=>sum+count,0);
-  return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read')}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors')}${statsCard('🔁',reads.length?`${Math.round(repeats/reads.length*100)}%`:'—','Repeat-Author Share')}</div><div class="stats-chart-grid">${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20}))}${statsChart('Highest-Rated Authors',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:20}))}</div>`;
+  const authors=getAuthorStats(reads,1);
+  const maxCount=Math.max(1,...authors.map(author=>author.count||0));
+  const directory=authors.map(author=>{
+    const avg=Number(author.avg);
+    const pct=Math.round(((author.count||0)/maxCount)*100);
+    return `<div class="author-row" data-author-search="${esc(normalizedKey(author.author))}" role="button" tabindex="0" onclick="openAuthorProfile(${jsArg(author.author)},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuthorProfile(${jsArg(author.author)},event)}" title="View ${esc(author.author)}">
+      <div class="author-name">${esc(author.author)}</div>
+      <div class="author-bar-bg"><div class="author-bar-fill" style="width:${pct}%"></div></div>
+      <div class="author-count">${author.count} book${author.count===1?'':'s'}</div>
+      <div class="author-avg ${Number.isFinite(avg)?ratingClass(avg):'r-dnf'}">${Number.isFinite(avg)?ratingDisplay(avg):'—'}</div>
+    </div>`;
+  }).join('');
+  return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read')}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors')}${statsCard('🔁',reads.length?`${Math.round(repeats/reads.length*100)}%`:'—','Repeat-Author Share')}</div>
+    <div class="stats-chart-grid">
+      ${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20,authorLinks:true}))}
+      ${statsChart('Highest-Rated Authors',statsBarChart(statsAverageBy(reads,b=>b.author_full||b.author),{limit:20,authorLinks:true}))}
+      <section class="stats-chart author-directory"><h3>Author Directory</h3>
+        <div class="author-directory-toolbar"><input type="search" placeholder="Find an author" aria-label="Find an author" oninput="filterStatsAuthors(this.value)"></div>
+        <p class="stats-note">Click any author to see their profile and the books already in your library.</p>
+        <div class="author-bar-wrap" id="stats-author-directory">${directory||'<p class="stats-note">No authors match these filters.</p>'}</div>
+      </section>
+    </div>`;
+}
+
+function filterStatsAuthors(value) {
+  const query=normalizedKey(value);
+  document.querySelectorAll('#stats-author-directory .author-row').forEach(row=>{
+    row.style.display=!query||String(row.dataset.authorSearch||'').includes(query)?'':'none';
+  });
 }
 
 function statsFormatsHTML(reads) {
@@ -7906,7 +8050,7 @@ function showYear(year) {
         ${coverEl}
         <div style="flex:1;min-width:0">
           <div class="card-title">${esc(b.title)}</div>
-          <div class="card-author">${esc(b.author)}</div>
+          <div class="card-author">${authorProfileButton(b.author)}</div>
           <div style="margin-top:0.3rem">${ratingDisplay(b.rating)}</div>
           ${seriesLabelForBook(b) ? `<div class="book-series" title="${esc(seriesLabelForBook(b)).replace(/"/g,'&quot;')}" style="max-width:100%;margin-top:0.2rem;font-size:0.8rem;line-height:1.3;overflow-wrap:anywhere;word-break:break-word">${seriesLabelHTML(b)}</div>` : ''}
           ${pages ? `<div style="font-size:0.82rem;color:var(--muted);margin-top:0.2rem">${pageMetric(pages)} pages</div>` : ''}
@@ -8987,7 +9131,7 @@ function renderCollectionEditorBooks(search='') {
       <label class="picker-book-choice">
         <input type="checkbox" value="${esc(id)}" ${collectionEditorDraft.selectedBookIds.has(id) ? 'checked' : ''}
           onchange="toggleCollectionEditorBook(this.value,this.checked)">
-        <span>${esc(book.title)}<small>${esc(book.author_full || book.author || book.author_short || '')}${book.series ? ' · ' + seriesLabelHTML(book) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
+        <span>${esc(book.title)}<small>${authorProfileButton(book.author_full || book.author || book.author_short || '')}${book.series ? ' · ' + seriesLabelHTML(book) : ''}${book.status ? ' · ' + esc(libraryBookStatus(book)) : ''}</small></span>
       </label>
     `;
   }).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
@@ -10410,7 +10554,7 @@ function renderLibraryCollection(books, scope, view) {
             ${seriesLabel ? `<div class="library-list-series" title="${esc(seriesLabel).replace(/"/g,'&quot;')}">${seriesLabelHTML(book)}</div>` : ''}
             ${amazonWishlistLinkHTML(book)}
           </div>
-          <div class="library-list-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
+          <div class="library-list-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
           <div class="library-list-detail library-list-genre">${esc(book.genre || '—')}</div>
           <div class="library-list-detail library-list-status">${libraryRatingOrStatus(book)}</div>
         </div>`;
@@ -10430,7 +10574,7 @@ function renderLibraryCollection(books, scope, view) {
         ${coverImageHTML(book, 'minimal-cover', 'library-minimal-cover')}
         <div class="library-minimal-rating">${libraryRatingOrStatus(book)}</div>
         <div class="library-minimal-title">${esc(book.title || 'Untitled')}</div>
-        <div class="library-minimal-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
+        <div class="library-minimal-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
         ${amazonWishlistLinkHTML(book, 'Amazon')}
       </div>`;
     }).join('')}</div>`;
@@ -10444,7 +10588,7 @@ function renderLibraryCollection(books, scope, view) {
         style="--spine-height:${spine.height}px;--spine-color:${spine.color};--spine-text-color:${spine.textColor};--spine-width:${spine.width}px;--spine-columns:${spine.columns}"
         title="${esc(`${book.title || 'Untitled'} — ${book.author_full || book.author || 'Unknown Author'}`).replace(/"/g,'&quot;')}">
         <div class="book-spine-copy">
-          <span class="book-spine-author">${esc(book.author_full || book.author || 'Unknown Author')}</span>
+          <span class="book-spine-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</span>
           <span class="book-spine-title">${esc(book.title || 'Untitled')}</span>
         </div>
       </div>`;
@@ -10477,7 +10621,7 @@ function renderLibraryCollection(books, scope, view) {
       <div class="library-card-copy">
         ${book._currentlyReading ? '<span class="current-library-badge">Currently Reading</span>' : ''}
         <div class="library-card-title">${esc(book.title || 'Untitled')}</div>
-        <div class="library-card-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
+        <div class="library-card-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
         ${seriesLabel ? `<div class="library-card-series" title="${esc(seriesLabel).replace(/"/g,'&quot;')}">${seriesLabelHTML(book)}</div>` : ''}
         ${yearLine ? `<div class="library-card-years">${esc(yearLine)}</div>` : ''}
         ${amazonWishlistLinkHTML(book)}
@@ -11704,16 +11848,11 @@ function bookStoriesHTML(book) {
   );
   const rows = stories.length
     ? stories.map(story => {
-        const meta = [
-          story.author ? `by ${story.author}` : '',
-          storyPageLabel(story),
-          storyDateLabel(story),
-          story.rating ? ratingDisplay(story.rating).replace(/<[^>]+>/g, '') : ''
-        ].filter(Boolean).join(' · ');
+        const meta = [storyPageLabel(story),storyDateLabel(story),story.rating?ratingDisplay(story.rating).replace(/<[^>]+>/g,''):''].filter(Boolean).join(' · ');
         return `<div class="story-row">
           <div>
             <div class="story-title">${esc(story.title || 'Untitled Story')}</div>
-            ${meta ? `<div class="story-meta">${esc(meta)}</div>` : ''}
+            ${story.author||meta?`<div class="story-meta">${story.author?`by ${authorProfileButton(story.author)}`:''}${story.author&&meta?' · ':''}${esc(meta)}</div>`:''}
             ${story.notes ? `<div class="story-notes">${esc(story.notes)}</div>` : ''}
           </div>
           <div class="story-actions">
@@ -12052,7 +12191,7 @@ function renderBookDetailPage(title, source='', key='') {
         </div>
 
         <div class="book-card-author">
-          ${esc(b.author_full || b.author || 'Unknown Author')}
+          ${authorProfileButton(b.author_full || b.author || 'Unknown Author')}
         </div>
       </div>
 
@@ -13172,7 +13311,7 @@ const pct = s.done === '✅'
     const seriesGenre = genreForSeries(s);
     return `<div class="series-card${stateClass}" onclick="openSeriesModal(${JSON.stringify(s).split('"').join('&quot;')}, event)">
       <div class="series-name">${esc(s.series)}</div>
-      <div class="series-author">${esc(s.author)}${seriesGenre ? ` · <span style="color:${genreColor(seriesGenre)}">${esc(seriesGenre)}</span>` : ''} · ${seriesStatusBadgeHTML(seriesStatus)}</div>
+      <div class="series-author">${authorProfileButton(s.author)}${seriesGenre ? ` · <span style="color:${genreColor(seriesGenre)}">${esc(seriesGenre)}</span>` : ''} · ${seriesStatusBadgeHTML(seriesStatus)}</div>
       ${seriesStatus==='Abandoned' && s.reason ? `<div class="series-reason">${esc(s.reason)}</div>` : ''}
       <div class="series-progress"><div class="series-bar" style="width:${pct}%"></div></div>
       <div class="series-footer">
@@ -13283,45 +13422,234 @@ function readBooksByAuthor(author) {
     })
     .sort((a,b) => String(a.title || '').localeCompare(String(b.title || '')));
 }
-function openAuthorModal(author, evt) {
-  const books = readBooksByAuthor(author);
-  const ownedCount = books.filter(ownsBook).length;
-const authorStats = getAuthorStats()
-  .find(a => normalizeAuthorName(a.author) === normalizeAuthorName(author));
-const avg = authorStats ? parseFloat(authorStats.avg) : NaN;
+const authorBiographyCache = new Map();
+const openLibraryAuthorCache = new Map();
+const authorBibliographyCache = new Map();
 
+function authorProfileButton(author, className='') {
+  const name=String(author||'').trim();
+  if (!name) return '';
+  return `<button class="author-profile-link ${esc(className)}" type="button" onclick="openAuthorProfile(${jsArg(name)},event)">${esc(name)}</button>`;
+}
 
-  document.getElementById('modal-series-name').innerHTML = `<span class="modal-title-with-rating"><span>${esc(author)}</span>${!isNaN(avg) ? ratingDisplay(avg) : ''}</span>`;
-  document.getElementById('modal-series-sub').textContent =
-    `${books.length} read book${books.length!==1?'s':''} · ${ownedCount} owned`;
+function authorLibraryBooks(author) {
+  return allLibraryBooks()
+    .filter(book=>bookAuthorMatches(book,author))
+    .sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'}));
+}
 
-  document.getElementById('modal-series-body').innerHTML = books.length
-    ? books.map(b => {
-        const coverEl = coverImageHTML(b, 'modal-cover', 'modal-cover');
-        const status = b.status || (b.year_read ? 'Read' : 'TBR');
-        return `<div class="modal-book-row" style="cursor:pointer" onclick="openBookDetail(this,event)" data-title="${esc(b.title).replace(/"/g,'&quot;')}">
-          ${coverEl}
-          <div class="modal-book-info">
-            <div class="modal-book-title">${esc(b.title)}${ownsBook(b) ? ` <span class="badge" style="margin-left:0.4rem;vertical-align:middle">Owned</span>` : ''}</div>
-            <div class="modal-book-meta">
-              ${b.genre ? `<span style="color:${genreColor(b.genre)};font-weight:600">${esc(b.genre)}</span>` : 'Unknown genre'}
-              ${b.series ? ` · <em>${esc(b.series)}</em>` : ''}
-              ${b.rating ? ` · ${ratingDisplay(b.rating)}` : ''}
-            </div>
-            <div class="modal-book-meta" style="margin-top:0.15rem">${esc(status)}${b.year_read ? ' · ' + Math.floor(b.year_read) : ''}</div>
-          </div>
-        </div>`;
-      }).join('')
-    : `<p style="color:var(--muted);font-style:italic">No read books found for this author.</p>`;
+function replaceTrackedModalSnapshot(mode='author') {
+  if (!history.state?.readingTrackerModal) return;
+  history.replaceState({...history.state,readingTrackerModal:modalSnapshot(mode)},'',window.location.href);
+}
 
-  openModal(evt, 'author');
+function authorLibraryBookHTML(book) {
+  const status=libraryBookStatus(book);
+  const meta=[status,book.genre,book.series?seriesLabelForBook(book):''].filter(Boolean).join(' · ');
+  const source=status==='TBR'?'tbr':(status==='Wishlist'?'wishlist':'');
+  return `<button class="author-library-book" type="button" ${bookClickAttributes(book,source)}>
+    ${coverImageHTML(book,'modal-cover','modal-cover')}
+    <span class="modal-book-info"><span class="modal-book-title">${esc(book.title||'Untitled')}</span>
+      <span class="modal-book-meta" style="display:block">${esc(meta)}${book.rating?` · ${ratingDisplay(book.rating)}`:''}</span>
+    </span>
+  </button>`;
+}
+
+function authorBiographyLoadingHTML() {
+  return `<div class="author-bio-card no-photo"><div class="author-bio-copy"><p class="stats-note">Looking for a reliable Wikipedia biography…</p></div></div>`;
+}
+
+function authorBlurb(text,maximum=850) {
+  const value=String(text||'').trim();
+  if (value.length<=maximum) return value;
+  const excerpt=value.slice(0,maximum);
+  const sentenceEnd=excerpt.lastIndexOf('. ');
+  return `${excerpt.slice(0,sentenceEnd>maximum*.55?sentenceEnd+1:maximum).trim()}…`;
+}
+
+function authorBiographyHTML(author,bio) {
+  if (!bio) {
+    const search=`https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(author+' writer')}`;
+    return `<div class="author-bio-card no-photo"><div class="author-bio-copy"><p>No reliable Wikipedia biography match was found.</p><a class="author-source" href="${esc(search)}" target="_blank" rel="noopener">Search Wikipedia</a></div></div>`;
+  }
+  return `<div class="author-bio-card ${bio.thumbnail?'':'no-photo'}">
+    ${bio.thumbnail?`<img class="author-portrait" src="${esc(bio.thumbnail)}" alt="Portrait of ${esc(author)}">`:''}
+    <div class="author-bio-copy"><p>${esc(authorBlurb(bio.extract))}</p><a class="author-source" href="${esc(bio.url)}" target="_blank" rel="noopener">Read more on Wikipedia ↗</a></div>
+  </div>`;
+}
+
+async function loadAuthorBiography(author) {
+  const key=normalizeAuthorName(author);
+  if (authorBiographyCache.has(key)) return authorBiographyCache.get(key);
+  const params=new URLSearchParams({
+    action:'query',generator:'search',gsrsearch:`${author} writer author`,gsrnamespace:'0',gsrlimit:'6',
+    prop:'extracts|pageimages|info',exintro:'1',explaintext:'1',piprop:'thumbnail',pithumbsize:'320',
+    inprop:'url',format:'json',formatversion:'2',origin:'*'
+  });
+  try {
+    const response=await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
+    if (!response.ok) throw new Error(`Wikipedia returned ${response.status}`);
+    const payload=await response.json();
+    const target=normalizeAuthorName(author);
+    const pages=(payload?.query?.pages||[]).filter(page=>page.extract&&page.fullurl);
+    const ranked=pages.map(page=>{
+      const title=String(page.title||'').replace(/\s*\([^)]*\)\s*$/,'');
+      const exact=normalizeAuthorName(title)===target;
+      const text=String(page.extract||'').toLowerCase();
+      const literary=/\b(writer|author|novelist|poet|essayist|playwright|screenwriter|comic book)\b/.test(text);
+      const disambiguation=/may refer to|can refer to/.test(text);
+      return {page,score:(exact?100:0)+(literary?35:0)-(disambiguation?100:0)};
+    }).filter(item=>item.score>=35).sort((a,b)=>b.score-a.score);
+    const page=ranked[0]?.page;
+    const result=page?{extract:page.extract,url:page.fullurl,thumbnail:page.thumbnail?.source||''}:null;
+    authorBiographyCache.set(key,result);
+    return result;
+  } catch (error) {
+    console.warn('Could not load author biography:',error);
+    authorBiographyCache.set(key,null);
+    return null;
+  }
+}
+
+function openAuthorProfile(author,evt,recordHistory=true) {
+  const name=String(author||'').trim();
+  if (!name) return;
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const books=authorLibraryBooks(name);
+  const read=books.filter(book=>libraryBookStatus(book)==='Read');
+  const ratings=read.map(book=>Number(book.rating)).filter(Number.isFinite);
+  const avg=ratings.length?ratings.reduce((sum,value)=>sum+value,0)/ratings.length:null;
+  document.getElementById('modal-series-name').innerHTML=`<span class="modal-title-with-rating"><span>${esc(name)}</span>${avg!==null?ratingDisplay(avg.toFixed(1)):''}</span>`;
+  document.getElementById('modal-series-sub').textContent=`${books.length} library book${books.length===1?'':'s'} · ${read.length} read`;
+  const body=document.getElementById('modal-series-body');
+  body.dataset.authorProfile=normalizeAuthorName(name);
+  body.innerHTML=`<div class="author-profile">
+    <section><div class="author-profile-section-head"><h4>About the Author</h4></div><div id="author-biography">${authorBiographyLoadingHTML()}</div></section>
+    <section><div class="author-profile-section-head"><h4>In Your Library</h4><div class="author-profile-actions"><button class="account-primary" type="button" onclick="openAuthorBibliography(${jsArg(name)})">View All Books</button></div></div>
+      ${books.length?`<div class="author-library-grid" style="margin-top:.7rem">${books.map(authorLibraryBookHTML).join('')}</div>`:'<p class="stats-note">No books by this author are currently in your library.</p>'}
+    </section>
+  </div>`;
+  openModal(evt,'author',recordHistory);
+  loadAuthorBiography(name).then(bio=>{
+    if (body.dataset.authorProfile!==normalizeAuthorName(name)) return;
+    const target=document.getElementById('author-biography');
+    if (target) target.innerHTML=authorBiographyHTML(name,bio);
+    replaceTrackedModalSnapshot('author');
+  });
+}
+
+function openAuthorModal(author,evt) {
+  openAuthorProfile(author,evt);
+}
+
+async function resolveOpenLibraryAuthor(author) {
+  const cacheKey=normalizeAuthorName(author);
+  if (openLibraryAuthorCache.has(cacheKey)) return openLibraryAuthorCache.get(cacheKey);
+  const response=await fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(author)}&limit=10`);
+  if (!response.ok) throw new Error(`Open Library returned ${response.status}`);
+  const payload=await response.json();
+  const target=normalizeAuthorName(author);
+  const ranked=(payload.docs||[]).map(candidate=>{
+    const names=[candidate.name,...(candidate.alternate_names||[])];
+    const exact=names.some(name=>normalizeAuthorName(name)===target);
+    return {candidate,score:(exact?1000:0)+Math.min(Number(candidate.work_count)||0,500)};
+  }).sort((a,b)=>b.score-a.score);
+  const match=ranked[0]?.candidate||null;
+  openLibraryAuthorCache.set(cacheKey,match);
+  return match;
+}
+
+function waitForOpenLibraryRateLimit() {
+  return new Promise(resolve=>setTimeout(resolve,1050));
+}
+
+async function loadAuthorBibliography(author) {
+  const cacheKey=normalizeAuthorName(author);
+  if (authorBibliographyCache.has(cacheKey)) return authorBibliographyCache.get(cacheKey);
+  const match=await resolveOpenLibraryAuthor(author);
+  if (!match?.key) {
+    const empty={author:null,works:[],total:0,truncated:false};
+    authorBibliographyCache.set(cacheKey,empty);
+    return empty;
+  }
+  await waitForOpenLibraryRateLimit();
+  const authorKey=String(match.key).replace(/^\/authors\//,'');
+  const works=[];
+  let offset=0;
+  let total=0;
+  const limit=1000;
+  const maximum=5000;
+  do {
+    const response=await fetch(`https://openlibrary.org/authors/${encodeURIComponent(authorKey)}/works.json?limit=${limit}&offset=${offset}`);
+    if (!response.ok) throw new Error(`Open Library returned ${response.status}`);
+    const payload=await response.json();
+    const batch=Array.isArray(payload.entries)?payload.entries:[];
+    works.push(...batch);
+    total=Number(payload.size)||works.length;
+    offset+=batch.length;
+    if (!batch.length||offset>=total||offset>=maximum) break;
+    await waitForOpenLibraryRateLimit();
+  } while (true);
+  const seen=new Set();
+  const unique=works.filter(work=>{
+    const key=normalizedKey(work.title);
+    if (!key||seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'}));
+  const result={author:{...match,key:authorKey},works:unique,total,truncated:offset<total};
+  authorBibliographyCache.set(cacheKey,result);
+  return result;
+}
+
+function bibliographyYear(work) {
+  return String(work.first_publish_date||'').match(/\b(1[0-9]{3}|20[0-9]{2})\b/)?.[0]||'';
+}
+
+function filterAuthorBibliography(value) {
+  const query=normalizedKey(value);
+  document.querySelectorAll('.author-bibliography-item').forEach(item=>{
+    item.style.display=!query||String(item.dataset.workSearch||'').includes(query)?'':'none';
+  });
+}
+
+async function openAuthorBibliography(author) {
+  const name=String(author||'').trim();
+  const body=document.getElementById('modal-series-body');
+  body.dataset.authorProfile=`bibliography:${normalizeAuthorName(name)}`;
+  document.getElementById('modal-series-name').textContent=`Books by ${name}`;
+  document.getElementById('modal-series-sub').textContent='Loading bibliography from Open Library…';
+  body.innerHTML=`<div class="author-profile"><div class="author-profile-actions"><button class="account-secondary" type="button" onclick="openAuthorProfile(${jsArg(name)},null,false)">← Author Profile</button></div><p class="stats-note">Loading the author’s works…</p></div>`;
+  replaceTrackedModalSnapshot('author');
+  try {
+    const result=await loadAuthorBibliography(name);
+    if (body.dataset.authorProfile!==`bibliography:${normalizeAuthorName(name)}`) return;
+    const count=result.works.length;
+    document.getElementById('modal-series-sub').textContent=`${count} unique work${count===1?'':'s'} listed by Open Library`;
+    const openLibrarySearch=`https://openlibrary.org/search/authors?q=${encodeURIComponent(name)}`;
+    const sourceUrl=result.author?`https://openlibrary.org/authors/${encodeURIComponent(result.author.key)}`:openLibrarySearch;
+    body.innerHTML=`<div class="author-profile">
+      <div class="author-profile-section-head"><div class="author-profile-actions"><button class="account-secondary" type="button" onclick="openAuthorProfile(${jsArg(name)},null,false)">← Author Profile</button></div><a class="author-source" href="${esc(sourceUrl)}" target="_blank" rel="noopener">View on Open Library ↗</a></div>
+      <p class="author-bibliography-note">Works are consolidated across editions. ${result.truncated?`Open Library reports ${result.total} works; the first ${count} unique titles are shown.`:'Titles and dates depend on Open Library’s catalog.'}</p>
+      ${count?`<div class="author-directory-toolbar"><input type="search" placeholder="Find a title" aria-label="Find a title in this bibliography" oninput="filterAuthorBibliography(this.value)"></div><div class="author-bibliography-list">${result.works.map(work=>{
+        const path=String(work.key||'').startsWith('/')?work.key:`/works/${work.key||''}`;
+        return `<a class="author-bibliography-item" data-work-search="${esc(normalizedKey(work.title))}" href="https://openlibrary.org${esc(path)}" target="_blank" rel="noopener"><span>${esc(work.title||'Untitled')}</span><small>${esc(bibliographyYear(work))}</small></a>`;
+      }).join('')}</div>`:`<div class="author-bio-card no-photo"><p>No Open Library bibliography was found for this author.</p></div>`}
+    </div>`;
+  } catch (error) {
+    console.warn('Could not load author bibliography:',error);
+    document.getElementById('modal-series-sub').textContent='Bibliography unavailable';
+    body.innerHTML=`<div class="author-profile"><div class="author-profile-actions"><button class="account-secondary" type="button" onclick="openAuthorProfile(${jsArg(name)},null,false)">← Author Profile</button></div><div class="author-bio-card no-photo"><p>Open Library could not be reached. Please try again in a moment.</p></div></div>`;
+  }
+  replaceTrackedModalSnapshot('author');
 }
 
 // ─── Authors ──────────────────────────────────────────────────
-function getAuthorStats() {
+function getAuthorStats(books=DATA.books,minimum=3) {
   const authors = new Map();
 
-  DATA.books
+  books
     .filter(b => libraryBookStatus(b) === 'Read')
     .forEach(b => {
       const author = b.author_full || b.author || b.author_short;
@@ -13337,7 +13665,7 @@ function getAuthorStats() {
     });
 
   return [...authors.values()]
-    .filter(a => a.count >= 3)
+    .filter(a => a.count >= minimum)
     .map(a => ({
       author: a.author,
       count: a.count,
@@ -13353,24 +13681,7 @@ function getAuthorStats() {
 }
 
 function buildAuthors() {
-  const panel = document.getElementById('tab-authors');
-  const authors = getAuthorStats();
-  const maxCount = Math.max(1, ...authors.map(a => a.count || 0));
-  const rows = authors.map(a => {
-    const pct = Math.round(((a.count || 0) / maxCount) * 100);
-    const avg = parseFloat(a.avg);
-    return `<div class="author-row" onclick="openAuthorModal(${jsArg(a.author)}, event)" title="View owned books by ${esc(a.author)}">
-      <div class="author-name">${esc(a.author)}</div>
-      <div class="author-bar-bg"><div class="author-bar-fill" style="width:${pct}%"></div></div>
-      <div class="author-count">${a.count} books</div>
-      <div class="author-avg ${isNaN(avg)?'r-dnf':ratingClass(avg)}">${isNaN(avg)?'—':ratingDisplay(avg)}</div>
-    </div>`;
-  }).join('');
-  panel.innerHTML = `
-    <div class="section-head"><h2>Author Stats</h2><span class="badge">(≥3 books read)</span></div>
-    <p style="color:var(--muted);font-style:italic;margin-bottom:1rem;font-size:0.9rem">Authors sorted by average rating, filtered to those you've read at least 3 books from. Click an author to see owned books.</p>
-    <div class="author-bar-wrap">${rows || '<p style="color:var(--muted);font-style:italic">No authors with at least 3 books read were found.</p>'}</div>
-  `;
+  if (statsSection==='authors'&&document.getElementById('tab-stats')?.classList.contains('active')) buildStats();
 }
 
 // ─── Book Picker ──────────────────────────────────────────────
@@ -13795,7 +14106,7 @@ function renderCustomCategoryBooks(search='') {
     <label class="picker-book-choice">
       <input type="checkbox" ${customCategoryDraft.book_titles.includes(book.title) ? 'checked' : ''}
         onchange="toggleCustomCategoryBook(${jsArg(book.title)},this.checked)">
-      <span>${esc(book.title)}<small>${esc(book.author_full || book.author || '')}</small></span>
+      <span>${esc(book.title)}<small>${authorProfileButton(book.author_full || book.author || '')}</small></span>
     </label>
   `).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
 }
@@ -13897,7 +14208,7 @@ function renderRereadManager(search='') {
     <label class="picker-book-choice">
       <input type="checkbox" ${book.reread ? 'checked' : ''}
         onchange="setBookReread(${jsArg(book.id)},${jsArg(book.title)},this.checked)">
-      <span>${esc(book.title)}<small>${esc(book.authors?.name || '')}</small></span>
+      <span>${esc(book.title)}<small>${authorProfileButton(book.authors?.name || '')}</small></span>
     </label>
   `).join('') || '<p style="color:var(--muted);padding:0.5rem">No matching books.</p>';
 }
@@ -14030,7 +14341,7 @@ function renderPicker(isShuffled) {
       ${coverEl}
       <div style="flex:1;min-width:0">
         <div class="picker-title">${esc(b.title||'—')}</div>
-        <div class="picker-author">${esc(b.author || b.author_full || '')}</div>
+        <div class="picker-author">${authorProfileButton(b.author || b.author_full || '')}</div>
       </div>
       <span class="picker-cat">${esc(b.category)}</span>
     </div>`;
@@ -14049,7 +14360,7 @@ function renderPicker(isShuffled) {
       ${coverEl}
       <div style="flex:1;min-width:0">
         <div class="picker-title">${esc(b.title)}</div>
-        <div class="picker-author">${esc(b.author)}${rating}</div>
+        <div class="picker-author">${authorProfileButton(b.author)}${rating}</div>
       </div>
       <span class="picker-cat">Reread</span>
     </div>`;
@@ -14351,7 +14662,7 @@ function bookClubManagerCardHTML(club, placement='manager') {
     <div class="club-card-overview ${placement === 'hub' && current ? 'with-cover' : ''}">
       ${placement === 'hub' && current ? clubReadCoverHTML(current,'club-card-selection-cover') : ''}
       <div class="club-detail-list">
-        <div class="club-detail-row"><span>Current selection</span><strong>${esc(current ? `${current.title}${current.author ? ` · ${current.author}` : ''}` : 'None selected')}</strong></div>
+        <div class="club-detail-row"><span>Current selection</span><strong>${current?`${esc(current.title)}${current.author?` · ${authorProfileButton(current.author)}`:''}`:'None selected'}</strong></div>
         <div class="club-detail-row"><span>Next meeting</span><strong>${esc(meeting ? clubDateTimeLabel(meeting.meeting_at,club.timezone) : 'Not scheduled')}</strong></div>
         <div class="club-detail-row"><span>Meeting style</span><strong>${esc(club.meeting_format || 'In Person')}</strong></div>
         <div class="club-detail-row"><span>Usual schedule</span><strong>${esc(schedule)}</strong></div>
@@ -14442,7 +14753,7 @@ function bookClubHubHTML(club) {
       <div class="club-hub-copy">
         <div class="club-hub-kicker">${current.status === 'Current' ? 'Now Reading' : esc(current.status)}</div>
         <h2>${esc(current.title)}</h2>
-        <p class="club-hub-author">${esc(current.author || '')}</p>
+        <p class="club-hub-author">${authorProfileButton(current.author || '')}</p>
         <div class="club-hub-dates">${esc(dateRange)}</div>
         ${progress === null ? '' : `<div class="club-progress-track"><div class="club-progress-fill" style="width:${progress}%"></div></div><div class="club-progress-label">${progress}% through the club reading window</div>`}
       </div>
@@ -14476,7 +14787,7 @@ function clubReadListHTML(reads, emptyMessage) {
   if (!reads.length) return `<p class="club-card-meta">${esc(emptyMessage)}</p>`;
   return `<div class="club-read-list">${reads.map(read => `<div class="club-read-row">
     ${clubReadCoverHTML(read)}
-    <div style="min-width:0"><div class="club-read-title">${esc(read.title)}</div><div class="club-read-meta">${esc(read.author || '')}${read.start_date || read.end_date ? ` · ${esc(clubDateLabel(read.start_date))} – ${esc(clubDateLabel(read.end_date))}` : ''}${Number(read.rating) ? ` · ${Number(read.rating).toFixed(1)}/10` : ''}</div></div>
+    <div style="min-width:0"><div class="club-read-title">${esc(read.title)}</div><div class="club-read-meta">${authorProfileButton(read.author || '')}${read.start_date || read.end_date ? ` · ${esc(clubDateLabel(read.start_date))} – ${esc(clubDateLabel(read.end_date))}` : ''}${Number(read.rating) ? ` · ${Number(read.rating).toFixed(1)}/10` : ''}</div></div>
     ${clubStatusHTML(read.status)}
   </div>`).join('')}</div>`;
 }
@@ -14870,7 +15181,7 @@ function openBookClubSelections(clubId) {
   const reads = clubReadsFor(clubId).sort((a,b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
   document.getElementById('modal-series-name').textContent = `${club.name} Selections`;
   document.getElementById('modal-series-sub').textContent = `${reads.length} scheduled or completed book${reads.length === 1 ? '' : 's'}`;
-  document.getElementById('modal-series-body').innerHTML = reads.length ? `<div class="club-roster-list">${reads.map(read => `<div class="club-roster-row"><div><strong>${esc(read.title)}</strong><div class="club-card-meta">${esc([read.status,read.author,read.start_date && read.end_date ? `${clubDateLabel(read.start_date)} – ${clubDateLabel(read.end_date)}` : ''].filter(Boolean).join(' · '))}</div></div><div class="club-roster-actions"><button type="button" onclick="openBookClubReadEditor(${jsArg(clubId)},${jsArg(read.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubRead(${jsArg(read.id)},${jsArg(clubId)})">Delete</button></div></div>`).join('')}</div>` : '<div class="club-empty"><h3>No selections yet</h3><p>Add the first book and its reading window.</p></div>';
+  document.getElementById('modal-series-body').innerHTML = reads.length ? `<div class="club-roster-list">${reads.map(read => `<div class="club-roster-row"><div><strong>${esc(read.title)}</strong><div class="club-card-meta">${esc(read.status||'')}${read.author?` · ${authorProfileButton(read.author)}`:''}${read.start_date&&read.end_date?` · ${esc(clubDateLabel(read.start_date))} – ${esc(clubDateLabel(read.end_date))}`:''}</div></div><div class="club-roster-actions"><button type="button" onclick="openBookClubReadEditor(${jsArg(clubId)},${jsArg(read.id)})">Edit</button><button type="button" onclick="confirmDeleteBookClubRead(${jsArg(read.id)},${jsArg(clubId)})">Delete</button></div></div>`).join('')}</div>` : '<div class="club-empty"><h3>No selections yet</h3><p>Add the first book and its reading window.</p></div>';
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="openBookClubReadEditor(${jsArg(clubId)})">＋ Add Selection</button>`);
 }
 
@@ -15096,7 +15407,7 @@ function toggleMonth(key, monthLabel, books, evt) {
       ${coverEl}
       <div class="modal-book-info">
         <div class="modal-book-title">${esc(b.title)}</div>
-        <div class="modal-book-meta">${esc(b.author)} · ${ratingDisplay(b.rating)}${b.format ? ' ' + formatBadge(b.format) : ''}</div>
+        <div class="modal-book-meta">${authorProfileButton(b.author)} · ${ratingDisplay(b.rating)}${b.format ? ' ' + formatBadge(b.format) : ''}</div>
         ${dates||days ? `<div style="font-size:0.78rem;color:#a09080;margin-top:0.15rem">${dates}${dates&&days?' · ':''} ${days}</div>` : ''}
       </div>
     </div>`;
@@ -15113,12 +15424,12 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     `${orderedBooks.length} book${orderedBooks.length !== 1 ? 's' : ''}`;
   const coverTiles = orderedBooks.map(book => {
     const dates = book.start ? book.start + (book.end && book.end !== book.start ? ' → ' + book.end : '') : '';
-    return `<button class="monthly-cover-tile" type="button" ${bookClickAttributes(book, 'calendar')}>
+    return `<div class="monthly-cover-tile" role="button" tabindex="0" ${bookClickAttributes(book, 'calendar')} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
       ${coverImageHTML(book, 'gallery-cover', 'gallery-cover')}
       <div class="monthly-cover-title">${esc(book.title || 'Untitled')}</div>
-      <div class="monthly-cover-author">${esc(book.author_full || book.author || 'Unknown Author')}</div>
+      <div class="monthly-cover-author">${authorProfileButton(book.author_full || book.author || 'Unknown Author')}</div>
       ${dates ? `<div class="monthly-cover-author">${esc(dates)}</div>` : ''}
-    </button>`;
+    </div>`;
   }).join('');
   document.getElementById('modal-series-body').innerHTML = `
     ${coverTiles
@@ -15456,7 +15767,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
           ${coverImageHTML(b, 'list-cover', 'library-list-cover')}
           <div>
             <div class="library-list-title">${esc(b.title || 'Untitled')}</div>
-            <div class="library-list-author">${esc(b.author_full || b.author || 'Unknown Author')}</div>
+            <div class="library-list-author">${authorProfileButton(b.author_full || b.author || 'Unknown Author')}</div>
           </div>
           <div class="library-list-detail">${esc(b.genre || '—')}</div>
           <div class="library-list-detail">${pageCountForBook(b) ? `${pageMetric(pageCountForBook(b))} pages` : '—'}</div>
