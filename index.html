@@ -4472,7 +4472,7 @@
   .club-detail-row span:first-child { color:var(--muted); }
   .club-detail-row strong { max-width:65%; text-align:right; overflow-wrap:anywhere; }
   .club-card-actions { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.85rem; }
-  .club-card-actions button,.club-link-button { min-height:36px; padding:.42rem .7rem; border:1px solid var(--border); border-radius:7px; background:#fff; color:var(--ink); cursor:pointer; font:750 .78rem inherit; }
+  .club-card-actions button,.club-link-button { display:inline-flex; align-items:center; justify-content:center; min-height:36px; padding:.42rem .7rem; border:1px solid var(--border); border-radius:7px; background:#fff; color:var(--ink); cursor:pointer; font:750 .78rem inherit; text-decoration:none; }
   .club-card-actions button.primary,.club-link-button.primary { border-color:transparent; background:var(--accent-gradient); color:#fff; }
   .club-card-actions button:disabled { opacity:.45; cursor:not-allowed; }
   .club-empty { padding:2.25rem 1rem; border:1px dashed var(--border); border-radius:10px; background:rgba(65,105,225,.025); text-align:center; color:var(--muted); }
@@ -4519,6 +4519,9 @@
   .club-form-field label { color:var(--muted); font-size:.67rem; font-weight:850; letter-spacing:.07em; text-transform:uppercase; }
   .club-form-field input,.club-form-field select,.club-form-field textarea { width:100%; min-width:0; padding:.62rem .68rem; background:#fff; color:var(--ink); }
   .club-form-field textarea { min-height:84px; resize:vertical; }
+  .club-form-section { grid-column:1/-1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; margin:.15rem 0; padding:.85rem; border:1px solid rgba(65,105,225,.24); border-radius:9px; background:rgba(65,105,225,.035); }
+  .club-form-section h3 { grid-column:1/-1; margin:0; color:var(--deep); font:700 1rem 'Playfair Display',serif; }
+  .club-form-section > p { grid-column:1/-1; margin:-.35rem 0 0; color:var(--muted); font-size:.74rem; line-height:1.4; }
   .club-timezone-picker { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.45rem; }
   .club-timezone-picker button { min-height:42px; padding:.5rem .75rem; border:1px solid rgba(65,105,225,.42); border-radius:8px; background:#fff; color:var(--deep); cursor:pointer; font:750 .78rem inherit; white-space:nowrap; }
   .club-timezone-picker button:hover { border-color:var(--gold); background:#fff7f0; }
@@ -4555,6 +4558,8 @@
     .club-meeting-card { padding:.75rem; }
     .club-form-grid { grid-template-columns:1fr; }
     .club-form-field.full,.club-form-note { grid-column:auto; }
+    .club-form-section { grid-template-columns:1fr; }
+    .club-form-section h3,.club-form-section > p { grid-column:auto; }
     .club-detail-row { display:grid; gap:.1rem; }
     .club-detail-row strong { max-width:none; text-align:left; }
     .club-read-row { grid-template-columns:42px minmax(0,1fr); }
@@ -14330,13 +14335,21 @@ function buildBookClubs() {
   </div>`;
 }
 
-function bookClubManagerCardHTML(club) {
+function bookClubManagerCardHTML(club, placement='manager') {
   const members = clubMembersFor(club.id);
   const reads = clubReadsFor(club.id);
   const current = currentClubRead(club.id);
   const meeting = nextClubMeeting(club.id);
   const canManage = canManageBookClub(club);
   const schedule = [club.cadence, club.usual_meeting_day, club.usual_meeting_time ? String(club.usual_meeting_time).slice(0,5) : ''].filter(Boolean).join(' · ') || 'Not set';
+  const meetingLink = meeting?.online_url || club.online_url || '';
+  const actions = placement === 'hub'
+    ? `${meeting?.meeting_at ? `<button class="primary" type="button" onclick="downloadBookClubMeetingICS(${jsArg(meeting.id)})">Add Meeting to Calendar</button>` : ''}${meetingLink ? `<a class="club-link-button" href="${esc(meetingLink)}" target="_blank" rel="noopener">Open Online Meeting</a>` : ''}`
+    : `<button class="primary" type="button" onclick="openBookClubHub(${jsArg(club.id)})">View Hub</button>
+      <button type="button" onclick="openBookClubEditor(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Edit Club</button>
+      <button type="button" onclick="openBookClubMembers(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Members</button>
+      <button type="button" onclick="openBookClubInvitations(${jsArg(club.id)})" ${canManage && bookClubInvitationsAvailable ? '' : 'disabled'}>Invitations</button>
+      <button type="button" onclick="openBookClubSelections(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Selections</button>`;
   return `<article class="club-manager-card">
     <div class="club-card-head"><div><h3>${esc(club.name)}</h3><div class="club-card-meta">${members.length} member${members.length === 1 ? '' : 's'} · ${reads.length} selection${reads.length === 1 ? '' : 's'} · ${club.open_enrollment ? 'Open Enrollment' : 'Invitation Only'}</div></div>${clubStatusHTML(current?.status || 'Planning')}</div>
     <p class="club-card-description">${esc(club.description || 'No club description yet.')}</p>
@@ -14346,13 +14359,7 @@ function bookClubManagerCardHTML(club) {
       <div class="club-detail-row"><span>Meeting style</span><strong>${esc(club.meeting_format || 'In Person')}</strong></div>
       <div class="club-detail-row"><span>Usual schedule</span><strong>${esc(schedule)}</strong></div>
     </div>
-    <div class="club-card-actions">
-      <button class="primary" type="button" onclick="openBookClubHub(${jsArg(club.id)})">View Hub</button>
-      <button type="button" onclick="openBookClubEditor(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Edit Club</button>
-      <button type="button" onclick="openBookClubMembers(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Members</button>
-      <button type="button" onclick="openBookClubInvitations(${jsArg(club.id)})" ${canManage && bookClubInvitationsAvailable ? '' : 'disabled'}>Invitations</button>
-      <button type="button" onclick="openBookClubSelections(${jsArg(club.id)})" ${canManage ? '' : 'disabled'}>Selections</button>
-    </div>
+    ${actions ? `<div class="club-card-actions">${actions}</div>` : ''}
   </article>`;
 }
 
@@ -14370,22 +14377,23 @@ function selectBookClubHub(clubId) {
 function buildBookClubHub() {
   const panel = document.getElementById('tab-club-hub');
   if (!panel) return;
-  const joinedClubs = userBookClubs();
+  const joinedClubs = [...userBookClubs()].sort((a,b) => {
+    if (String(a.id) === String(activeBookClubHubId)) return -1;
+    if (String(b.id) === String(activeBookClubHubId)) return 1;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
   const openClubs = discoverableOpenBookClubs();
   const pendingInvitations = currentUserBookClubInvitations();
-  if (!joinedClubs.some(club => String(club.id) === String(activeBookClubHubId))) activeBookClubHubId = joinedClubs[0]?.id || '';
-  const club = bookClubById(activeBookClubHubId);
   panel.innerHTML = `<div class="club-page">
     <div class="club-page-head">
       <div><h2>Club Hub <span class="club-test-badge">Test Page</span></h2><p>Your clubs appear first. You can also discover clubs that welcome new members.</p></div>
       <div class="club-hub-toolbar">
-        ${joinedClubs.length > 1 ? `<label>Your Book Clubs<select onchange="selectBookClubHub(this.value)">${joinedClubs.map(item => `<option value="${esc(item.id)}" ${String(item.id) === String(activeBookClubHubId) ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>` : ''}
         <button class="account-secondary" type="button" onclick="toggleOpenBookClubs()">${showOpenBookClubs ? 'Hide Open Clubs' : `Show Open Clubs${openClubs.length ? ` (${openClubs.length})` : ''}`}</button>
         <button class="account-secondary" type="button" onclick="switchTab('clubs')">Manage Clubs</button>
       </div>
     </div>
     ${pendingInvitations.length ? pendingBookClubInvitationsHTML(pendingInvitations) : ''}
-    ${!club ? `<div class="club-empty"><h3>You have not joined a book club yet</h3><p>Browse open clubs below or use an invitation link from a club organizer.</p></div>` : bookClubHubHTML(club)}
+    ${joinedClubs.length ? `<div class="club-manager-grid">${joinedClubs.map(club => bookClubManagerCardHTML(club,'hub')).join('')}</div>` : `<div class="club-empty"><h3>You have not joined a book club yet</h3><p>Browse open clubs below or use an invitation link from a club organizer.</p></div>`}
     ${showOpenBookClubs ? openBookClubsHTML(openClubs) : ''}
   </div>`;
 }
@@ -14485,6 +14493,10 @@ function bookClubFormStatus(message, isError=false) {
 function openBookClubEditor(clubId='') {
   const club = bookClubById(clubId) || {};
   if (clubId && !canManageBookClub(club)) return;
+  const reads = clubId ? clubReadsFor(clubId).sort((a,b) => String(a.title || '').localeCompare(String(b.title || ''))) : [];
+  const current = reads.find(read => read.status === 'Current') || null;
+  const meeting = clubId ? nextClubMeeting(clubId) : null;
+  const selectionOptions = reads.map(read => `<option value="${esc(read.id)}">${esc(read.title)}${read.author ? ` — ${esc(read.author)}` : ''}${read.status ? ` (${esc(read.status)})` : ''}</option>`).join('');
   document.getElementById('modal-series-name').textContent = clubId ? 'Edit Book Club' : 'New Book Club';
   document.getElementById('modal-series-sub').textContent = clubId ? club.name : 'Set the basics now; you can refine the schedule later.';
   document.getElementById('modal-series-body').innerHTML = `<div class="club-form-grid">
@@ -14497,11 +14509,32 @@ function openBookClubEditor(clubId='') {
     <div class="club-form-field full"><label for="club-edit-location">Physical Location</label><input id="club-edit-location" value="${esc(club.usual_location || '')}" placeholder="Library room, café, or address"></div>
     <div class="club-form-field full"><label for="club-edit-url">Online Meeting Link</label><input id="club-edit-url" type="url" value="${esc(club.online_url || '')}" placeholder="https://..."></div>
     <div class="club-form-field full"><label for="club-edit-timezone">Club Time Zone</label>${timeZonePickerHTML('club-edit-timezone',club.timezone || deviceTimeZone())}</div>
+    ${clubId ? `<section class="club-form-section">
+      <h3>Reading &amp; Meeting</h3>
+      <p>Choose from books already added under Selections. Changing the current selection updates its status automatically.</p>
+      <div class="club-form-field full"><label for="club-edit-current-selection">Current Selection</label><select id="club-edit-current-selection"><option value="">No current selection</option>${selectionOptions}</select></div>
+      <div class="club-form-field"><label for="club-edit-meeting-selection">Next Meeting For</label><select id="club-edit-meeting-selection" onchange="bookClubEditorMeetingChanged(${jsArg(clubId)})"><option value="">No meeting scheduled</option>${selectionOptions}</select></div>
+      <div class="club-form-field"><label for="club-edit-next-meeting">Next Meeting (Club Time Zone)</label><input id="club-edit-next-meeting" type="datetime-local" value="${esc(clubDateTimeInputValue(meeting?.meeting_at,club.timezone || deviceTimeZone()))}"></div>
+    </section>` : `<section class="club-form-section"><h3>Reading &amp; Meeting</h3><p>Save the club first, then edit it to choose a current selection and schedule the next meeting.</p></section>`}
     <label class="club-enrollment-toggle" style="grid-column:1/-1"><input id="club-edit-open-enrollment" type="checkbox" ${club.open_enrollment ? 'checked' : ''}><span><strong>Open Enrollment</strong><span>Anyone with a Reading Tracker account can discover and join this club. Leave this off for invitation-only membership.</span></span></label>
     <p class="club-form-note" id="book-club-form-status"></p>
   </div>${clubId ? `<div class="account-actions" style="margin-top:1rem"><button class="account-secondary" style="color:#9b2020" type="button" onclick="confirmDeleteBookClub(${jsArg(clubId)})">Delete Club</button></div>` : ''}`;
   openModal(null,'custom',true,`<button class="account-primary" type="button" onclick="saveBookClub(${jsArg(clubId)})">Save Club</button>`);
+  if (clubId) {
+    const currentSelect = document.getElementById('club-edit-current-selection');
+    const meetingSelect = document.getElementById('club-edit-meeting-selection');
+    if (currentSelect) currentSelect.value = current?.id || '';
+    if (meetingSelect) meetingSelect.value = meeting?.id || '';
+  }
   setTimeout(() => document.getElementById('club-edit-name')?.focus(),0);
+}
+
+function bookClubEditorMeetingChanged(clubId) {
+  const readId = document.getElementById('club-edit-meeting-selection')?.value || '';
+  const read = clubReadsFor(clubId).find(item => String(item.id) === String(readId));
+  const club = bookClubById(clubId);
+  const input = document.getElementById('club-edit-next-meeting');
+  if (input) input.value = clubDateTimeInputValue(read?.meeting_at,validTimeZoneInput('club-edit-timezone',club?.timezone || deviceTimeZone()) || club?.timezone || deviceTimeZone());
 }
 
 async function saveBookClub(clubId='') {
@@ -14510,6 +14543,10 @@ async function saveBookClub(clubId='') {
   if (!supabaseSession?.user?.id || guestMode) return bookClubFormStatus('Sign in to save a club.',true);
   const timeZone = validTimeZoneInput('club-edit-timezone');
   if (!timeZone) return bookClubFormStatus('Choose a time zone from the suggestions or use “Use Mine.”',true);
+  const currentReadId = document.getElementById('club-edit-current-selection')?.value || '';
+  const meetingReadId = document.getElementById('club-edit-meeting-selection')?.value || '';
+  const meetingValue = document.getElementById('club-edit-next-meeting')?.value || '';
+  if (meetingValue && !meetingReadId) return bookClubFormStatus('Choose which selection the next meeting is for.',true);
   const body = {
     name,
     description:document.getElementById('club-edit-description')?.value.trim() || null,
@@ -14528,6 +14565,7 @@ async function saveBookClub(clubId='') {
       method:clubId ? 'PATCH' : 'POST', query:clubId ? `?id=eq.${encodeURIComponent(clubId)}` : '',
       body:clubId ? body : [body], prefer:'return=minimal'
     });
+    if (clubId) await saveBookClubQuickSchedule(clubId,currentReadId,meetingReadId,meetingValue,timeZone);
     closeTrackedModal();
     await refreshBookClubPages();
   } catch (error) {
@@ -14537,6 +14575,28 @@ async function saveBookClub(clubId='') {
       ? 'Club ownership could not be verified. Re-run the updated supabase_book_clubs.sql migration, refresh, and try again.'
       : error.message;
     bookClubFormStatus(message,true);
+  }
+}
+
+async function saveBookClubQuickSchedule(clubId, currentReadId='', meetingReadId='', meetingValue='', timeZone='') {
+  const reads = clubReadsFor(clubId);
+  const previousMeeting = nextClubMeeting(clubId);
+  const updates = new Map();
+  const mergeUpdate = (readId, values) => {
+    if (!readId) return;
+    updates.set(String(readId),{...(updates.get(String(readId)) || {}),...values});
+  };
+  reads.filter(read => read.status === 'Current' && String(read.id) !== String(currentReadId)).forEach(read => {
+    const status = read.end_date && String(read.end_date) < localDateKey() ? 'Completed' : 'Upcoming';
+    mergeUpdate(read.id,{status});
+  });
+  if (currentReadId) mergeUpdate(currentReadId,{status:'Current'});
+  if (previousMeeting && String(previousMeeting.id) !== String(meetingReadId)) mergeUpdate(previousMeeting.id,{meeting_at:null});
+  if (meetingReadId) mergeUpdate(meetingReadId,{meeting_at:meetingValue ? clubDateTimeToISO(meetingValue,timeZone) : null});
+  for (const [readId, values] of updates) {
+    await supabaseTableRequest('book_club_reads',{
+      method:'PATCH',query:`?id=eq.${encodeURIComponent(readId)}`,body:values,prefer:'return=minimal'
+    });
   }
 }
 
