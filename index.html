@@ -1657,11 +1657,17 @@
   .done-badge { color: var(--green); font-size: 1rem; }
   .series-card { cursor: pointer; }
   .series-card:hover { border-color: var(--gold); box-shadow: 0 4px 16px var(--shadow); }
-.series-card.abandoned {
-  border-color: #a52a2a;
-  border-left: 5px solid #a52a2a;
-  background: #fff7f5;
+.series-card.in-progress {
+  border-left: 5px solid #4169e1;
+  background: linear-gradient(90deg, rgba(65,105,225,0.08), var(--card-bg) 38%);
 }
+.series-card.in-progress .series-bar { background: linear-gradient(90deg, #4169e1, #6f89ee); }
+.series-card.abandoned {
+  border-color: var(--border);
+  border-left: 3px solid #9aa1ad;
+  background: var(--card-bg);
+}
+.series-card.abandoned .series-bar { background: #aeb4bf; }
 
 .amazon-book-link {
   display: inline-flex;
@@ -1678,10 +1684,11 @@
   border-left: 5px solid var(--muted);
 }
 .series-card.not-started {
-  border-left: 5px solid #64748b;
+  border-left: 3px solid #8b95a5;
 }
 .series-card.completed {
   border-left: 5px solid #ff7a00;
+  background: linear-gradient(90deg, rgba(255,122,0,0.08), var(--card-bg) 38%);
 }
 .series-state-badge {
   display: inline-block;
@@ -1693,7 +1700,7 @@
   padding: 0.25rem 0.45rem;
   text-transform: uppercase;
 }
-.series-state-badge.abandoned { background: #a52a2a; }
+.series-state-badge.abandoned { border: 1px solid #aeb4bf; background: #f0f2f5; color: #5e6673; }
 .series-state-badge.suspended { background: var(--muted); }
 .series-state-badge.not-started { background: #64748b; }
 .series-state-badge.in-progress { background: #2448b8; }
@@ -2285,11 +2292,14 @@
   .author-profile-links { display: inline; }
   .author-profile-separator { white-space: pre; }
   .author-directory { grid-column: 1 / -1; }
-  .author-directory-toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.85rem; }
+  .author-directory-toolbar { display: flex; align-items: end; gap: 0.75rem; flex-wrap:wrap; margin-bottom: 0.85rem; }
+  .author-directory-toolbar label { display:grid; gap:.2rem; color:var(--muted); font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
   .author-directory-toolbar input {
     width: min(360px, 100%); min-height: 40px; padding: 0.48rem 0.65rem;
     border: 1px solid var(--border); border-radius: 5px; background: #fff; color: var(--ink);
   }
+  .author-directory-toolbar select { min-width:190px; min-height:40px; padding:.48rem .65rem; border:1px solid var(--border); border-radius:5px; background:#fff; color:var(--ink); }
+  .author-directory-toolbar input[type="number"] { width:82px; }
   .author-profile { display: grid; gap: 1rem; }
   .author-bio-card { display: grid; grid-template-columns: 120px minmax(0,1fr); gap: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); }
   .author-bio-card.no-photo { grid-template-columns: 1fr; }
@@ -2308,6 +2318,9 @@
   }
   .author-library-book:hover { background: var(--aged); }
   .author-library-book .modal-cover, .author-library-book .modal-cover-ph { width: 54px; height: 78px; }
+  .author-book-series { display:block; margin-top:.18rem; color:var(--muted); font-size:.78rem; font-style:italic; }
+  .author-book-status { display:inline-flex; width:max-content; margin-top:.28rem; padding:.12rem .48rem; border-radius:999px; background:#e8ecff; color:#284a9b; font-size:.68rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
+  .author-book-status.wishlist { background:#fff0df; color:#a44a00; }
   .author-bibliography-note { margin: 0; color: var(--muted); font-size: 0.84rem; }
   .author-bibliography-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 0.45rem; }
   .author-bibliography-section { display: grid; gap: 0.65rem; }
@@ -4465,6 +4478,7 @@
   .stats-chart-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,350px),1fr)); gap: 1rem; margin-bottom: 1rem; }
   .stats-author-chart-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .stats-chart { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 5px 18px rgba(23,45,95,0.06); }
+  .stats-chart-wide { grid-column: 1 / -1; }
   .stats-chart h3 { margin: 0 0 0.8rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border); color: var(--burnt); font: 700 1.05rem 'Playfair Display',serif; }
   .stats-threshold-control { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; margin: -0.1rem 0 0.8rem; color: var(--muted); font-size: 0.78rem; }
   .stats-threshold-control label { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; }
@@ -4485,6 +4499,8 @@
   .stats-tile-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 0.82rem; font-weight: 700; }
   .stats-tile-value { color: var(--deep); font-size: 1.12rem; font-weight: 900; font-variant-numeric: tabular-nums; }
   .stats-columns { min-height: 210px; display: flex; align-items: stretch; gap: 0.4rem; overflow-x: auto; padding: 0.25rem 0 0.35rem; }
+  .stats-columns-fit { overflow-x: hidden; }
+  .stats-columns-fit .stats-column { min-width: 0; flex: 1 1 0; }
   .stats-column { min-width: 46px; flex: 1 0 46px; display: grid; grid-template-rows: 28px minmax(110px,1fr) auto; gap: 0.3rem; align-items: end; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
   .stats-column-value { align-self: end; color: var(--muted); font-size: 0.72rem; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; }
   .stats-column-track { width: min(30px,80%); height: 100%; display: flex; align-items: flex-end; justify-self: center; border-radius: 7px 7px 3px 3px; background: var(--aged); overflow: hidden; }
@@ -4503,8 +4519,53 @@
   .stats-record { width:100%; display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.6rem; border:0; border-radius: 6px; background: rgba(65,105,225,0.06); color:inherit; font:inherit; text-align:left; }
   button.stats-record { cursor:pointer; }
   button.stats-record:hover, button.stats-record:focus-visible { background:rgba(65,105,225,0.14); outline:none; }
+  .stats-dot-list { display:grid; gap:.45rem; }
+  .stats-dot-row { width:100%; display:grid; grid-template-columns:minmax(100px,1fr) 42px auto; align-items:center; gap:.7rem; padding:.38rem .5rem; border:1px solid transparent; border-radius:7px; background:transparent; color:inherit; font:inherit; text-align:left; }
+  button.stats-dot-row { cursor:pointer; }
+  button.stats-dot-row:hover, button.stats-dot-row:focus-visible { border-color:#4169e1; background:rgba(65,105,225,.07); outline:none; }
+  .stats-dot-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; }
+  .stats-dot-mark { justify-self:center; border-radius:50%; background:var(--accent-gradient); box-shadow:0 2px 8px rgba(65,105,225,.22); }
+  .stats-dot-value { color:var(--muted); font-weight:900; font-variant-numeric:tabular-nums; }
+  .stats-bubble-timeline { display:flex; align-items:flex-end; gap:.65rem; overflow-x:auto; padding:.5rem .15rem .65rem; }
+  .stats-bubble-item { min-width:72px; display:grid; justify-items:center; gap:.35rem; padding:.35rem; border:0; border-radius:8px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+  .stats-bubble-item:hover, .stats-bubble-item:focus-visible { background:rgba(65,105,225,.08); outline:none; }
+  .stats-bubble { display:grid; place-items:center; border-radius:50%; color:#fff; background:var(--accent-gradient); box-shadow:0 4px 12px rgba(65,105,225,.22); font-weight:900; font-variant-numeric:tabular-nums; }
+  .stats-bubble-label { font-size:.72rem; font-weight:800; white-space:nowrap; }
+  .stats-trend-list, .stats-month-compare { display:grid; gap:.55rem; }
+  .stats-trend-row, .stats-month-row { display:grid; grid-template-columns:minmax(105px,.8fr) minmax(0,2.2fr); align-items:start; gap:.65rem; padding:.45rem .5rem; border-radius:7px; background:rgba(65,105,225,.04); }
+  .stats-trend-genre, .stats-month-name { border:0; background:transparent; color:var(--ink); font:700 .82rem inherit; text-align:left; cursor:pointer; }
+  .stats-trend-genre:hover, .stats-trend-genre:focus-visible { color:var(--burnt); outline:none; text-decoration:underline; }
+  .stats-trend-years, .stats-month-years { display:flex; gap:.35rem; flex-wrap:wrap; }
+  .stats-trend-chip, .stats-month-chip { display:inline-flex; gap:.3rem; align-items:center; padding:.24rem .45rem; border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--ink); font:700 .72rem inherit; cursor:pointer; }
+  .stats-trend-chip:hover, .stats-trend-chip:focus-visible, .stats-month-chip:hover, .stats-month-chip:focus-visible { border-color:#4169e1; background:rgba(65,105,225,.08); outline:none; }
+  .stats-trend-chip strong, .stats-month-chip strong { color:var(--burnt); }
+  .stats-heatmap { display:grid; gap:.5rem; overflow-x:auto; }
+  .stats-heatmap-header, .stats-heatmap-row { min-width:660px; display:grid; grid-template-columns:54px repeat(12,minmax(42px,1fr)); gap:.3rem; align-items:center; }
+  .stats-heatmap-header span { color:var(--muted); font-size:.65rem; font-weight:800; text-align:center; text-transform:uppercase; }
+  .stats-heatmap-year { color:var(--ink); font-size:.75rem; font-weight:900; }
+  .stats-heatmap-cell { min-height:42px; display:grid; place-items:center; padding:.2rem; border:1px solid rgba(65,105,225,.18); border-radius:6px; background:rgba(65,105,225,var(--heat,.08)); color:var(--deep); font:800 .72rem inherit; cursor:pointer; }
+  .stats-heatmap-cell:hover, .stats-heatmap-cell:focus-visible { border-color:#ff7a00; outline:none; }
+  .stats-heatmap-empty { min-height:42px; border-radius:6px; background:rgba(203,213,245,.2); }
+  .stats-series-status { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.6rem; }
+  .stats-series-status button { display:grid; gap:.25rem; padding:.8rem; border:1px solid var(--border); border-radius:8px; background:rgba(247,248,255,.8); color:inherit; font:inherit; text-align:left; cursor:pointer; }
+  .stats-series-status button:hover, .stats-series-status button:focus-visible { border-color:#4169e1; background:rgba(65,105,225,.08); outline:none; }
+  .stats-series-status strong { color:var(--deep); font-size:1.35rem; }
+  .stats-series-status span { font-weight:800; }
+  .stats-series-status small { color:var(--muted); }
+  .stats-author-modal-list { display:grid; gap:.45rem; }
+  .stats-author-modal-row { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:.75rem; padding:.65rem .75rem; border:1px solid var(--border); border-radius:7px; background:var(--card-bg); color:inherit; font:inherit; text-align:left; cursor:pointer; }
+  .stats-author-modal-row:hover, .stats-author-modal-row:focus-visible { border-color:#4169e1; background:var(--aged); outline:none; }
+  .stats-author-modal-row strong { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .stats-author-modal-row span { color:var(--muted); font-size:.82rem; }
+  .stats-completion-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+  .stats-completion-choice { display:grid; gap:.25rem; padding:1rem; border:1px solid var(--border); border-radius:9px; background:var(--card-bg); color:inherit; font:inherit; text-align:left; cursor:pointer; }
+  .stats-completion-choice:hover, .stats-completion-choice:focus-visible { border-color:#4169e1; background:var(--aged); outline:none; }
+  .stats-completion-choice strong { color:var(--deep); font-size:1.6rem; }
+  .stats-completion-choice span { font-weight:800; }
+  .stats-completion-choice small { color:var(--muted); }
+  .stats-reread-years { margin-top:.25rem; color:var(--burnt); font-size:.8rem; font-weight:800; }
   @media (max-width:850px) { .stats-author-chart-grid { grid-template-columns: 1fr; } }
-  @media (max-width:700px) { .stats-filter-bar { top: 0; } .stats-bar-row { grid-template-columns: minmax(75px,1fr) minmax(70px,2fr) auto; } }
+  @media (max-width:700px) { .stats-filter-bar { top: 0; } .stats-bar-row { grid-template-columns: minmax(75px,1fr) minmax(70px,2fr) auto; } .stats-trend-row,.stats-month-row{grid-template-columns:1fr}.stats-completion-grid{grid-template-columns:1fr}.stats-author-modal-row{grid-template-columns:minmax(0,1fr) auto} }
 
   @media (max-width: 700px) {
     header {
@@ -4925,6 +4986,7 @@ let statsGenreFilter = 'all';
 let statsFormatFilter = 'all';
 let statsOwnedFilter = 'all';
 let statsAuthorRatingMinimum = 1;
+let statsAuthorSort = 'rating-desc';
 let statsDatabaseRefreshPromise = null;
 let statsDatabaseRefreshMessage = '';
 
@@ -6741,7 +6803,7 @@ function formatBadge(fmt) {
   return `<span style="background:${color};color:#fff;border-radius:3px;font-size:0.65rem;font-weight:700;padding:0.1rem 0.45rem;letter-spacing:0.04em;white-space:nowrap;text-transform:uppercase">${label}</span>`;
 }
 
-const BOOK_FORMAT_OPTIONS = ['Book', 'E-Book', 'AudioBook', 'Graphic Novel', 'Short Story Collection'];
+const BOOK_FORMAT_OPTIONS = ['Book', 'Novella', 'E-Book', 'AudioBook', 'Graphic Novel', 'Short Story Collection'];
 const OWNED_FORMAT_FILTER_OPTIONS = [
   ['book', 'Books'],
   ['ebook', 'E-Books'],
@@ -7351,8 +7413,8 @@ function statsStreakCard(streaks) {
   </button>`;
 }
 
-function statsChart(title, content, note='') {
-  return `<section class="stats-chart"><h3>${esc(title)}</h3>${content || '<p class="stats-note">Not enough data for this view.</p>'}${note ? `<p class="stats-note">${esc(note)}</p>` : ''}</section>`;
+function statsChart(title, content, note='', className='') {
+  return `<section class="stats-chart ${esc(className)}"><h3>${esc(title)}</h3>${content || '<p class="stats-note">Not enough data for this view.</p>'}${note ? `<p class="stats-note">${esc(note)}</p>` : ''}</section>`;
 }
 
 function statsBarChart(entries, options={}) {
@@ -7385,7 +7447,7 @@ function statsColumnChart(entries, options={}) {
   const clean=entries.filter(([,value])=>Number.isFinite(Number(value))).slice(0,options.limit||36);
   if (!clean.length) return '';
   const max=Math.max(1,...clean.map(([,value])=>Number(value)));
-  return `<div class="stats-columns">${clean.map(([label,value,display,drilldownValue])=>{
+  return `<div class="stats-columns ${options.fit?'stats-columns-fit':''}">${clean.map(([label,value,display,drilldownValue])=>{
     const action=statsEntryAction(options,drilldownValue??label);
     const tag=action?'button':'div';
     const height=Math.max(6,(Number(value)/max)*100);
@@ -7393,6 +7455,64 @@ function statsColumnChart(entries, options={}) {
       <span class="stats-column-value">${esc(display??value)}</span><span class="stats-column-track"><span class="stats-column-fill" style="height:${height}%"></span></span><span class="stats-column-label">${esc(label)}</span>
     </${tag}>`;
   }).join('')}</div>`;
+}
+
+function statsRankedDotChart(entries, options={}) {
+  const clean=entries.filter(([,value])=>Number.isFinite(Number(value))).slice(0,options.limit||30);
+  if (!clean.length) return '';
+  const max=Math.max(1,...clean.map(([,value])=>Number(value)));
+  return `<div class="stats-dot-list">${clean.map(([label,value,display,drilldownValue])=>{
+    const action=statsEntryAction(options,drilldownValue??label);
+    const tag=action?'button':'div';
+    const size=Math.round(10+Math.sqrt(Number(value)/max)*22);
+    return `<${tag} class="stats-dot-row"${action?` type="button" onclick="${action}"`:''}><span class="stats-dot-label">${esc(label)}</span><span class="stats-dot-mark" style="width:${size}px;height:${size}px"></span><span class="stats-dot-value">${esc(display??value)}</span></${tag}>`;
+  }).join('')}</div>`;
+}
+
+function statsBubbleTimeline(entries, options={}) {
+  const clean=entries.filter(([,value])=>Number.isFinite(Number(value))).slice(0,options.limit||40);
+  if (!clean.length) return '';
+  const max=Math.max(1,...clean.map(([,value])=>Number(value)));
+  return `<div class="stats-bubble-timeline">${clean.map(([label,value,display,drilldownValue])=>{
+    const action=statsEntryAction(options,drilldownValue??label);
+    const size=Math.round(34+Math.sqrt(Number(value)/max)*36);
+    return `<button class="stats-bubble-item" type="button" onclick="${action}" title="${esc(`${label}: ${display??value}`).replace(/"/g,'&quot;')}"><span class="stats-bubble" style="width:${size}px;height:${size}px">${esc(display??value)}</span><span class="stats-bubble-label">${esc(label)}</span></button>`;
+  }).join('')}</div>`;
+}
+
+function statsGenreTrendChart(genreYears) {
+  const rows=[...genreYears.entries()].map(([genre,years])=>({genre,years,total:[...years.values()].reduce((sum,value)=>sum+value,0)})).sort((a,b)=>b.total-a.total||a.genre.localeCompare(b.genre)).slice(0,20);
+  if (!rows.length) return '';
+  return `<div class="stats-trend-list">${rows.map(row=>`<div class="stats-trend-row">
+    <button class="stats-trend-genre" type="button" onclick="${statsGroupAction(`${row.genre} Books`,'genre',row.genre)}">${esc(row.genre)}</button>
+    <div class="stats-trend-years">${[...row.years.entries()].filter(([,count])=>count>0).sort((a,b)=>a[0]-b[0]).map(([year,count])=>`<button class="stats-trend-chip" type="button" onclick="${statsGroupAction(`${row.genre} in ${year}`,'genre-year',`${row.genre}||${year}`)}"><span>${year}</span><strong>${count}</strong></button>`).join('')}</div>
+  </div>`).join('')}</div>`;
+}
+
+function statsMonthComparisonChart(yearMonthCounts) {
+  const rows=[...yearMonthCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  if (!rows.length) return '';
+  return `<div class="stats-month-compare">${rows.map(([month,years])=>`<div class="stats-month-row"><span class="stats-month-name">${esc(statsMonthShortName(month))}</span><div class="stats-month-years">${[...years.entries()].sort((a,b)=>a[0]-b[0]).map(([year,count])=>`<button class="stats-month-chip" type="button" onclick="${statsGroupAction(`${statsMonthShortName(month)} ${year}`,'month',`${year}-${month}`)}"><span>${year}</span><strong>${count}</strong></button>`).join('')}</div></div>`).join('')}</div>`;
+}
+
+function statsMonthHeatmap(monthly) {
+  const values=new Map(monthly.filter(([,data])=>data.dayBooks).map(([month,data])=>[month,data.days/data.dayBooks]));
+  if (!values.size) return '';
+  const years=[...new Set([...values.keys()].map(month=>month.slice(0,4)))].sort();
+  const max=Math.max(...values.values(),1);
+  const monthNames=Array.from({length:12},(_,index)=>statsMonthShortName(String(index+1).padStart(2,'0')));
+  return `<div class="stats-heatmap"><div class="stats-heatmap-header"><span></span>${monthNames.map(month=>`<span>${esc(month)}</span>`).join('')}</div>${years.map(year=>`<div class="stats-heatmap-row"><span class="stats-heatmap-year">${year}</span>${Array.from({length:12},(_,index)=>{
+    const key=`${year}-${String(index+1).padStart(2,'0')}`;
+    const value=values.get(key);
+    return value===undefined?'<span class="stats-heatmap-empty"></span>':`<button class="stats-heatmap-cell" type="button" style="--heat:${(.12+(value/max)*.7).toFixed(2)}" onclick="${statsGroupAction(monthYearLabelFromKey(key),'month',key)}" title="${esc(`${monthYearLabelFromKey(key)}: ${value.toFixed(1)} days`).replace(/"/g,'&quot;')}">${value.toFixed(1)}</button>`;
+  }).join('')}</div>`).join('')}</div>`;
+}
+
+function statsSeriesStatusChart(seriesList) {
+  if (!seriesList.length) return '';
+  const statuses=['Completed','In Progress','Not Started','Abandoned'];
+  const counts=statuses.map(status=>[status,seriesList.filter(series=>seriesStatusFromLegacy(series)===status).length]);
+  return `<div class="stats-series-status">${counts.filter(([,count])=>count).map(([status,count])=>`<button type="button" onclick="showStatsSeriesGroup(${jsArg(status)},event)"><strong>${count}</strong><span>${esc(status)}</span><small>${Math.round(count/seriesList.length*100)}% of tracked series</small></button>`).join('')}</div>`;
 }
 
 function statsAverageBy(books, keyFn, valueFn=book => Number(book.rating)) {
@@ -7421,6 +7541,26 @@ function statsAuthorCreditBooks(books) {
   return books.flatMap(book => {
     const authors=displayedBookContributorNames(book);
     return (authors.length?authors:['Unknown Author']).map(author=>({...book,_stats_author:author}));
+  });
+}
+
+function statsAuthorSummaries(books) {
+  const authors=new Map();
+  books.forEach(book=>{
+    displayedBookContributorNames(book).forEach(author=>{
+      const authorKey=normalizeAuthorName(author);
+      if (!authorKey) return;
+      if (!authors.has(authorKey)) authors.set(authorKey,{author,books:new Map()});
+      const bookKey=normalizedKey(book.title)||bookRouteKey(book);
+      const group=authors.get(authorKey);
+      if (!group.books.has(bookKey)) group.books.set(bookKey,[]);
+      const rating=Number(book.rating);
+      if (String(book.rating??'').trim()!==''&&Number.isFinite(rating)) group.books.get(bookKey).push(rating);
+    });
+  });
+  return [...authors.values()].map(group=>{
+    const bookRatings=[...group.books.values()].filter(values=>values.length).map(values=>values.reduce((sum,value)=>sum+value,0)/values.length);
+    return {author:group.author,count:group.books.size,ratedCount:bookRatings.length,avg:bookRatings.length?Number((bookRatings.reduce((sum,value)=>sum+value,0)/bookRatings.length).toFixed(2)):null};
   });
 }
 
@@ -7473,10 +7613,15 @@ function statsGroupBooks(kind, value='', scope='reads') {
   if (kind==='month-of-year') return base.filter(book=>String(monthKeyFromBook(book)||'').slice(5)===String(value).padStart(2,'0'));
   if (kind==='read-year') return base.filter(book=>String(readYearForBook(book)||'Unknown')===String(value));
   if (kind==='rating') return base.filter(book=>Number(book.rating)===Number(String(value).replace(/[^0-9.]/g,'')));
+  if (kind==='genre-year') {
+    const [genre,year]=String(value).split('||');
+    return base.filter(book=>normalizedKey(book.genre||'Unknown')===normalizedKey(genre)&&readYearForBook(book)===Number(year));
+  }
   if (kind==='genre' || kind==='rated-genre') return base.filter(book=>normalizedKey(book.genre||'Unknown')===key&&(kind!=='rated-genre'||(String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)))));
   if (kind==='format' || kind==='rated-format') return base.filter(book=>bookFormatKey(String(book.format||'').trim()||'Unknown')===bookFormatKey(value)&&(kind!=='rated-format'||(String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)))));
   if (kind==='publication-decade') return base.filter(book=>{const year=Number(book.year_pub||book.publication_year);return (year?`${Math.floor(year/10)*10}s`:'Unknown')===value;});
   if (kind==='completed') return base.filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
+  if (kind==='status-read') return base.filter(book=>libraryBookStatus(book)==='Read');
   if (kind==='dnf') return base.filter(book=>libraryBookStatus(book)==='DNF');
   if (kind==='reread') return base.filter(book=>book._is_reread_session||Number(book.times_read)>1);
   if (kind==='monthly-streak') {
@@ -7535,6 +7680,90 @@ function openStatsSeries(seriesName, evt) {
   rebuildSeriesFromLibraryBooks();
   const series=DATA.series.find(item=>normalizedKey(item.series)===normalizedKey(seriesName));
   if (series) openSeriesModal(series,evt);
+}
+
+function statsAuthorGroupAction(title, kind='all') {
+  return `showStatsAuthorGroup(${jsArg(title)},${jsArg(kind)},event)`;
+}
+
+function statsAuthorGroupData(kind='all') {
+  const authors=statsAuthorSummaries(filteredStatsReads());
+  return authors.filter(author=>kind==='single'?author.count===1:(kind==='repeat'?author.count>1:true));
+}
+
+function showStatsAuthorGroup(title, kind='all', evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const authors=statsAuthorGroupData(kind).sort((a,b)=>b.count-a.count||(Number(b.avg)||-1)-(Number(a.avg)||-1)||a.author.localeCompare(b.author));
+  document.getElementById('modal-series-name').textContent=title;
+  document.getElementById('modal-series-sub').textContent=`${authors.length} author${authors.length===1?'':'s'} match the current Stats filters`;
+  document.getElementById('modal-series-body').innerHTML=authors.length?`<div class="stats-author-modal-list">${authors.map(author=>`<button class="stats-author-modal-row" type="button" onclick="openAuthorProfile(${jsArg(author.author)},event)"><strong>${esc(author.author)}</strong><span>${author.count} book${author.count===1?'':'s'}</span><span class="author-modal-rating">${author.avg!==null&&Number.isFinite(Number(author.avg))?`Avg ${Number(author.avg).toFixed(2)}`:'Not rated'}</span></button>`).join('')}</div>`:'<p class="stats-note">No authors match this statistic under the current filters.</p>';
+  openModal(evt,'author');
+}
+
+function showStatsSeriesGroup(status, evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  rebuildSeriesFromLibraryBooks();
+  const library=filteredStatsLibrary();
+  const series=DATA.series.filter(item=>seriesStatusFromLegacy(item)===status&&library.some(book=>normalizedKey(book.series)===normalizedKey(item.series))).sort((a,b)=>String(a.series||'').localeCompare(String(b.series||''),undefined,{sensitivity:'base'}));
+  document.getElementById('modal-series-name').textContent=`${status} Series`;
+  document.getElementById('modal-series-sub').textContent=`${series.length} series match the current Stats filters`;
+  document.getElementById('modal-series-body').innerHTML=series.length?`<div class="stats-author-modal-list">${series.map(item=>`<button class="stats-author-modal-row" type="button" onclick="openStatsSeries(${jsArg(item.series)},event)"><strong>${esc(item.series)}</strong><span>${item.books_read||0}/${item.total||'?'} read</span><span>${esc(item.author||'')}</span></button>`).join('')}</div>`:'<p class="stats-note">No series match this status.</p>';
+  openModal(evt,'author');
+}
+
+function showStatsCompletionBreakdown(evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const completed=filteredStatsLibrary().filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
+  const read=completed.filter(book=>libraryBookStatus(book)==='Read').length;
+  const dnf=completed.length-read;
+  const readPct=completed.length?Math.round(read/completed.length*100):0;
+  const dnfPct=completed.length?100-readPct:0;
+  document.getElementById('modal-series-name').textContent='Completion Rate';
+  document.getElementById('modal-series-sub').textContent=`${completed.length} completed or DNF books under the current Stats filters`;
+  document.getElementById('modal-series-body').innerHTML=`<div class="stats-completion-grid">
+    <button class="stats-completion-choice" type="button" onclick="${statsGroupAction('Completed Books','status-read','','library')}"><strong>${readPct}%</strong><span>Books Completed</span><small>${read} book${read===1?'':'s'} · click for list</small></button>
+    <button class="stats-completion-choice" type="button" onclick="${statsGroupAction('DNF Books','dnf','','library')}"><strong>${dnfPct}%</strong><span>Books DNF’d</span><small>${dnf} book${dnf===1?'':'s'} · click for list</small></button>
+  </div>`;
+  openModal(evt,'author');
+}
+
+function statsRereadKey(book) {
+  return `${normalizedKey(book?.title)}|${normalizedKey(displayBookContributor(book))}`;
+}
+
+function statsRereadGroups(selectedReads=filteredStatsReads()) {
+  const selectedKeys=new Set(selectedReads.map(statsRereadKey));
+  const groups=new Map();
+  readingLogBooks().forEach(book=>{
+    const key=statsRereadKey(book);
+    if (!key||!selectedKeys.has(key)) return;
+    if (!groups.has(key)) groups.set(key,{book,entries:[],years:new Set(),timesRead:0});
+    const group=groups.get(key);
+    group.entries.push(book);
+    const year=readYearForBook(book);
+    if (year) group.years.add(year);
+    group.timesRead=Math.max(group.timesRead,Number(book.times_read)||0);
+  });
+  return [...groups.values()].filter(group=>group.entries.length>1||group.years.size>1||group.timesRead>1).map(group=>({...group,years:[...group.years].sort((a,b)=>a-b)})).sort((a,b)=>String(a.book.title||'').localeCompare(String(b.book.title||''),undefined,{sensitivity:'base'}));
+}
+
+function showStatsRereadDetails(evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const groups=statsRereadGroups();
+  document.getElementById('modal-series-name').textContent='Books Reread';
+  document.getElementById('modal-series-sub').textContent=`${groups.length} book${groups.length===1?'':'s'} read more than once`;
+  document.getElementById('modal-series-body').innerHTML=groups.length?`<div class="author-library-list">${groups.map(group=>{
+    const book=group.book;
+    const status=libraryBookStatus(book);
+    const source=status==='TBR'?'tbr':(status==='Wishlist'?'wishlist':'');
+    const years=group.years.length?group.years.join(', '):'Dates unavailable';
+    return `<div class="author-library-book" role="button" tabindex="0" ${bookClickAttributes(book,source)} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">${coverImageHTML(book,'modal-cover','modal-cover')}<span class="modal-book-info"><span class="modal-book-title">${esc(book.title||'Untitled')}</span><span class="modal-book-meta" style="display:block">${authorProfileButton(book)}</span><span class="stats-reread-years">Years read: ${esc(years)}</span></span></div>`;
+  }).join('')}</div>`:'<p class="stats-note">No reread books match the current Stats filters.</p>';
+  openModal(evt,'author');
 }
 
 function readingStreakStats(reads) {
@@ -7636,11 +7865,10 @@ function statsPaceHTML(reads, activityReads=reads) {
   const streaks = readingStreakStats(activityReads);
   const yearMonthCounts = new Map();
   reads.forEach(book=>{ const key=monthKeyFromBook(book); if(!key)return; const month=key.slice(5); const year=key.slice(0,4); if(!yearMonthCounts.has(month))yearMonthCounts.set(month,new Map()); const map=yearMonthCounts.get(month); map.set(year,(map.get(year)||0)+1); });
-  const yoy = [...yearMonthCounts.entries()].sort().map(([month,years])=>[month,[...years.entries()].sort().map(([year,count])=>`${year}: ${count}`).join(' · '),Math.max(...years.values())]);
   return `<div class="stats-card-grid">${statsStreakCard(streaks)}${statsCard('🗓',streaks.months||'—','Monthly Finish Streak','consecutive months',statsGroupAction('Books in the Longest Monthly Finish Streak','monthly-streak'))}${statsCard('📖',streaks.datedDays||'—','Recorded Reading Days','',statsGroupAction('Books with Recorded Reading Activity','all','','activity'))}</div><div class="stats-chart-grid">
     ${statsChart('Pages per Reading Day by Month',statsColumnChart(pace.map(([label,value])=>[label,value,`${value}/day`]),{drilldownKind:'month',drilldownTitle:month=>monthYearLabelFromKey(month)}), 'Uses books with recorded start and finish dates.')}
-    ${statsChart('Books per Month: Year over Year',statsTileChart(yoy.map(([month,display,value])=>[statsMonthShortName(month),value,display,month]),{drilldownKind:'month-of-year',drilldownTitle:month=>`Books Finished in ${statsMonthShortName(month)}`}))}
-    ${statsChart('Average Days per Book by Month',statsColumnChart(monthly.map(([month,data])=>[month,data.dayBooks?data.days/data.dayBooks:0,data.dayBooks?(data.days/data.dayBooks).toFixed(1):'—']),{drilldownKind:'month',drilldownTitle:month=>monthYearLabelFromKey(month)}))}
+    ${statsChart('Books per Month: Year over Year',statsMonthComparisonChart(yearMonthCounts),'Only months with finished books are shown.','stats-chart-wide')}
+    ${statsChart('Average Days per Book by Month',statsMonthHeatmap(monthly),'Darker cells represent longer average reading time.','stats-chart-wide')}
   </div>`;
 }
 
@@ -7650,37 +7878,19 @@ function statsRatingsHTML(reads, library) {
   reads.forEach(book=>{ const rating=Number(book.rating); if(Number.isFinite(rating)){const key=String(rating);ratingCounts.set(key,(ratingCounts.get(key)||0)+1);} });
   const completed = library.filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
   const dnf = completed.filter(book=>libraryBookStatus(book)==='DNF').length;
-  return `<div class="stats-card-grid">${statsCard('✅',completed.length?`${Math.round((completed.length-dnf)/completed.length*100)}%`:'—','Completion Rate','',statsGroupAction('Completed and DNF Books','completed','','library'))}${statsCard('🚫',dnf,'DNF Books','',statsGroupAction('DNF Books','dnf','','library'))}${statsCard('🔁',reads.filter(book=>book._is_reread_session || Number(book.times_read)>1).length,'Reread Entries','',statsGroupAction('Reread Entries','reread'))}</div><div class="stats-chart-grid">
-    ${statsChart('Rating Distribution',statsColumnChart([...ratingCounts.entries()].sort((a,b)=>Number(a[0])-Number(b[0])).map(([rating,count])=>[`${rating} ★`,count]),{drilldownKind:'rating',drilldownTitle:rating=>`Books Rated ${rating}`}))}
+  const rereads=statsRereadGroups(reads);
+  return `<div class="stats-card-grid">${statsCard('✅',completed.length?`${Math.round((completed.length-dnf)/completed.length*100)}%`:'—','Completion Rate','',`showStatsCompletionBreakdown(event)`)}${statsCard('🚫',dnf,'DNF Books','',statsGroupAction('DNF Books','dnf','','library'))}${statsCard('🔁',rereads.length,'Books Reread','',`showStatsRereadDetails(event)`)}</div><div class="stats-chart-grid">
+    ${statsChart('Rating Distribution',statsColumnChart([...ratingCounts.entries()].sort((a,b)=>Number(b[0])-Number(a[0])).map(([rating,count])=>[`${rating} ★`,count]),{fit:true,drilldownKind:'rating',drilldownTitle:rating=>`Books Rated ${rating}`}))}
     ${statsChart('Highest-Rated Genres',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:12,drilldownKind:'rated-genre',drilldownTitle:genre=>`Rated ${genre} Books`}))}
     ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(authorCredits,book=>book._stats_author),{limit:15,authorLinks:true}))}
-    ${statsChart('Average Rating by Format',statsTileChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:12,drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}))}
+    ${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:20,drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}),'','stats-chart-wide')}
   </div>`;
 }
 
 function statsGenresHTML(reads) {
-  const years = [...new Set(reads.map(readYearForBook).filter(Boolean))].sort();
   const genreYears = new Map();
   reads.forEach(book=>{const genre=book.genre||'Unknown',year=readYearForBook(book);if(!year)return;if(!genreYears.has(genre))genreYears.set(genre,new Map());const map=genreYears.get(genre);map.set(year,(map.get(year)||0)+1);});
-  const trends=[...genreYears.entries()].map(([genre,map])=>[genre,Math.max(...map.values()),years.map(year=>`${year}: ${map.get(year)||0}`).join(' · ')]).sort((a,b)=>b[1]-a[1]);
-  return `<div class="stats-chart-grid">${genrePieChartHTML(reads,'Genre Breakdown',true)}${statsChart('Genre Trends by Year',statsTileChart(trends.map(([genre,value,display])=>[genre,value,display]),{limit:18,drilldownKind:'genre',drilldownTitle:genre=>`${genre} Books`,colorFor:genreColor}))}${statsChart('Genre Ratings',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:18,drilldownKind:'rated-genre',drilldownTitle:genre=>`Rated ${genre} Books`}))}</div>`;
-}
-
-function statsHighestRatedAuthorsHTML(authorCredits) {
-  const ratedCredits=authorCredits.filter(book=>String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)));
-  const ratedCounts=new Map(statsCountBy(ratedCredits,book=>book._stats_author));
-  const entries=statsAverageBy(ratedCredits,book=>book._stats_author)
-    .filter(([author])=>(ratedCounts.get(author)||0)>=statsAuthorRatingMinimum);
-  const count=entries.length;
-  return `<section class="stats-chart"><h3>Highest-Rated Authors</h3>
-    <div class="stats-threshold-control">
-      <label for="stats-author-rating-minimum"><span>Minimum rated books</span><input id="stats-author-rating-minimum" aria-label="Minimum rated books for highest-rated authors" type="number" min="1" max="99" step="1" value="${statsAuthorRatingMinimum}"></label>
-      <button class="account-secondary" type="button" onclick="setStatsAuthorRatingMinimum(document.getElementById('stats-author-rating-minimum')?.value)">Apply threshold</button>
-      <span>${count} author${count===1?'':'s'} qualify</span>
-    </div>
-    ${statsBarChart(entries,{limit:20,authorLinks:true})||`<p class="stats-note">No authors have at least ${statsAuthorRatingMinimum} rated book${statsAuthorRatingMinimum===1?'':'s'} under the current filters.</p>`}
-    <p class="stats-note">The threshold counts rated books after the Read Year, Genre, Format, and Ownership filters are applied.</p>
-  </section>`;
+  return `<div class="stats-chart-grid">${genrePieChartHTML(reads,'Genre Breakdown',true)}${statsChart('Genre Ratings',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:18,drilldownKind:'rated-genre',drilldownTitle:genre=>`Rated ${genre} Books`}))}${statsChart('Genre Trends by Year',statsGenreTrendChart(genreYears),'Only years with books in that genre are shown.','stats-chart-wide')}</div>`;
 }
 
 function setStatsAuthorRatingMinimum(value) {
@@ -7688,14 +7898,25 @@ function setStatsAuthorRatingMinimum(value) {
   buildStats();
 }
 
+function setStatsAuthorSort(value) {
+  statsAuthorSort=['rating-desc','rating-asc','books-desc','books-asc','name-asc'].includes(value)?value:'rating-desc';
+  buildStats();
+}
+
 function statsAuthorsHTML(reads) {
-  const authorCredits=statsAuthorCreditBooks(reads);
-  const counts=statsCountBy(authorCredits,book=>book._stats_author);
-  const repeats=counts.filter(([,count])=>count>1).reduce((sum,[,count])=>sum+count,0);
-  const authors=getAuthorStats(reads,1);
+  const summaries=statsAuthorSummaries(reads);
+  const repeatAuthors=summaries.filter(author=>author.count>1).length;
+  const authors=summaries.filter(author=>author.ratedCount>=statsAuthorRatingMinimum).sort((a,b)=>{
+    if (statsAuthorSort==='books-desc') return b.count-a.count||a.author.localeCompare(b.author);
+    if (statsAuthorSort==='books-asc') return a.count-b.count||a.author.localeCompare(b.author);
+    if (statsAuthorSort==='name-asc') return a.author.localeCompare(b.author);
+    const aRating=Number.isFinite(Number(a.avg))?Number(a.avg):(statsAuthorSort==='rating-asc'?Infinity:-Infinity);
+    const bRating=Number.isFinite(Number(b.avg))?Number(b.avg):(statsAuthorSort==='rating-asc'?Infinity:-Infinity);
+    return (statsAuthorSort==='rating-asc'?aRating-bRating:bRating-aRating)||b.count-a.count||a.author.localeCompare(b.author);
+  });
   const maxCount=Math.max(1,...authors.map(author=>author.count||0));
   const directory=authors.map(author=>{
-    const avg=Number(author.avg);
+    const avg=author.avg===null?NaN:Number(author.avg);
     const pct=Math.round(((author.count||0)/maxCount)*100);
     return `<div class="author-row" data-author-search="${esc(normalizedKey(author.author))}" role="button" tabindex="0" onclick="openAuthorProfile(${jsArg(author.author)},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuthorProfile(${jsArg(author.author)},event)}" title="View ${esc(author.author)}">
       <div class="author-name">${esc(author.author)}</div>
@@ -7704,16 +7925,19 @@ function statsAuthorsHTML(reads) {
       <div class="author-avg ${Number.isFinite(avg)?ratingClass(avg):'r-dnf'}">${Number.isFinite(avg)?ratingDisplay(avg):'—'}</div>
     </div>`;
   }).join('');
-  return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read','',statsGroupAction('Books by Authors Read'))}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors','',statsGroupAction('Books by Single-Book Authors','single-author'))}${statsCard('🔁',authorCredits.length?`${Math.round(repeats/authorCredits.length*100)}%`:'—','Repeat-Author Share','',statsGroupAction('Books by Repeat Authors','repeat-author'))}</div>
-    <div class="stats-chart-grid stats-author-chart-grid">
-      ${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20,authorLinks:true}))}
-      ${statsHighestRatedAuthorsHTML(authorCredits)}
-      <section class="stats-chart author-directory"><h3>Author Directory</h3>
-        <div class="author-directory-toolbar"><input type="search" placeholder="Find an author" aria-label="Find an author" oninput="filterStatsAuthors(this.value)"></div>
-        <p class="stats-note">Click any author to see their profile and the books already in your library.</p>
-        <div class="author-bar-wrap" id="stats-author-directory">${directory||'<p class="stats-note">No authors match these filters.</p>'}</div>
-      </section>
-    </div>`;
+  const repeatShare=summaries.length?Math.round(repeatAuthors/summaries.length*100):0;
+  return `<div class="stats-card-grid">${statsCard('✍️',summaries.length,'Authors Read','',statsAuthorGroupAction('Authors Read'))}${statsCard('✨',summaries.filter(author=>author.count===1).length,'Single-Book Authors','',statsAuthorGroupAction('Single-Book Authors','single'))}${statsCard('🔁',`${repeatShare}%`,'Authors With Multiple Books','share of authors with 2+ distinct titles',statsAuthorGroupAction('Authors With Multiple Books','repeat'))}</div>
+    <section class="stats-chart author-directory"><h3>Author Directory</h3>
+      <div class="author-directory-toolbar">
+        <input type="search" placeholder="Find an author" aria-label="Find an author" oninput="filterStatsAuthors(this.value)">
+        <label>Sort by<select aria-label="Sort author directory" onchange="setStatsAuthorSort(this.value)"><option value="rating-desc" ${statsAuthorSort==='rating-desc'?'selected':''}>Rating: High to Low</option><option value="rating-asc" ${statsAuthorSort==='rating-asc'?'selected':''}>Rating: Low to High</option><option value="books-desc" ${statsAuthorSort==='books-desc'?'selected':''}>Books: Most to Least</option><option value="books-asc" ${statsAuthorSort==='books-asc'?'selected':''}>Books: Least to Most</option><option value="name-asc" ${statsAuthorSort==='name-asc'?'selected':''}>Author: A–Z</option></select></label>
+        <label>Minimum rated books<input id="stats-author-rating-minimum" aria-label="Minimum rated books in author directory" type="number" min="1" max="99" step="1" value="${statsAuthorRatingMinimum}"></label>
+        <button class="account-secondary" type="button" onclick="setStatsAuthorRatingMinimum(document.getElementById('stats-author-rating-minimum')?.value)">Apply threshold</button>
+        <span class="stats-note" style="margin:0">${authors.length} author${authors.length===1?'':'s'} qualify</span>
+      </div>
+      <p class="stats-note">The threshold counts rated books after the current Stats filters. Click an author for their profile.</p>
+      <div class="author-bar-wrap" id="stats-author-directory">${directory||'<p class="stats-note">No authors meet this threshold.</p>'}</div>
+    </section>`;
 }
 
 function filterStatsAuthors(value) {
@@ -7729,7 +7953,7 @@ function statsFormatsHTML(reads) {
   const currentYear=new Date().getFullYear();
   const newReleases=reads.filter(b=>Number(b.year_pub||b.publication_year)===readYearForBook(b)).length;
   const known=reads.filter(b=>Number(b.year_pub||b.publication_year)&&readYearForBook(b)).length;
-  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads','',statsGroupAction('Publication-Year Reads','new-release'))}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads','',statsGroupAction('Backlist Reads','backlist'))}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read','',statsGroupAction('Owned Books Read','owned'))}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsTileChart(formats,{drilldownKind:'format',drilldownTitle:format=>statsFormatGroupTitle(format)}))}${statsChart('Publication Decades',statsTileChart(decades,{drilldownKind:'publication-decade',drilldownTitle:decade=>`Books Published in the ${decade}`}))}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}))}</div>`;
+  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads','',statsGroupAction('Publication-Year Reads','new-release'))}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads','',statsGroupAction('Backlist Reads','backlist'))}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read','',statsGroupAction('Owned Books Read','owned'))}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsRankedDotChart(formats,{limit:30,drilldownKind:'format',drilldownTitle:format=>statsFormatGroupTitle(format)}))}${statsChart('Publication Decades',statsBubbleTimeline(decades,{limit:40,drilldownKind:'publication-decade',drilldownTitle:decade=>`Books Published in the ${decade}`}))}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}),'','stats-chart-wide')}</div>`;
 }
 
 function statsSeriesHTML(library) {
@@ -7738,7 +7962,7 @@ function statsSeriesHTML(library) {
   const started=relevant.filter(series=>series.books_read>0);
   const completed=relevant.filter(series=>series.state==='completed');
   const avg=started.length?Math.round(started.reduce((sum,s)=>sum+(s.total?s.books_read/s.total:0),0)/started.length*100):0;
-  return `<div class="stats-card-grid">${statsCard('▶️',started.length,'Series Started','',statsGroupAction('Books in Started Series','series-state','started','library'))}${statsCard('✅',completed.length,'Series Completed','',statsGroupAction('Books in Completed Series','series-state','completed','library'))}${statsCard('⏳',Math.max(0,started.length-completed.length),'In Progress','',statsGroupAction('Books in Series in Progress','series-state','in-progress','library'))}${statsCard('📈',started.length?`${avg}%`:'—','Avg Completion','',statsGroupAction('Books in Started Series','series-state','started','library'))}</div><div class="stats-chart-grid">${statsChart('Most-Read Series',statsBarChart(relevant.map(s=>[s.series,s.books_read,`${s.books_read}/${s.total||'?'}`]).sort((a,b)=>b[1]-a[1]),{limit:20,seriesLinks:true}))}${statsChart('Series Completion',statsBarChart(relevant.map(s=>[s.series,s.total?Math.round(s.books_read/s.total*100):0,s.total?`${Math.round(s.books_read/s.total*100)}%`:'—']).sort((a,b)=>b[1]-a[1]),{limit:20,seriesLinks:true}))}</div>`;
+  return `<div class="stats-card-grid">${statsCard('▶️',started.length,'Series Started','',statsGroupAction('Books in Started Series','series-state','started','library'))}${statsCard('✅',completed.length,'Series Completed','',statsGroupAction('Books in Completed Series','series-state','completed','library'))}${statsCard('⏳',Math.max(0,started.length-completed.length),'In Progress','',statsGroupAction('Books in Series in Progress','series-state','in-progress','library'))}${statsCard('📈',started.length?`${avg}%`:'—','Avg Completion','',statsGroupAction('Books in Started Series','series-state','started','library'))}</div><div class="stats-chart-grid">${statsChart('Most-Read Series',statsBarChart(relevant.map(s=>[s.series,s.books_read,`${s.books_read}/${s.total||'?'}`]).sort((a,b)=>b[1]-a[1]),{limit:20,seriesLinks:true}))}${statsChart('Series Status Mix',statsSeriesStatusChart(relevant),'Click a status to see the matching series.')}</div>`;
 }
 
 function receivedYear(book) {
@@ -7774,6 +7998,7 @@ function selectStatsSection(section) {
 function resetStatsFilters() {
   statsYearFilter=statsGenreFilter=statsFormatFilter=statsOwnedFilter='all';
   statsAuthorRatingMinimum=1;
+  statsAuthorSort='rating-desc';
   buildStats();
 }
 
@@ -13642,7 +13867,7 @@ const pct = s.done === '✅'
     const seriesStatus = seriesStatusFromLegacy(s);
     const stateClass = seriesStatus === 'Abandoned'
       ? ' abandoned'
-      : (seriesStatus === 'Not Started' ? ' not-started' : (seriesStatus === 'Completed' ? ' completed' : ''));
+      : (seriesStatus === 'Not Started' ? ' not-started' : (seriesStatus === 'Completed' ? ' completed' : ' in-progress'));
     const seriesGenre = genreForSeries(s);
     return `<div class="series-card${stateClass}" onclick="openSeriesModal(${JSON.stringify(s).split('"').join('&quot;')}, event)">
       <div class="series-name">${esc(s.series)}</div>
@@ -13780,12 +14005,14 @@ function replaceTrackedModalSnapshot(mode='author') {
 
 function authorLibraryBookHTML(book) {
   const status=libraryBookStatus(book);
-  const meta=[status,book.genre,book.series?seriesLabelForBook(book):''].filter(Boolean).join(' · ');
   const source=status==='TBR'?'tbr':(status==='Wishlist'?'wishlist':'');
+  const series=book.series?seriesLabelForBook(book):'';
+  const statusPill=status==='TBR'||status==='Wishlist'?`<span class="author-book-status ${status==='Wishlist'?'wishlist':''}">${status}</span>`:'';
   return `<button class="author-library-book" type="button" ${bookClickAttributes(book,source)}>
     ${coverImageHTML(book,'modal-cover','modal-cover')}
     <span class="modal-book-info"><span class="modal-book-title">${esc(book.title||'Untitled')}</span>
-      <span class="modal-book-meta" style="display:block">${esc(meta)}${book.rating?` · ${ratingDisplay(book.rating)}`:''}</span>
+      ${series?`<span class="author-book-series">${esc(series)}</span>`:''}${statusPill}
+      ${book.genre||book.rating?`<span class="modal-book-meta" style="display:block;margin-top:.24rem">${esc(book.genre||'')}${book.genre&&book.rating?' · ':''}${book.rating?ratingDisplay(book.rating):''}</span>`:''}
     </span>
   </button>`;
 }
