@@ -4465,6 +4465,10 @@
   .stats-chart-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,350px),1fr)); gap: 1rem; margin-bottom: 1rem; }
   .stats-chart { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 5px 18px rgba(23,45,95,0.06); }
   .stats-chart h3 { margin: 0 0 0.8rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border); color: var(--burnt); font: 700 1.05rem 'Playfair Display',serif; }
+  .stats-threshold-control { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; margin: -0.1rem 0 0.8rem; color: var(--muted); font-size: 0.78rem; }
+  .stats-threshold-control label { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; }
+  .stats-threshold-control input { width: 68px; min-height: 36px; padding: 0.35rem 0.45rem; color: var(--ink); background: #fff; font-family: inherit; font-size: 0.85rem; font-weight: 700; }
+  .stats-threshold-control button { min-height: 36px; padding: 0.35rem 0.65rem; }
   .stats-bars { display: grid; gap: 0.48rem; }
   .stats-bar-row { display: grid; grid-template-columns: minmax(85px,1.1fr) minmax(100px,3fr) auto; gap: 0.5rem; align-items: center; font-size: 0.8rem; }
   .stats-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4894,6 +4898,7 @@ let statsYearFilter = 'all';
 let statsGenreFilter = 'all';
 let statsFormatFilter = 'all';
 let statsOwnedFilter = 'all';
+let statsAuthorRatingMinimum = 1;
 let statsDatabaseRefreshPromise = null;
 let statsDatabaseRefreshMessage = '';
 
@@ -7466,6 +7471,28 @@ function statsGenresHTML(reads) {
   return `<div class="stats-chart-grid">${genrePieChartHTML(reads,'Genre Breakdown')}${statsChart('Genre Trends by Year',statsBarChart(trends.map(([genre,value,display])=>[genre,value,display]),{limit:18}))}${statsChart('Genre Ratings',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:18}))}</div>`;
 }
 
+function statsHighestRatedAuthorsHTML(authorCredits) {
+  const ratedCredits=authorCredits.filter(book=>String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)));
+  const ratedCounts=new Map(statsCountBy(ratedCredits,book=>book._stats_author));
+  const entries=statsAverageBy(ratedCredits,book=>book._stats_author)
+    .filter(([author])=>(ratedCounts.get(author)||0)>=statsAuthorRatingMinimum);
+  const count=entries.length;
+  return `<section class="stats-chart"><h3>Highest-Rated Authors</h3>
+    <div class="stats-threshold-control">
+      <label for="stats-author-rating-minimum"><span>Minimum rated books</span><input id="stats-author-rating-minimum" aria-label="Minimum rated books for highest-rated authors" type="number" min="1" max="99" step="1" value="${statsAuthorRatingMinimum}"></label>
+      <button class="account-secondary" type="button" onclick="setStatsAuthorRatingMinimum(document.getElementById('stats-author-rating-minimum')?.value)">Apply threshold</button>
+      <span>${count} author${count===1?'':'s'} qualify</span>
+    </div>
+    ${statsBarChart(entries,{limit:20,authorLinks:true})||`<p class="stats-note">No authors have at least ${statsAuthorRatingMinimum} rated book${statsAuthorRatingMinimum===1?'':'s'} under the current filters.</p>`}
+    <p class="stats-note">The threshold counts rated books after the Read Year, Genre, Format, and Ownership filters are applied.</p>
+  </section>`;
+}
+
+function setStatsAuthorRatingMinimum(value) {
+  statsAuthorRatingMinimum=Math.max(1,Math.min(99,Number.parseInt(value,10)||1));
+  buildStats();
+}
+
 function statsAuthorsHTML(reads) {
   const authorCredits=statsAuthorCreditBooks(reads);
   const counts=statsCountBy(authorCredits,book=>book._stats_author);
@@ -7485,7 +7512,7 @@ function statsAuthorsHTML(reads) {
   return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read')}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors')}${statsCard('🔁',authorCredits.length?`${Math.round(repeats/authorCredits.length*100)}%`:'—','Repeat-Author Share')}</div>
     <div class="stats-chart-grid">
       ${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20,authorLinks:true}))}
-      ${statsChart('Highest-Rated Authors',statsBarChart(statsAverageBy(authorCredits,book=>book._stats_author),{limit:20,authorLinks:true}))}
+      ${statsHighestRatedAuthorsHTML(authorCredits)}
       <section class="stats-chart author-directory"><h3>Author Directory</h3>
         <div class="author-directory-toolbar"><input type="search" placeholder="Find an author" aria-label="Find an author" oninput="filterStatsAuthors(this.value)"></div>
         <p class="stats-note">Click any author to see their profile and the books already in your library.</p>
@@ -7551,6 +7578,7 @@ function selectStatsSection(section) {
 
 function resetStatsFilters() {
   statsYearFilter=statsGenreFilter=statsFormatFilter=statsOwnedFilter='all';
+  statsAuthorRatingMinimum=1;
   buildStats();
 }
 
