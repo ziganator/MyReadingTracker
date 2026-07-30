@@ -7443,6 +7443,16 @@ function statsMonthShortName(value) {
   return month>=1&&month<=12?new Date(2000,month-1,1).toLocaleDateString(undefined,{month:'short'}):String(value);
 }
 
+function statsFormatGroupTitle(value, rated=false) {
+  const format=String(value||'Unknown').trim()||'Unknown';
+  const prefix=rated?'Rated ':'';
+  if (normalizedKey(format)==='book') return `${prefix}Books`;
+  if (normalizedKey(format)==='unknown') return `${prefix}Books with Unknown Format`;
+  if (normalizedKey(format)==='shortstories') return `${prefix}Short Stories`;
+  if (normalizedKey(format)==='shortstorycollection') return `${prefix}Short Story Collections`;
+  return `${prefix}${format} Books`;
+}
+
 function statsRecordList(rows) {
   return `<div class="stats-record-list">${rows.filter(row => row[1] !== null && row[1] !== undefined).map(([label,value,subtitle,action]) => {
     const tag=action?'button':'div';
@@ -7644,7 +7654,7 @@ function statsRatingsHTML(reads, library) {
     ${statsChart('Rating Distribution',statsColumnChart([...ratingCounts.entries()].sort((a,b)=>Number(a[0])-Number(b[0])).map(([rating,count])=>[`${rating} ★`,count]),{drilldownKind:'rating',drilldownTitle:rating=>`Books Rated ${rating}`}))}
     ${statsChart('Highest-Rated Genres',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:12,drilldownKind:'rated-genre',drilldownTitle:genre=>`Rated ${genre} Books`}))}
     ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(authorCredits,book=>book._stats_author),{limit:15,authorLinks:true}))}
-    ${statsChart('Average Rating by Format',statsTileChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:12,drilldownKind:'rated-format',drilldownTitle:format=>`Rated ${format} Books`}))}
+    ${statsChart('Average Rating by Format',statsTileChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:12,drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}))}
   </div>`;
 }
 
@@ -7719,7 +7729,7 @@ function statsFormatsHTML(reads) {
   const currentYear=new Date().getFullYear();
   const newReleases=reads.filter(b=>Number(b.year_pub||b.publication_year)===readYearForBook(b)).length;
   const known=reads.filter(b=>Number(b.year_pub||b.publication_year)&&readYearForBook(b)).length;
-  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads','',statsGroupAction('Publication-Year Reads','new-release'))}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads','',statsGroupAction('Backlist Reads','backlist'))}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read','',statsGroupAction('Owned Books Read','owned'))}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsTileChart(formats,{drilldownKind:'format',drilldownTitle:format=>`${format} Books`}))}${statsChart('Publication Decades',statsTileChart(decades,{drilldownKind:'publication-decade',drilldownTitle:decade=>`Books Published in the ${decade}`}))}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{drilldownKind:'rated-format',drilldownTitle:format=>`Rated ${format} Books`}))}</div>`;
+  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads','',statsGroupAction('Publication-Year Reads','new-release'))}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads','',statsGroupAction('Backlist Reads','backlist'))}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read','',statsGroupAction('Owned Books Read','owned'))}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsTileChart(formats,{drilldownKind:'format',drilldownTitle:format=>statsFormatGroupTitle(format)}))}${statsChart('Publication Decades',statsTileChart(decades,{drilldownKind:'publication-decade',drilldownTitle:decade=>`Books Published in the ${decade}`}))}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}))}</div>`;
 }
 
 function statsSeriesHTML(library) {
