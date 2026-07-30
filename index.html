@@ -7752,17 +7752,19 @@ function statsRereadGroups(selectedReads=filteredStatsReads()) {
 
 function statsRereadHistory(group) {
   const entries=[...(group?.entries||[])].sort((a,b)=>String(a.end||a.start||readYearForBook(a)||'').localeCompare(String(b.end||b.start||readYearForBook(b)||''),undefined,{numeric:true}));
+  const expectedReads=Math.max(Number(group?.timesRead)||0,entries.length);
   const years=entries.map(readYearForBook).filter(Boolean);
-  if (years.length===entries.length&&new Set(years).size===years.length) return years.join(', ');
+  if (expectedReads===entries.length&&years.length===entries.length&&new Set(years).size===years.length) return years.join(', ');
   const labels=entries.map(book=>{
     const date=localDate(book.end||book.start||'');
     if (date) return date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
     return readYearForBook(book)||'';
   }).filter(Boolean);
-  if (labels.length&&new Set(labels).size>1) return labels.join(', ');
+  if (expectedReads===entries.length&&labels.length&&new Set(labels).size>1) return labels.join(', ');
   if (years.length) {
     const counts=new Map();
     years.forEach(year=>counts.set(year,(counts.get(year)||0)+1));
+    if (counts.size===1&&expectedReads>years.length) counts.set(years[0],expectedReads);
     return [...counts.entries()].sort((a,b)=>a[0]-b[0]).map(([year,count])=>count>1?`${year} (${count} reads)`:String(year)).join(', ');
   }
   return 'Dates unavailable';
