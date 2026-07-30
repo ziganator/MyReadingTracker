@@ -8254,6 +8254,7 @@ function readingSessionEntry(book, session, index=0, includePauseHistory=false) 
       : monthRead,
     year_read: yearRead,
     rating: ratingForStatus(session.status || book.status, session.rating),
+    format: session.format || book.format || '',
     thoughts: session.notes || book.thoughts || '',
     status: session.status || book.status,
     _reading_session_id: session.id || '',
@@ -9186,6 +9187,9 @@ async function loadDatabaseBooks() {
     let books = null;
     let lastError = null;
     const sessionSelects = [
+      'reading_sessions(id,started_on,finished_on,month_read,year_read,read_year,rating,status,format,notes)',
+      'reading_sessions(id,started_on,finished_on,month_read,year_read,rating,status,format,notes)',
+      'reading_sessions(id,started_on,finished_on,month_read,rating,status,format,notes)',
       'reading_sessions(id,started_on,finished_on,month_read,year_read,read_year,rating,status,notes)',
       'reading_sessions(id,started_on,finished_on,month_read,year_read,rating,status,notes)',
       'reading_sessions(id,started_on,finished_on,month_read,rating,status,notes)'
@@ -12234,6 +12238,7 @@ function bookReadingSessionsHTML(book) {
     ? sessions.map((session, index) => {
         const meta = [
           readingSessionDateLabel(session),
+          session.format || book.format || '',
           session.rating ? ratingDisplay(session.rating).replace(/<[^>]+>/g, '') : '',
           session.status && session.status !== 'Read'
             ? `${libraryBookStatus({status:session.status})}${libraryBookStatus({status:session.status}) === 'Paused' && book.paused_page ? ` at page ${book.paused_page}` : ''}`
@@ -12268,6 +12273,8 @@ function openReadingSessionEditor(bookKey, sessionId='') {
   const sessions = sortedReadingSessions(book);
   const session = sessions.find(item => String(item.id || '') === String(sessionId || '')) || {};
   const sessionStatus = libraryBookStatus({status: session.status || 'Read'});
+  const editableSessionStatus = ['Read', 'Currently Reading'].includes(sessionStatus) ? sessionStatus : 'Read';
+  const sessionFormat = session.format || book.format || 'Book';
   const index = sessionId ? Math.max(0, sessions.findIndex(item => String(item.id || '') === String(sessionId))) : sessions.length;
   document.getElementById('modal-series-name').textContent = sessionId ? `Edit ${readingSessionLabel(index, session.status)}` : 'Add Reading Session';
   document.getElementById('modal-series-sub').textContent = book.title || '';
@@ -12283,8 +12290,9 @@ function openReadingSessionEditor(bookKey, sessionId='') {
       </div>
       <div class="book-editor-row status-row">
         <div class="book-editor-field"><label for="reading-session-status">Status</label><select id="reading-session-status" onchange="updatePausedPageControls()">
-          ${['Read','Currently Reading','DNF','Paused'].map(status => `<option value="${status}" ${sessionStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+          ${['Read','Currently Reading'].map(status => `<option value="${status}" ${editableSessionStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select></div>
+        <div class="book-editor-field"><label for="reading-session-format">Format</label><select id="reading-session-format">${bookFormatOptionsHTML(sessionFormat)}</select></div>
         <div class="book-editor-field" id="reading-session-paused-page-wrap" style="display:none"><label for="reading-session-paused-page">Paused at</label><input id="reading-session-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
         <div class="book-editor-field" id="reading-session-paused-on-wrap" style="display:none"><label for="reading-session-paused-on">Paused On</label><input id="reading-session-paused-on" type="date" value="${esc(book.paused_on || '')}" onchange="updatePausedPageControls()"></div>
         <div class="book-editor-field" id="reading-session-resumed-on-wrap" style="display:none"><label for="reading-session-resumed-on">Resumed On</label><input id="reading-session-resumed-on" type="date" value="${esc(book.resumed_on || '')}" onchange="updatePausedPageControls()"></div>
@@ -12313,6 +12321,9 @@ function syncReadingSessionYearFromDates() {
 
 function readingSessionMigrationMessage(error) {
   const message = String(error?.message || '');
+  if (message.toLowerCase().includes('format')) {
+    return 'Reading-session formats are not enabled yet. Run supabase_reading_session_format.sql in Supabase, then try again.';
+  }
   if (message.includes('paused_on') || message.includes('resumed_on')) {
     return 'Paused/resumed dates are not enabled yet. Run supabase_paused_dates.sql in Supabase, then try again.';
   }
@@ -12334,6 +12345,7 @@ async function saveReadingSessionEditor() {
     .find(item => String(item.id || '') === String(sessionId || '')) || {};
   const started = document.getElementById('reading-session-started')?.value || '';
   const statusValue = libraryBookStatus({status: document.getElementById('reading-session-status')?.value || 'Read'});
+  const formatValue = document.getElementById('reading-session-format')?.value || book.format || 'Book';
   const pausedPage = statusValue === 'Paused' ? safeInt(document.getElementById('reading-session-paused-page')?.value) : null;
   const pausedOn = safeDate(document.getElementById('reading-session-paused-on')?.value);
   const resumedOn = safeDate(document.getElementById('reading-session-resumed-on')?.value);
@@ -12367,6 +12379,7 @@ async function saveReadingSessionEditor() {
     year_read: yearRead || null,
     rating: statusValue === 'Paused' || isDNFStatusValue(statusValue) || Number.isNaN(ratingValue) ? null : ratingValue,
     status: statusValue,
+    format: formatValue || null,
     notes: document.getElementById('reading-session-notes')?.value || null
   };
   if (status) status.textContent = 'Saving session...';
