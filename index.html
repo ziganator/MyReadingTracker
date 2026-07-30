@@ -4796,7 +4796,7 @@
   <div class="header-ornament">✦ ✦ ✦</div>
   <div class="site-brand">
     <img class="site-logo" src="assets/mrt-logo.png" alt="MRT">
-    <h1>My Reading Tracker</h1>
+    <h1 id="site-title">My Reading Tracker</h1>
   </div>
   <p class="header-sub">A lifetime of stories</p>
   <div class="stats-row" id="headerStats"></div>
@@ -5473,6 +5473,20 @@ function closeAccountPanel(event) {
   if (event.target?.id === 'account-panel') hideAccountPanel();
 }
 
+function accountDisplayName() {
+  if (guestMode || !supabaseSession?.user) return '';
+  const metadata = supabaseSession.user.user_metadata || {};
+  return String(metadata.display_name || metadata.full_name || metadata.name || '').trim();
+}
+
+function updateSiteTitle() {
+  const firstName = accountDisplayName().split(/\s+/)[0] || '';
+  const title = firstName ? `${firstName}’s Reading Tracker` : 'My Reading Tracker';
+  const heading = document.getElementById('site-title');
+  if (heading) heading.textContent = title;
+  document.title = title;
+}
+
 function updateAccountUI() {
   const signedIn = Boolean(supabaseSession?.access_token && supabaseSession?.user);
   const signedOutView = document.getElementById('account-signed-out');
@@ -5498,6 +5512,7 @@ function updateAccountUI() {
     || supabaseSession?.user?.user_metadata?.name
     || '';
   if (emailInput) emailInput.value = supabaseSession?.user?.email || '';
+  updateSiteTitle();
   renderRatingScaleSetting();
   renderGenreColorSettings();
   if (signedIn) {
