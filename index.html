@@ -2689,6 +2689,19 @@
 
   /* ─── Monthly Recap ───────────────────────────── */
   .monthly-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
+  .reading-log-genre-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+    margin-bottom: 1rem;
+  }
+  .reading-log-genre-grid > * { min-width: 0; }
+  .reading-log-genre-grid.single > * { grid-column: 1 / -1; }
+  @media (max-width: 850px) {
+    .reading-log-genre-grid { grid-template-columns: 1fr; }
+    .reading-log-genre-grid.single > * { grid-column: auto; }
+  }
   .month-card {
     background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px;
     padding: 0.85rem 1rem; text-align: center; box-shadow: 0 1px 6px var(--shadow);
@@ -8565,7 +8578,7 @@ function genreByMonthChartHTML(months) {
       <div style="font-size:0.75rem;color:var(--muted);margin-top:0.4rem">avg ${average}</div>
     </div>`;
   }).join('');
-  return `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;box-shadow:0 2px 8px var(--shadow);margin-bottom:1.5rem">
+  return `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;box-shadow:0 2px 8px var(--shadow)">
     <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.15rem;color:var(--burnt);margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.5rem">Genre by Month</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1rem">${monthlyPies}</div>
     <div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center">
@@ -8684,12 +8697,12 @@ function showYear(year) {
         </div>
       `).join('')}
     </div>
-    <div style="display:grid;gap:1rem;margin-bottom:1rem">
+    <div class="reading-log-genre-grid${hasMonthlyBreakdown ? '' : ' single'}">
       ${genrePieChartHTML(books)}
-      ${hasReadingActivity ? finishCalendarHTML(activityBooks, readingLogYear) : ''}
+      ${hasMonthlyBreakdown ? genreByMonthChartHTML(months) : ''}
     </div>
+    ${hasReadingActivity ? `<div style="display:grid;gap:1rem;margin-bottom:1rem">${finishCalendarHTML(activityBooks, readingLogYear)}</div>` : ''}
     ${hasMonthlyBreakdown ? `
-      ${genreByMonthChartHTML(months)}
       <div style="margin-bottom:0.6rem;font-weight:700;color:var(--burnt)">Monthly Reading</div>
       <div class="monthly-grid" style="margin-bottom:1.5rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem;align-items:start">${monthHTML}</div>
     ` : ''}
