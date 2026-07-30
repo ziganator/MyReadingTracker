@@ -253,7 +253,8 @@
     margin: 0.7rem 0 0.2rem;
     text-transform: uppercase;
   }
-  .account-dialog input {
+  .account-dialog input,
+  .account-dialog select {
     width: 100%;
     background: #fff;
     border: 1px solid var(--border);
@@ -4876,7 +4877,19 @@
         </section>
         <section class="account-settings-section">
           <strong>Settings</strong>
-          <p>Adjust genre colors and manage your book data.</p>
+          <p>Choose how ratings appear, adjust genre colors, and manage your book data.</p>
+          <div class="account-field-grid" style="margin-bottom:0.85rem">
+            <div>
+              <label for="account-rating-scale">Rating Scale</label>
+              <select id="account-rating-scale">
+                <option value="10">10-point scale</option>
+                <option value="5">5-point scale</option>
+              </select>
+            </div>
+            <div class="account-actions" style="align-items:flex-end;margin-top:0">
+              <button class="account-primary" type="button" onclick="saveRatingScaleSetting()">Save Rating Scale</button>
+            </div>
+          </div>
           <div id="genre-color-settings" class="genre-color-grid"></div>
           <div class="account-actions" style="margin-top:0.7rem">
             <button class="account-primary" type="button" onclick="saveGenreColorSettings()">Save Colors</button>
@@ -4962,6 +4975,7 @@ const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
+const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
 const DEFAULT_BOOK_LANGUAGE = 'English';
 const DEFAULT_LANGUAGE_CLEANUP_VERSION = 'english-2026-07-17';
 const PAGE_COUNT_SYNC_VERSION = 'isbn-pages-pagination-2026-07-18';
@@ -5038,6 +5052,7 @@ const DEFAULT_GENRE_COLORS = {
   unknown:'#7a6a54'
 };
 let customGenreColors = loadGenreColorSettings();
+let userRatingScale = loadRatingScaleSetting();
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 if (window.self !== window.top) document.documentElement.classList.add('embedded-site');
@@ -5086,17 +5101,38 @@ function cacheGenreColorSettings(colors) {
   try { localStorage.setItem(GENRE_COLOR_STORAGE_KEY, JSON.stringify(colors || {})); } catch (_) {}
 }
 
+function normalizeRatingScale(value) {
+  return Number(value) === 5 ? 5 : 10;
+}
+
+function loadRatingScaleSetting() {
+  try { return normalizeRatingScale(localStorage.getItem(RATING_SCALE_STORAGE_KEY)); }
+  catch (_) { return 10; }
+}
+
+function cacheRatingScaleSetting(scale) {
+  try { localStorage.setItem(RATING_SCALE_STORAGE_KEY, String(normalizeRatingScale(scale))); } catch (_) {}
+}
+
 async function loadUserSettings() {
   if (guestMode || !supabaseSession?.user?.id) {
     customGenreColors = loadGenreColorSettings();
+    userRatingScale = loadRatingScaleSetting();
     return;
   }
   try {
-    const rows = await supabaseTableRequest('user_settings', {
-      query: '?select=genre_colors&limit=1'
-    });
-    const colors = rows?.[0]?.genre_colors || {};
+    let rows;
+    try {
+      rows = await supabaseTableRequest('user_settings', {query: '?select=genre_colors,rating_scale&limit=1'});
+    } catch (error) {
+      if (!String(error.message || '').toLowerCase().includes('rating_scale')) throw error;
+      rows = await supabaseTableRequest('user_settings', {query: '?select=genre_colors&limit=1'});
+    }
+    const settings = rows?.[0] || {};
+    const colors = settings.genre_colors || {};
     customGenreColors = colors && typeof colors === 'object' ? colors : {};
+    userRatingScale = normalizeRatingScale(settings.rating_scale || loadRatingScaleSetting());
+    cacheRatingScaleSetting(userRatingScale);
     if (!Object.keys(customGenreColors).length) {
       const localColors = loadGenreColorSettings();
       if (Object.keys(localColors).length) {
@@ -5108,6 +5144,7 @@ async function loadUserSettings() {
   } catch (error) {
     console.warn('User settings are unavailable until the user_settings migration is applied:', error.message);
     customGenreColors = {};
+    userRatingScale = loadRatingScaleSetting();
   }
 }
 
@@ -5314,6 +5351,51 @@ function renderGenreColorSettings() {
   }).join('');
 }
 
+function renderRatingScaleSetting() {
+  const select = document.getElementById('account-rating-scale');
+  if (select) select.value = String(userRatingScale);
+}
+
+function refreshRatingScaledViews() {
+  buildHeaderStats();
+  buildLogDetail();
+  buildStats();
+  buildBooks();
+  buildSeries();
+  buildPicker();
+  const monthHash = String(window.location.hash || '').match(/^#month\/(\d{4}-\d{2})$/);
+  if (monthHash) showMonthSummary(monthHash[1]);
+  if (String(window.location.hash || '').startsWith('#book/')) {
+    const current = findBookByRouteKey(activeBookDetailKey) || findBookForDetail(activeBookDetailTitle, activeBookDetailSource, activeBookDetailKey);
+    if (current?.title) renderBookDetailPage(current.title, activeBookDetailSource, bookRouteKey(current));
+  }
+}
+
+async function saveRatingScaleSetting() {
+  const next = normalizeRatingScale(document.getElementById('account-rating-scale')?.value);
+  if (!supabaseSession?.user?.id || guestMode) {
+    userRatingScale = next;
+    cacheRatingScaleSetting(next);
+    refreshRatingScaledViews();
+    renderRatingScaleSetting();
+    setAccountStatus(`Ratings now use a ${next}-point scale on this device.`);
+    return;
+  }
+  setAccountStatus('Saving rating scale to your account...', false, true);
+  try {
+    await saveUserSettings({rating_scale: next});
+    userRatingScale = next;
+    cacheRatingScaleSetting(next);
+    refreshRatingScaledViews();
+    renderRatingScaleSetting();
+    setAccountStatus(`Ratings now use a ${next}-point scale.`);
+  } catch (error) {
+    console.warn('Could not save the rating scale to Supabase:', error.message);
+    renderRatingScaleSetting();
+    setAccountStatus('The rating scale was not saved. Run supabase_rating_scale.sql once, then try again.', true);
+  }
+}
+
 function refreshGenreColoredViews() {
   rebuildSeriesFromLibraryBooks();
   buildHeaderStats();
@@ -5377,6 +5459,7 @@ async function resetGenreColorSettings() {
 
 function openAccountPanel() {
   document.getElementById('account-panel')?.classList.add('open');
+  renderRatingScaleSetting();
   renderGenreColorSettings();
   setAccountStatus('');
 }
@@ -5415,6 +5498,7 @@ function updateAccountUI() {
     || supabaseSession?.user?.user_metadata?.name
     || '';
   if (emailInput) emailInput.value = supabaseSession?.user?.email || '';
+  renderRatingScaleSetting();
   renderGenreColorSettings();
   if (signedIn) {
     refreshImportedLibraryStatus();
@@ -6149,7 +6233,7 @@ function downloadLibraryCSVTemplate() {
   downloadCSV('reading-tracker-template.csv', [
     LIBRARY_CSV_COLUMNS,
     ['Pride and Prejudice', 'Jane Austen', '', '', '1813', 'Classic Romance',
-      spreadsheetText('9780141439518'), '', 'Read', '', '', '', 'Yes', 'Paperback', '', '', '2026', '', '', '8.5', '1', '', 'June 2026', '', '']
+      spreadsheetText('9780141439518'), '', 'Read', '', '', '', 'Yes', 'Paperback', '', '', '2026', '', '', userRatingScale === 5 ? '4.25' : '8.5', '1', '', 'June 2026', '', '']
   ]);
   setAccountStatus('CSV template downloaded.');
 }
@@ -6165,7 +6249,7 @@ function exportLibraryCSV() {
       libraryBookStatus(book), book.paused_page || '', book.paused_on || '', book.resumed_on || '',
       ownedValue(book.own) ? 'Yes' : '', book.format, book.synopsis,
       bookBelongsToCollection(book, collectionBySlug('reread')) ? 'X' : '',
-      readYearForBook(book) || '', book.start, book.end, book.rating, book.times_read, book.signed,
+      readYearForBook(book) || '', book.start, book.end, book.rating ? formatUserRating(book.rating) : '', book.times_read, book.signed,
       book.received_date || book.year_received, book.event, book.thoughts
     ]);
   downloadCSV(`reading-tracker-library-${localDateKey()}.csv`, [LIBRARY_CSV_COLUMNS, ...rows]);
@@ -6309,7 +6393,7 @@ function importedBookFromCSV(row) {
   const yearRead = safeInt(csvImportValue(row, 'Year Read')) ||
     (finished ? Number(finished.slice(0, 4)) : null);
   const status = normalizeImportedStatus(csvImportValue(row, 'Status'));
-  const rating = safeNum(csvImportValue(row, 'Rating'));
+  const rating = storedRatingFromInput(csvImportValue(row, 'Rating'));
   return {
     title: csvImportValue(row, 'Title'),
     author: csvImportValue(row, 'Author'),
@@ -6702,6 +6786,31 @@ async function importCurrentLibrary() {
 }
 
 // ─── Utilities ────────────────────────────────────────────────
+function userRatingNumber(value) {
+  const rating = Number(value);
+  return Number.isFinite(rating) ? rating * userRatingScale / 10 : null;
+}
+
+function formatUserRating(value, decimals=2) {
+  const rating = userRatingNumber(value);
+  if (!Number.isFinite(rating)) return '—';
+  const places = Math.max(0, Math.min(2, Number(decimals) || 0));
+  return String(Number(rating.toFixed(places)));
+}
+
+function ratingInputValue(value) {
+  const rating = userRatingNumber(value);
+  return Number.isFinite(rating) ? String(Number(rating.toFixed(2))) : '';
+}
+
+function storedRatingFromInput(value) {
+  if (String(value ?? '').trim() === '') return null;
+  const rating = Number.parseFloat(value);
+  if (!Number.isFinite(rating)) return null;
+  const bounded = Math.max(0, Math.min(userRatingScale, Number(rating.toFixed(2))));
+  return Number((bounded * 10 / userRatingScale).toFixed(4));
+}
+
 function ratingClass(r) {
   if (!r || r==='DNF'||r==='*'||r==='In Progress'||r==='Current') return 'r-dnf';
   const n = parseFloat(r);
@@ -6738,7 +6847,7 @@ function ratingDisplay(r) {
   else if (n >= 2.0) arrowSvg = svgArrows.downRight;
   else arrowSvg = svgArrows.down;
   
-  return `<span class="rating ${ratingClass(r)}" style="display:inline-flex; align-items:center;">${arrowSvg}${n}</span>`;
+  return `<span class="rating ${ratingClass(r)}" style="display:inline-flex; align-items:center;">${arrowSvg}${formatUserRating(n)}</span>`;
 }
 function esc(s) {
   if (!s) return '';
@@ -7130,7 +7239,7 @@ function buildHeaderStats() {
   const cur = currentBooks[0];
   const books = allReadBooks().filter(b => b.rating && String(b.rating)!=='DNF' && String(b.rating)!=='*');
   const rated = books.map(b => parseFloat(b.rating)).filter(n => !isNaN(n));
-  const avg = rated.length ? (rated.reduce((a,b)=>a+b,0)/rated.length).toFixed(2) : '—';
+  const avg = rated.length ? formatUserRating(rated.reduce((a,b)=>a+b,0)/rated.length, 2) : '—';
   const seriesCount = DATA.series.length;
   // Build currently reading block for inline use
   let curHTML = '';
@@ -7575,7 +7684,10 @@ function statsAverageBy(books, keyFn, valueFn=book => Number(book.rating)) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(value);
   });
-  return [...groups.entries()].map(([key,values]) => [key, values.reduce((a,b)=>a+b,0)/values.length, `${(values.reduce((a,b)=>a+b,0)/values.length).toFixed(1)} (${values.length})`])
+  return [...groups.entries()].map(([key,values]) => {
+    const average = values.reduce((a,b)=>a+b,0)/values.length;
+    return [key, userRatingNumber(average), `${formatUserRating(average, 2)} (${values.length})`];
+  })
     .sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
 }
 
@@ -7663,7 +7775,7 @@ function statsGroupBooks(kind, value='', scope='reads') {
   if (kind==='month') return base.filter(book=>monthKeyFromBook(book)===value);
   if (kind==='month-of-year') return base.filter(book=>String(monthKeyFromBook(book)||'').slice(5)===String(value).padStart(2,'0'));
   if (kind==='read-year') return base.filter(book=>String(readYearForBook(book)||'Unknown')===String(value));
-  if (kind==='rating') return base.filter(book=>Number(book.rating)===Number(String(value).replace(/[^0-9.]/g,'')));
+  if (kind==='rating') return base.filter(book=>Number(book.rating)===Number(value));
   if (kind==='genre-year') {
     const [genre,year]=String(value).split('||');
     return base.filter(book=>normalizedKey(book.genre||'Unknown')===normalizedKey(genre)&&readYearForBook(book)===Number(year));
@@ -7748,7 +7860,7 @@ function showStatsAuthorGroup(title, kind='all', evt) {
   const authors=statsAuthorGroupData(kind).sort((a,b)=>b.count-a.count||(Number(b.avg)||-1)-(Number(a.avg)||-1)||a.author.localeCompare(b.author));
   document.getElementById('modal-series-name').textContent=title;
   document.getElementById('modal-series-sub').textContent=`${authors.length} author${authors.length===1?'':'s'} match the current Stats filters`;
-  document.getElementById('modal-series-body').innerHTML=authors.length?`<div class="stats-author-modal-list">${authors.map(author=>`<button class="stats-author-modal-row" type="button" onclick="openAuthorProfile(${jsArg(author.author)},event)"><strong>${esc(author.author)}</strong><span>${author.count} book${author.count===1?'':'s'}</span><span class="author-modal-rating">${author.avg!==null&&Number.isFinite(Number(author.avg))?`Avg ${Number(author.avg).toFixed(2)}`:'Not rated'}</span></button>`).join('')}</div>`:'<p class="stats-note">No authors match this statistic under the current filters.</p>';
+  document.getElementById('modal-series-body').innerHTML=authors.length?`<div class="stats-author-modal-list">${authors.map(author=>`<button class="stats-author-modal-row" type="button" onclick="openAuthorProfile(${jsArg(author.author)},event)"><strong>${esc(author.author)}</strong><span>${author.count} book${author.count===1?'':'s'}</span><span class="author-modal-rating">${author.avg!==null&&Number.isFinite(Number(author.avg))?`Avg ${formatUserRating(author.avg,2)}`:'Not rated'}</span></button>`).join('')}</div>`:'<p class="stats-note">No authors match this statistic under the current filters.</p>';
   openModal(evt,'author');
 }
 
@@ -7915,7 +8027,7 @@ function statsOverviewHTML(reads, library, activityReads=reads) {
   const yearCounts = statsCountBy(reads, book=>readYearForBook(book) || 'Unknown').sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
   return `<div class="stats-card-grid">
     ${statsCard('📚',reads.length,'Books Read','',statsGroupAction('Books Read'))}${statsCard('📄',pageMetric(pages.pages),'Pages Read','',statsGroupAction('Books with Page Counts','with-pages'))}${statsCard('📄',pages.avgPagesPerMonth ? pageMetric(pages.avgPagesPerMonth) : '—','Avg Pages / Month','',statsGroupAction('Books Included in Page Averages','with-pages'))}
-    ${statsCard('⭐',rated.length?(rated.reduce((a,b)=>a+b,0)/rated.length).toFixed(2):'—','Avg Rating','',statsGroupAction('Rated Books','rated'))}${statsCard('⚡',withDays.length?(withDays.reduce((sum,b)=>sum+Number(b.days),0)/withDays.length).toFixed(1):'—','Avg Days / Book','',statsGroupAction('Books with Reading Dates','with-days'))}
+    ${statsCard('⭐',rated.length?formatUserRating(rated.reduce((a,b)=>a+b,0)/rated.length,2):'—','Avg Rating','',statsGroupAction('Rated Books','rated'))}${statsCard('⚡',withDays.length?(withDays.reduce((sum,b)=>sum+Number(b.days),0)/withDays.length).toFixed(1):'—','Avg Days / Book','',statsGroupAction('Books with Reading Dates','with-days'))}
     ${statsCard('🐇',fastest?`${fastest.days}d`:'—','Fastest Read',fastest?.title||'',statsBookAction(fastest))}${statsCard('🐢',slowest?`${slowest.days}d`:'—','Slowest Read',slowest?.title||'',statsBookAction(slowest))}
   </div><div class="stats-chart-grid">
     ${statsChart('Books Finished by Month',statsColumnChart(monthly.map(([month,data])=>[month,data.books]),{drilldownKind:'month',drilldownTitle:month=>monthYearLabelFromKey(month)}))}
@@ -7951,7 +8063,7 @@ function statsRatingsHTML(reads, library) {
   const dnf = completed.filter(book=>libraryBookStatus(book)==='DNF').length;
   const rereads=statsRereadGroups(reads);
   return `<div class="stats-card-grid">${statsCard('✅',completed.length?`${Math.round((completed.length-dnf)/completed.length*100)}%`:'—','Completion Rate','',`showStatsCompletionBreakdown(event)`)}${statsCard('🚫',dnf,'DNF Books','',statsGroupAction('DNF Books','dnf','','library'))}${statsCard('🔁',rereads.length,'Books Reread','',`showStatsRereadDetails(event)`)}</div><div class="stats-chart-grid">
-    ${statsChart('Rating Distribution',statsDistributionChart([...ratingCounts.entries()].sort((a,b)=>Number(b[0])-Number(a[0])).map(([rating,count])=>[`${rating} ★`,count]),{drilldownKind:'rating',drilldownTitle:rating=>`Books Rated ${rating}`}),'','stats-chart-wide')}
+    ${statsChart('Rating Distribution',statsDistributionChart([...ratingCounts.entries()].sort((a,b)=>Number(b[0])-Number(a[0])).map(([rating,count])=>[`${formatUserRating(rating)} ★`,count,undefined,rating]),{drilldownKind:'rating',drilldownTitle:rating=>`Books Rated ${formatUserRating(rating)}`}),'','stats-chart-wide')}
     ${statsChart('Highest-Rated Genres',statsBarChart(statsAverageBy(reads,b=>b.genre),{limit:12,drilldownKind:'rated-genre',drilldownTitle:genre=>`Rated ${genre} Books`}))}
     ${statsChart('Average Rating by Author',statsBarChart(statsAverageBy(authorCredits,book=>book._stats_author),{limit:15,authorLinks:true}),'','stats-chart-span-two')}
     ${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{limit:20,drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}),'','stats-chart-wide')}
@@ -8574,7 +8686,7 @@ function genreByMonthChartHTML(months) {
     }).join('');
     const [year, month] = monthKey.split('-');
     const monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(month) - 1] || month;
-    const average = data.count ? (data.total / data.count).toFixed(1) : '—';
+    const average = data.count ? formatUserRating(data.total / data.count, 2) : '—';
     return `<div style="text-align:center;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:0.85rem;box-shadow:0 1px 6px var(--shadow);cursor:pointer"
       onclick="showMonthSummary(${jsArg(monthKey)})" title="Click for ${esc(monthName)} ${esc(year)} summary">
       <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:0.9rem;color:var(--burnt);margin-bottom:0.5rem">${esc(monthName)} ${esc(year)}</div>
@@ -8619,7 +8731,7 @@ function showYear(year) {
     ? books.length
     : (summaryYearCounts().get(readingLogYear) || books.length);
   const rated = books.filter(b => typeof b.rating==='number');
-  const avg = rated.length ? (rated.reduce((a,b)=>a+parseFloat(b.rating),0)/rated.length).toFixed(2) : '—';
+  const avg = rated.length ? formatUserRating(rated.reduce((a,b)=>a+parseFloat(b.rating),0)/rated.length, 2) : '—';
   const withDays = books.filter(book => Number(book.days) > 0);
   const avgDays = withDays.length
     ? (withDays.reduce((sum, book) => sum + Number(book.days), 0) / withDays.length).toFixed(1)
@@ -8643,7 +8755,7 @@ function showYear(year) {
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const monthHTML = Object.entries(months).sort().map(([m,d]) => {
     const mn = monthNames[parseInt(m.split('-')[1])-1];
-    const mavg = d.count ? (d.total/d.count).toFixed(1) : '—';
+    const mavg = d.count ? formatUserRating(d.total/d.count, 2) : '—';
     const monthBooks = [...d.books].sort(compareMonthReadOrder);
     const monthLabel = `${mn} ${m.split('-')[0]}`;
     return `<div class="month-card" style="cursor:pointer" onclick="openMonthlyCoverSummary('${m}', '${monthLabel}', ${jsArg(monthBooks)}, event)" title="Click to see covers">
@@ -9959,7 +10071,7 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field editor-optional"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
       <div class="add-book-field"><label for="add-book-started">Started</label><input id="add-book-started" type="date"></div>
       <div class="add-book-field"><label for="add-book-finished">Finished</label><input id="add-book-finished" type="date"></div>
-      <div class="add-book-field"><label for="add-book-rating">Rating</label><input id="add-book-rating" type="number" min="0" max="10" step="0.1"></div>
+      <div class="add-book-field"><label for="add-book-rating">Rating / ${userRatingScale}</label><input id="add-book-rating" type="number" min="0" max="${userRatingScale}" step="0.01"></div>
       <div class="add-book-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
       <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
       <div class="add-book-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
@@ -10987,7 +11099,7 @@ async function saveAddedBook() {
       (finished ? Number(finished.slice(0, 4)) : null));
     const rating = status === 'Paused'
       ? null
-      : ratingForStatus(status, Number.parseFloat(document.getElementById('add-book-rating')?.value) || null);
+      : ratingForStatus(status, storedRatingFromInput(document.getElementById('add-book-rating')?.value));
     const editionFields = bookFieldsFromEditionValues({
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
@@ -12294,7 +12406,7 @@ function openReadingSessionEditor(bookKey, sessionId='') {
         <div class="book-editor-field"><label for="reading-session-started">Started</label><input id="reading-session-started" type="date" value="${esc(session.started_on || '')}" onchange="syncReadingSessionYearFromDates()"></div>
         <div class="book-editor-field"><label for="reading-session-finished">Finished</label><input id="reading-session-finished" type="date" value="${esc(session.finished_on || '')}" onchange="syncReadingSessionYearFromDates()"></div>
         <div class="book-editor-field"><label for="reading-session-year">Year Read</label><input id="reading-session-year" type="number" min="1000" max="9999" value="${esc(session.year_read || session.read_year || '')}"></div>
-        <div class="book-editor-field"><label for="reading-session-rating">Rating</label><input id="reading-session-rating" type="number" min="0" max="10" step="0.1" value="${esc(session.rating || '')}"></div>
+        <div class="book-editor-field"><label for="reading-session-rating">Rating / ${userRatingScale}</label><input id="reading-session-rating" type="number" min="0" max="${userRatingScale}" step="0.01" value="${esc(ratingInputValue(session.rating))}"></div>
       </div>
       <div class="book-editor-row status-row">
         <div class="book-editor-field"><label for="reading-session-status">Status</label><select id="reading-session-status" onchange="updatePausedPageControls()">
@@ -12377,7 +12489,7 @@ async function saveReadingSessionEditor() {
   const finished = statusValue === 'Paused' ? '' : (document.getElementById('reading-session-finished')?.value || '');
   const yearRead = statusValue === 'Paused' ? null : (safeInt(document.getElementById('reading-session-year')?.value) ||
     (finished ? Number(finished.slice(0, 4)) : (started ? Number(started.slice(0, 4)) : null)));
-  const ratingValue = Number.parseFloat(document.getElementById('reading-session-rating')?.value || '');
+  const ratingValue = storedRatingFromInput(document.getElementById('reading-session-rating')?.value);
   const body = {
     user_id: supabaseSession.user.id,
     book_id: book.database_id,
@@ -12385,7 +12497,7 @@ async function saveReadingSessionEditor() {
     finished_on: finished || null,
     month_read: statusValue === 'Paused' ? null : monthDateForBook({start: started, end: finished, year_read: yearRead}),
     year_read: yearRead || null,
-    rating: statusValue === 'Paused' || isDNFStatusValue(statusValue) || Number.isNaN(ratingValue) ? null : ratingValue,
+    rating: statusValue === 'Paused' || isDNFStatusValue(statusValue) || ratingValue === null ? null : ratingValue,
     status: statusValue,
     format: formatValue || null,
     notes: document.getElementById('reading-session-notes')?.value || null
@@ -12711,8 +12823,8 @@ function openStoryEditor(bookKey='', storyId='') {
       <label class="story-editor-field">Author
         <input id="story-author" type="text" value="${esc(story?.author || book.author_full || book.author || '')}">
       </label>
-      <label class="story-editor-field">Rating
-        <input id="story-rating" type="number" min="0" max="10" step="0.1" value="${esc(story?.rating ?? '')}">
+      <label class="story-editor-field">Rating / ${userRatingScale}
+        <input id="story-rating" type="number" min="0" max="${userRatingScale}" step="0.01" value="${esc(ratingInputValue(story?.rating))}">
       </label>
       <label class="story-editor-field">Starting Page
         <input id="story-start-page" type="number" min="1" step="1" value="${esc(story?.start_page ?? '')}">
@@ -12765,7 +12877,7 @@ async function saveStoryForBook(bookKey='', storyId='') {
     started_on: started || null,
     finished_on: finished || null,
     read_on: finished || started || null,
-    rating: Number.parseFloat(document.getElementById('story-rating')?.value) || null,
+    rating: storedRatingFromInput(document.getElementById('story-rating')?.value),
     notes: document.getElementById('story-notes')?.value.trim() || null
   };
   if (saveButton) saveButton.disabled = true;
@@ -13236,7 +13348,7 @@ function openBookEditor(title, source='', key='') {
       </button>
       <div class="book-editor-field full"><label for="book-editor-title">Title</label><input id="book-editor-title" value="${esc(book.title || '')}"></div>
       <div class="book-editor-field full"><label for="book-editor-author">Author</label><input id="book-editor-author" value="${esc(book.author_full || book.author || '')}"></div>
-      <div class="book-editor-field book-editor-cover-rating"><label for="book-editor-rating">Rating</label><input id="book-editor-rating" type="number" min="0" max="10" step="0.1" value="${esc(isDNFStatusValue(book.status) ? '' : (book.rating || ''))}"></div>
+      <div class="book-editor-field book-editor-cover-rating"><label for="book-editor-rating">Rating / ${userRatingScale}</label><input id="book-editor-rating" type="number" min="0" max="${userRatingScale}" step="0.01" value="${esc(isDNFStatusValue(book.status) ? '' : ratingInputValue(book.rating))}"></div>
       <div class="book-editor-field full">
         <label for="book-editor-cover">Cover Image URL</label>
         <input id="book-editor-cover" value="${esc(book.cover_url || '')}" placeholder="Paste an image URL" oninput="updateBookEditorCoverPreview()">
@@ -13492,7 +13604,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
       : (monthDateForBook({start: started, end: finished, year_read: editedYearRead}) || original.month_read),
     rating: statusValue === 'Paused'
       ? null
-      : ratingForStatus(statusValue, Number.parseFloat(bookEditorValue('book-editor-rating')) || null),
+      : ratingForStatus(statusValue, storedRatingFromInput(bookEditorValue('book-editor-rating'))),
     previous_title: changedTitle ? original.title : original.previous_title || ''
   };
   try {
@@ -13969,7 +14081,7 @@ const pct = s.done === '✅'
       <div class="series-footer">
         <span style="font-size:0.8rem;color:var(--muted)">${read} / ${total || '?'} books · <span style="color:var(--gold);font-size:0.75rem">click to expand</span></span>
         <span>
-          ${!isNaN(r) ? `<span class="rating ${ratingClass(r)}">${r}</span>` : ''}
+          ${!isNaN(r) ? `<span class="rating ${ratingClass(r)}">${formatUserRating(r)}</span>` : ''}
           ${s.done==='✅'?'<span class="done-badge" title="Completed">✅</span>':''}
         </span>
       </div>
@@ -15507,7 +15619,7 @@ function clubReadListHTML(reads, emptyMessage) {
   if (!reads.length) return `<p class="club-card-meta">${esc(emptyMessage)}</p>`;
   return `<div class="club-read-list">${reads.map(read => `<div class="club-read-row">
     ${clubReadCoverHTML(read)}
-    <div style="min-width:0"><div class="club-read-title">${esc(read.title)}</div><div class="club-read-meta">${authorProfileButton(read.author || '')}${read.start_date || read.end_date ? ` · ${esc(clubDateLabel(read.start_date))} – ${esc(clubDateLabel(read.end_date))}` : ''}${Number(read.rating) ? ` · ${Number(read.rating).toFixed(1)}/10` : ''}</div></div>
+    <div style="min-width:0"><div class="club-read-title">${esc(read.title)}</div><div class="club-read-meta">${authorProfileButton(read.author || '')}${read.start_date || read.end_date ? ` · ${esc(clubDateLabel(read.start_date))} – ${esc(clubDateLabel(read.end_date))}` : ''}${Number(read.rating) ? ` · ${formatUserRating(read.rating,2)}/${userRatingScale}` : ''}</div></div>
     ${clubStatusHTML(read.status)}
   </div>`).join('')}</div>`;
 }
@@ -15917,7 +16029,7 @@ function openBookClubReadEditor(clubId, readId='') {
     <div class="club-form-field"><label for="club-read-title">Title</label><input id="club-read-title" value="${esc(read.title || '')}"></div>
     <div class="club-form-field"><label for="club-read-author">Author</label><input id="club-read-author" value="${esc(read.author || '')}"></div>
     <div class="club-form-field"><label for="club-read-status">Status</label><select id="club-read-status">${['Current','Upcoming','Completed'].map(value => `<option ${read.status === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div>
-    <div class="club-form-field"><label for="club-read-rating">Club Rating / 10</label><input id="club-read-rating" type="number" min="0" max="10" step="0.1" value="${esc(read.rating ?? '')}"></div>
+    <div class="club-form-field"><label for="club-read-rating">Club Rating / ${userRatingScale}</label><input id="club-read-rating" type="number" min="0" max="${userRatingScale}" step="0.01" value="${esc(ratingInputValue(read.rating))}"></div>
     <div class="club-form-field"><label for="club-read-start">Reading Starts</label><input id="club-read-start" type="date" value="${esc(read.start_date || '')}"></div>
     <div class="club-form-field"><label for="club-read-end">Reading Ends</label><input id="club-read-end" type="date" value="${esc(read.end_date || '')}"></div>
     <div class="club-form-field full"><label for="club-read-meeting">Discussion Meeting (${esc(String(club.timezone || deviceTimeZone()).replace(/_/g,' '))})</label><input id="club-read-meeting" type="datetime-local" value="${esc(clubDateTimeInputValue(read.meeting_at,club.timezone || deviceTimeZone()))}"></div>
@@ -15949,7 +16061,7 @@ async function saveBookClubRead(clubId, readId='') {
   const endDate = document.getElementById('club-read-end')?.value || null;
   if (startDate && endDate && endDate < startDate) return bookClubFormStatus('The reading end date must be on or after the start date.',true);
   const meetingValue = document.getElementById('club-read-meeting')?.value || '';
-  const ratingValue = Number.parseFloat(document.getElementById('club-read-rating')?.value || '');
+  const ratingValue = storedRatingFromInput(document.getElementById('club-read-rating')?.value);
   const body = {
     club_id:clubId, book_id:document.getElementById('club-read-book')?.value || null, title,
     author:document.getElementById('club-read-author')?.value.trim() || null,
@@ -15961,7 +16073,7 @@ async function saveBookClubRead(clubId, readId='') {
     online_url:document.getElementById('club-read-url')?.value.trim() || null,
     discussion_prompt:document.getElementById('club-read-prompt')?.value.trim() || null,
     notes:document.getElementById('club-read-notes')?.value.trim() || null,
-    rating:Number.isNaN(ratingValue) ? null : ratingValue
+    rating:ratingValue
   };
   bookClubFormStatus('Saving...');
   try {
@@ -16115,7 +16227,7 @@ function toggleMonth(key, monthLabel, books, evt) {
   const orderedBooks = [...books].sort(compareMonthReadOrder);
   document.getElementById('modal-series-name').textContent = monthLabel;
   const rated = orderedBooks.filter(b => typeof b.rating==='number' || !isNaN(parseFloat(b.rating)));
-  const avg = rated.length ? (rated.reduce((s,b)=>s+parseFloat(b.rating),0)/rated.length).toFixed(1) : '—';
+  const avg = rated.length ? formatUserRating(rated.reduce((s,b)=>s+parseFloat(b.rating),0)/rated.length, 2) : '—';
   document.getElementById('modal-series-sub').textContent =
     `${orderedBooks.length} book${orderedBooks.length!==1?'s':''} · Avg rating: ${avg}`;
 
@@ -16327,7 +16439,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
 
   // Stats
   const rated = books.filter(b => typeof b.rating==='number');
-  const avgRating = rated.length ? (rated.reduce((s,b)=>s+b.rating,0)/rated.length).toFixed(2) : '—';
+  const avgRating = rated.length ? formatUserRating(rated.reduce((s,b)=>s+b.rating,0)/rated.length, 2) : '—';
   const withDays = books.filter(b=>b.days);
   const avgDays = withDays.length ? (withDays.reduce((s,b)=>s+b.days,0)/withDays.length).toFixed(1) : '—';
   const fastest = withDays.length ? withDays.reduce((a,b)=>b.days<a.days?b:a) : null;

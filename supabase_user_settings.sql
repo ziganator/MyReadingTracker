@@ -1,8 +1,19 @@
 create table if not exists public.user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   genre_colors jsonb not null default '{}'::jsonb,
+  rating_scale smallint not null default 10,
   updated_at timestamptz not null default now()
 );
+
+alter table public.user_settings
+  add column if not exists rating_scale smallint not null default 10;
+
+alter table public.user_settings
+  drop constraint if exists user_settings_rating_scale_check;
+
+alter table public.user_settings
+  add constraint user_settings_rating_scale_check
+  check (rating_scale in (5, 10));
 
 alter table public.user_settings enable row level security;
 
