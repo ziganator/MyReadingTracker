@@ -4463,6 +4463,7 @@
   .stats-section-tabs button.active { background: var(--accent-gradient); border-color: #4169e1; color: #fff; }
   .stats-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr)); gap: 0.75rem; margin-bottom: 1rem; }
   .stats-chart-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,350px),1fr)); gap: 1rem; margin-bottom: 1rem; }
+  .stats-author-chart-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .stats-chart { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 5px 18px rgba(23,45,95,0.06); }
   .stats-chart h3 { margin: 0 0 0.8rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border); color: var(--burnt); font: 700 1.05rem 'Playfair Display',serif; }
   .stats-threshold-control { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; margin: -0.1rem 0 0.8rem; color: var(--muted); font-size: 0.78rem; }
@@ -4478,6 +4479,7 @@
   .stats-note { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; font-style: italic; }
   .stats-record-list { display: grid; gap: 0.5rem; }
   .stats-record { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.6rem; border-radius: 6px; background: rgba(65,105,225,0.06); }
+  @media (max-width:850px) { .stats-author-chart-grid { grid-template-columns: 1fr; } }
   @media (max-width:700px) { .stats-filter-bar { top: 0; } .stats-bar-row { grid-template-columns: minmax(75px,1fr) minmax(70px,2fr) auto; } }
 
   @media (max-width: 700px) {
@@ -7510,7 +7512,7 @@ function statsAuthorsHTML(reads) {
     </div>`;
   }).join('');
   return `<div class="stats-card-grid">${statsCard('✍️',counts.length,'Authors Read')}${statsCard('✨',counts.filter(([,count])=>count===1).length,'New/Single-Book Authors')}${statsCard('🔁',authorCredits.length?`${Math.round(repeats/authorCredits.length*100)}%`:'—','Repeat-Author Share')}</div>
-    <div class="stats-chart-grid">
+    <div class="stats-chart-grid stats-author-chart-grid">
       ${statsChart('Most-Read Authors',statsBarChart(counts,{limit:20,authorLinks:true}))}
       ${statsHighestRatedAuthorsHTML(authorCredits)}
       <section class="stats-chart author-directory"><h3>Author Directory</h3>
@@ -13531,7 +13533,7 @@ function filterTBR() {
 }
 
 function normalizeAuthorName(name) {
-  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 function bookAuthorMatches(book, author) {
   const target = normalizeAuthorName(author);
@@ -13616,27 +13618,32 @@ function authorBiographyHTML(author,bio) {
 async function loadAuthorBiography(author) {
   const key=normalizeAuthorName(author);
   if (authorBiographyCache.has(key)) return authorBiographyCache.get(key);
-  const params=new URLSearchParams({
-    action:'query',generator:'search',gsrsearch:`${author} writer author`,gsrnamespace:'0',gsrlimit:'6',
-    prop:'extracts|pageimages|info',exintro:'1',explaintext:'1',piprop:'thumbnail',pithumbsize:'320',
-    inprop:'url',format:'json',formatversion:'2',origin:'*'
+  const biographyParams=extra=>new URLSearchParams({
+    action:'query',prop:'extracts|pageimages|info|pageprops',exintro:'1',explaintext:'1',piprop:'thumbnail',pithumbsize:'320',
+    inprop:'url',format:'json',formatversion:'2',origin:'*',...extra
   });
-  try {
+  const fetchPages=async params=>{
     const response=await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
     if (!response.ok) throw new Error(`Wikipedia returned ${response.status}`);
     const payload=await response.json();
-    const target=normalizeAuthorName(author);
-    const pages=(payload?.query?.pages||[]).filter(page=>page.extract&&page.fullurl);
-    const ranked=pages.map(page=>{
-      const title=String(page.title||'').replace(/\s*\([^)]*\)\s*$/,'');
-      const exact=normalizeAuthorName(title)===target;
-      const text=String(page.extract||'').toLowerCase();
-      const literary=/\b(writer|author|novelist|poet|essayist|playwright|screenwriter|comic book)\b/.test(text);
-      const disambiguation=/may refer to|can refer to/.test(text);
-      return {page,score:(exact?100:0)+(literary?35:0)-(disambiguation?100:0)};
-    }).filter(item=>item.score>=35).sort((a,b)=>b.score-a.score);
-    const page=ranked[0]?.page;
-    const result=page?{extract:page.extract,url:page.fullurl,thumbnail:page.thumbnail?.source||''}:null;
+    return payload?.query?.pages||[];
+  };
+  const biographyForPage=page=>{
+    if (!page?.extract||!page?.fullurl||page?.pageprops?.disambiguation!==undefined) return null;
+    const title=String(page.title||'').replace(/\s*\([^)]*\)\s*$/,'');
+    if (normalizeAuthorName(title)!==key) return null;
+    const text=String(page.extract||'').toLowerCase();
+    const literary=/\b(writer|author|novelist|poet|essayist|playwright|screenwriter|editor|anthologist|translator|journalist|illustrator|manga artist|comic book)\b/.test(text);
+    if (!literary||/may refer to|can refer to/.test(text)) return null;
+    return {extract:page.extract,url:page.fullurl,thumbnail:page.thumbnail?.source||''};
+  };
+  try {
+    const exactPages=await fetchPages(biographyParams({titles:author,redirects:'1'}));
+    let result=exactPages.map(biographyForPage).find(Boolean)||null;
+    if (!result) {
+      const searchPages=await fetchPages(biographyParams({generator:'search',gsrsearch:`${author} writer author`,gsrnamespace:'0',gsrlimit:'8'}));
+      result=searchPages.map(biographyForPage).find(Boolean)||null;
+    }
     authorBiographyCache.set(key,result);
     return result;
   } catch (error) {
