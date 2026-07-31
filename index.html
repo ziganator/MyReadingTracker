@@ -8476,10 +8476,10 @@ function readingLogBooks() {
 
 function readingCalendarBooks() {
   const completed = readingLogBooks();
-  const active = allLibraryBooks()
-    .filter(book => ['Paused', 'Currently Reading'].includes(libraryBookStatus(book)) && recordedActivitySpans(book).length)
+  const recordedActivity = allLibraryBooks()
+    .filter(book => ['Paused', 'Currently Reading', 'DNF'].includes(libraryBookStatus(book)) && recordedActivitySpans(book).length)
     .map(book => ({...book, author: book.author_full || book.author || book.author_short || ''}));
-  return [...completed, ...active];
+  return [...completed, ...recordedActivity];
 }
 
 function readingActivityBooksForYear(year) {
@@ -8779,13 +8779,13 @@ function monthCoverPreviewHTML(books) {
 
 function monthlyCoverSummaryBooks(yearMonth, finishedBooks=[]) {
   const [year, month] = String(yearMonth || '').split('-').map(Number);
-  const pausedBooks = Number.isInteger(year) && Number.isInteger(month)
+  const activityBooks = Number.isInteger(year) && Number.isInteger(month)
     ? allLibraryBooks().filter(book =>
-        libraryBookStatus(book) === 'Paused' && bookSpansYearMonth(book, year, month)
+        ['Paused', 'DNF'].includes(libraryBookStatus(book)) && bookSpansYearMonth(book, year, month)
       )
     : [];
   const unique = new Map();
-  [...finishedBooks, ...pausedBooks].forEach(book => {
+  [...finishedBooks, ...activityBooks].forEach(book => {
     const key = book._reading_session_id
       ? `session:${book._reading_session_id}`
       : `book:${book.database_id || book.id || bookIdentity(book)}`;
@@ -8903,7 +8903,7 @@ function showYear(year) {
       <div style="margin-bottom:0.6rem;font-weight:700;color:var(--burnt)">Monthly Reading</div>
       <div class="monthly-grid" style="margin-bottom:1.5rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem;align-items:start">${monthHTML}</div>
     ` : ''}
-    ${!books.length && hasReadingActivity ? '<p style="color:var(--muted);font-style:italic;margin:0 0 1rem">No books were finished this year; paused reading activity is shown on the calendar.</p>' : ''}
+    ${!books.length && hasReadingActivity ? '<p style="color:var(--muted);font-style:italic;margin:0 0 1rem">No books were finished this year; recorded reading activity is shown on the calendar.</p>' : ''}
     ${!books.length && yearCount && !hasReadingActivity ? '<p style="color:var(--muted);font-style:italic;margin:0 0 1rem">Only year-level reading data is available for this year.</p>' : ''}
     ${showAllYears ? '' : `<div class="card-grid">${cards}</div>`}
   `;
@@ -16332,12 +16332,12 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     `${orderedBooks.length} book${orderedBooks.length !== 1 ? 's' : ''}`;
   const coverTiles = orderedBooks.map(book => {
     const dates = book.start ? book.start + (book.end && book.end !== book.start ? ' → ' + book.end : '') : '';
-    const paused = libraryBookStatus(book) === 'Paused';
+    const ratingOrStatus = libraryRatingOrStatus(book);
     return `<div class="monthly-cover-tile" role="button" tabindex="0" ${bookClickAttributes(book, 'calendar')} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
       ${coverImageHTML(book, 'gallery-cover', 'gallery-cover')}
       <div class="monthly-cover-title">${esc(book.title || 'Untitled')}</div>
       <div class="monthly-cover-author">${authorProfileButton(book)}</div>
-      ${paused ? `<div class="monthly-cover-status">${libraryRatingOrStatus(book)}</div>` : ''}
+      ${ratingOrStatus !== '—' ? `<div class="monthly-cover-status">${ratingOrStatus}</div>` : ''}
       ${dates ? `<div class="monthly-cover-author">${esc(dates)}</div>` : ''}
     </div>`;
   }).join('');
@@ -16629,17 +16629,24 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       const status = libraryBookStatus(b);
       const isCurrentlyReading = status === 'Currently Reading';
       const isPaused = status === 'Paused';
-      const titleShort = isPaused ? `⏸ ${b.title} · Paused` : (isCurrentlyReading ? `📖 ${b.title} · Reading` : b.title);
+      const isDNF = isDNFStatusValue(status);
+      const titleShort = isPaused
+        ? `⏸ ${b.title} · Paused`
+        : isCurrentlyReading
+          ? `📖 ${b.title} · Reading`
+          : isDNF
+            ? `🚫 ${b.title} · DNF`
+            : b.title;
       const radius = `border-radius:${entry.isStart?'4px':'0'} ${entry.isEnd?'4px':'0'} ${entry.isEnd?'4px':'0'} ${entry.isStart?'4px':'0'}`;
       const borderL = entry.isStart ? '' : 'border-left:none;';
       const borderR = entry.isEnd ? '' : 'border-right:none;';
       const label = entry.isStart ? `<span class="reading-calendar-title">${esc(titleShort)}</span>` : '';
       const barBackground = entry.color;
-      const barOutline = isPaused || isCurrentlyReading ? 'box-shadow:inset 0 0 0 2px var(--gold-light);' : '';
+      const barOutline = isPaused || isCurrentlyReading || isDNF ? 'box-shadow:inset 0 0 0 2px var(--gold-light);' : '';
       const barTextColor = contrastingTextColor(barBackground);
       const spanDates = `${entry.span.start}${entry.span.end && entry.span.end !== entry.span.start ? ' → ' + entry.span.end : ''}`;
       return `<div class="reading-calendar-bar" style="background:${barBackground};color:${barTextColor};font-size:0.7rem;font-weight:600;height:20px;line-height:20px;margin:1px 0;${radius};${borderL}${borderR};${barOutline}cursor:pointer;font-family:'Crimson Pro',serif"
-  title="${esc(b.title)} · ${isPaused ? 'Paused · ' : (isCurrentlyReading ? 'Currently Reading · ' : '')}${esc(spanDates)}"
+  title="${esc(b.title)} · ${isPaused ? 'Paused · ' : (isCurrentlyReading ? 'Currently Reading · ' : (isDNF ? 'DNF · ' : ''))}${esc(spanDates)}"
         data-title="${esc(b.title).replace(/"/g,'&quot;')}" onclick="openMonthBookModal(this.dataset.title, event)">
         ${label}
       </div>`;
@@ -16661,7 +16668,11 @@ function showMonthSummary(yearMonth, updateRoute=true) {
     .map(entry => {
       const b = entry.book;
       const status = libraryBookStatus(b);
-      const statusText = status === 'Paused' ? ' · Paused' : (status === 'Currently Reading' ? ' · Currently Reading' : '');
+      const statusText = status === 'Paused'
+        ? ' · Paused'
+        : status === 'Currently Reading'
+          ? ' · Currently Reading'
+          : isDNFStatusValue(status) ? ' · DNF' : '';
       const dates = entry.end && entry.end !== entry.start ? `${entry.start} → ${entry.end}` : entry.start;
       return `<button class="reading-calendar-mobile-row" type="button" data-title="${esc(b.title).replace(/"/g,'&quot;')}" onclick="openMonthBookModal(this.dataset.title, event)">
         <span class="reading-calendar-mobile-accent" style="background:${entry.color}"></span>
