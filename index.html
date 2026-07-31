@@ -7103,7 +7103,8 @@ function recordedActivitySpans(book) {
       addSpan(resumedOn, resumedEnd);
     }
   } else {
-    addSpan(book?.start, book?.end);
+    const activeEnd = book?.end || (currentStatus === 'Currently Reading' ? localDateKey() : book?.start);
+    addSpan(book?.start, activeEnd);
   }
   (Array.isArray(book?.short_stories) ? book.short_stories : []).forEach(story => {
     const started = story?.started_on || story?.read_on || story?.finished_on || '';
@@ -8734,6 +8735,23 @@ function monthCoverPreviewHTML(books) {
   return `<div class="month-cover-preview" aria-hidden="true">${covers}${more}</div>`;
 }
 
+function monthlyCoverSummaryBooks(yearMonth, finishedBooks=[]) {
+  const [year, month] = String(yearMonth || '').split('-').map(Number);
+  const pausedBooks = Number.isInteger(year) && Number.isInteger(month)
+    ? allLibraryBooks().filter(book =>
+        libraryBookStatus(book) === 'Paused' && bookSpansYearMonth(book, year, month)
+      )
+    : [];
+  const unique = new Map();
+  [...finishedBooks, ...pausedBooks].forEach(book => {
+    const key = book._reading_session_id
+      ? `session:${book._reading_session_id}`
+      : `book:${book.database_id || book.id || bookIdentity(book)}`;
+    if (!unique.has(key)) unique.set(key, book);
+  });
+  return [...unique.values()].sort(compareMonthReadOrder);
+}
+
 function showYear(year) {
   const showAllYears = String(year).toLowerCase() === 'all';
   readingLogYear = showAllYears ? 'all' : Number(year);
@@ -8772,11 +8790,12 @@ function showYear(year) {
     const mn = monthNames[parseInt(m.split('-')[1])-1];
     const mavg = d.count ? formatUserRating(d.total/d.count, 2) : '—';
     const monthBooks = [...d.books].sort(compareMonthReadOrder);
+    const monthCoverBooks = monthlyCoverSummaryBooks(m, monthBooks);
     const monthLabel = `${mn} ${m.split('-')[0]}`;
-    return `<div class="month-card" style="cursor:pointer" onclick="openMonthlyCoverSummary('${m}', '${monthLabel}', ${jsArg(monthBooks)}, event)" title="Click to see covers">
+    return `<div class="month-card" style="cursor:pointer" onclick="openMonthlyCoverSummary('${m}', '${monthLabel}', ${jsArg(monthCoverBooks)}, event)" title="Click to see covers">
       <div class="month-name">${mn} ${m.split('-')[0]}</div>
       <div class="month-count">${d.books.length}</div>
-      ${monthCoverPreviewHTML(monthBooks)}
+      ${monthCoverPreviewHTML(monthCoverBooks)}
       <div class="month-avg">Avg: ${mavg}</div>
       <div class="month-avg">${pageMetric(d.pages)} pages</div>
       <div style="font-size:0.7rem;color:var(--gold);margin-top:0.3rem">▼ View Covers</div>
@@ -16271,10 +16290,12 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     `${orderedBooks.length} book${orderedBooks.length !== 1 ? 's' : ''}`;
   const coverTiles = orderedBooks.map(book => {
     const dates = book.start ? book.start + (book.end && book.end !== book.start ? ' → ' + book.end : '') : '';
+    const paused = libraryBookStatus(book) === 'Paused';
     return `<div class="monthly-cover-tile" role="button" tabindex="0" ${bookClickAttributes(book, 'calendar')} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
       ${coverImageHTML(book, 'gallery-cover', 'gallery-cover')}
       <div class="monthly-cover-title">${esc(book.title || 'Untitled')}</div>
       <div class="monthly-cover-author">${authorProfileButton(book)}</div>
+      ${paused ? `<div>${libraryRatingOrStatus(book)}</div>` : ''}
       ${dates ? `<div class="monthly-cover-author">${esc(dates)}</div>` : ''}
     </div>`;
   }).join('');
@@ -16440,6 +16461,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
     String(a.start || a.end || '').localeCompare(String(b.start || b.end || ''), undefined, {numeric: true})
       || String(a.title || '').localeCompare(String(b.title || ''), undefined, {sensitivity: 'base'})
   );
+  const coverSummaryBooks = monthlyCoverSummaryBooks(yearMonth, books);
 
   if (!books.length && !calendarBooks.length) {
     panel.innerHTML = `<div style="max-width:1300px;margin:0 auto;padding:1rem 0 2rem">
@@ -16632,7 +16654,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
         <h2 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:var(--deep);margin:0">${label}</h2>
         <span class="badge">${books.length} finished</span>
         ${calendarBooks.length !== books.length ? `<span class="badge">${calendarBooks.length} on calendar</span>` : ''}
-        ${books.length ? `<button class="month-cover-summary-link" type="button" onclick="openMonthlyCoverSummary(${jsArg(yearMonth)}, ${jsArg(label)}, ${jsArg(books)}, event)">Show Monthly Cover Summary</button>` : ''}
+        ${coverSummaryBooks.length ? `<button class="month-cover-summary-link" type="button" onclick="openMonthlyCoverSummary(${jsArg(yearMonth)}, ${jsArg(label)}, ${jsArg(coverSummaryBooks)}, event)">Show Monthly Cover Summary</button>` : ''}
         ${monthNavigationHTML(yearMonth)}
       </div>
 
