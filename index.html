@@ -4721,7 +4721,6 @@
   .club-page-actions { display:flex; gap:0.55rem; flex-wrap:wrap; justify-content:flex-end; }
   .club-page-actions button,.club-hub-toolbar button { min-height:40px; padding:.5rem .8rem; border:1px solid var(--border); border-radius:8px; cursor:pointer; font:750 .82rem inherit; }
   .club-page-actions button:disabled { opacity:.45; cursor:not-allowed; }
-  .club-test-badge { display:inline-flex; align-items:center; margin-left:0.4rem; padding:0.2rem 0.5rem; border-radius:999px; background:linear-gradient(135deg,rgba(255,122,0,.15),rgba(65,105,225,.15)); color:var(--burnt); font:800 .62rem inherit; letter-spacing:.08em; text-transform:uppercase; vertical-align:middle; }
   .club-callout { margin:0 0 1rem; padding:.8rem .9rem; border:1px solid rgba(65,105,225,.28); border-left:4px solid #4169e1; border-radius:8px; background:rgba(65,105,225,.055); color:var(--ink); font-size:.86rem; }
   .club-callout.warning { border-color:rgba(255,122,0,.32); border-left-color:var(--gold); background:rgba(255,122,0,.07); }
   .club-summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
@@ -8272,7 +8271,7 @@ function buildStats() {
     genres:()=>statsGenresHTML(reads), authors:()=>statsAuthorsHTML(reads), formats:()=>statsFormatsHTML(reads),
     series:()=>statsSeriesHTML(library), library:()=>statsLibraryHTML(library)
   }[statsSection]?.() || '';
-  panel.innerHTML=`<div class="stats-workspace"><div class="section-head"><div><h2>Statistics Lab</h2><p>Explore your reading patterns without changing your library.</p></div><span class="badge">Test</span></div>
+  panel.innerHTML=`<div class="stats-workspace"><div class="section-head"><div><h2>Reading Statistics</h2><p>Explore your reading patterns without changing your library.</p></div></div>
     <div class="stats-filter-bar">
       <label>Read Year<select onchange="updateStatsFilter('year',this.value)"><option value="all">All years</option>${years.map(year=>`<option value="${year}" ${String(year)===statsYearFilter?'selected':''}>${year}</option>`).join('')}</select></label>
       <label>Genre<select onchange="updateStatsFilter('genre',this.value)"><option value="all">All genres</option>${genres.map(value=>`<option value="${esc(value)}" ${value===statsGenreFilter?'selected':''}>${esc(value)}</option>`).join('')}</select></label>
@@ -15526,7 +15525,7 @@ function clubReadCoverHTML(read, className='club-read-cover') {
 }
 
 function bookClubStorageCallout() {
-  if (guestMode) return `<div class="club-callout">This is sample data for the test page. Sign in and run <strong>supabase_book_clubs.sql</strong> when you are ready to create a real club.</div>`;
+  if (guestMode) return `<div class="club-callout">This is sample book club data. Sign in and run <strong>supabase_book_clubs.sql</strong> when you are ready to create a club.</div>`;
   if (!bookClubsStorageAvailable) return `<div class="club-callout warning"><strong>Book Clubs need to be enabled.</strong> Run <strong>supabase_book_clubs.sql</strong> in Supabase, then refresh this page.</div>`;
   if (!bookClubWorkspaceAvailable || !bookClubInvitationsAvailable) return `<div class="club-callout warning"><strong>The club workspace needs the latest migration.</strong> Re-run <strong>supabase_book_clubs.sql</strong> to add invitations and open enrollment.</div>`;
   return `<div class="club-callout">Club details, invitations, enrollment, rosters, selections, and meetings are live account data.</div>`;
@@ -15544,7 +15543,7 @@ function buildBookClubs() {
   const canCreate = !guestMode && bookClubsStorageAvailable;
   panel.innerHTML = `<div class="club-page">
     <div class="club-page-head">
-      <div><h2>Book Club Manager <span class="club-test-badge">Test Page</span></h2><p>Create a club, plan its reading schedule, manage members, and keep meeting details together.</p></div>
+      <div><h2>Book Club Manager</h2><p>Create a club, plan its reading schedule, manage members, and keep meeting details together.</p></div>
       <div class="club-page-actions">
         <button class="account-secondary" type="button" onclick="switchTab('club-hub')">View Member Hub</button>
         <button class="account-primary" type="button" onclick="openBookClubEditor()" ${canCreate ? '' : 'disabled'}>＋ New Book Club</button>
@@ -15617,7 +15616,7 @@ function buildBookClubHub() {
   const pendingInvitations = currentUserBookClubInvitations();
   panel.innerHTML = `<div class="club-page">
     <div class="club-page-head">
-      <div><h2>Club Hub <span class="club-test-badge">Test Page</span></h2><p>Your clubs appear first. You can also discover clubs that welcome new members.</p></div>
+      <div><h2>Club Hub</h2><p>Your clubs appear first. You can also discover clubs that welcome new members.</p></div>
       <div class="club-hub-toolbar">
         <button class="account-secondary" type="button" onclick="toggleOpenBookClubs()">${showOpenBookClubs ? 'Hide Open Clubs' : `Show Open Clubs${openClubs.length ? ` (${openClubs.length})` : ''}`}</button>
         <button class="account-secondary" type="button" onclick="switchTab('clubs')">Manage Clubs</button>
