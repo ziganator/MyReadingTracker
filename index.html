@@ -1345,6 +1345,13 @@
     cursor: pointer;
   }
   .library-list-row:hover { background: var(--aged); }
+  .monthly-reading-list .library-list-row {
+    grid-template-columns: 48px minmax(150px, 2fr) minmax(80px, 0.8fr) minmax(70px, 0.8fr) minmax(130px, 1.3fr) minmax(60px, 0.6fr);
+  }
+  .monthly-reading-rating {
+    text-align: right;
+    white-space: nowrap;
+  }
   .library-list-cover {
     width: 46px;
     height: 66px;
@@ -3742,6 +3749,13 @@
     padding: 0.7rem;
   }
   .library-list-row.bulk-selecting { padding-right: 2.45rem; }
+  .monthly-reading-list .library-list-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .monthly-reading-rating {
+    text-align: left;
+    white-space: normal;
+  }
   .library-list-copy,
   .library-list-author,
   .library-list-detail {
@@ -16504,6 +16518,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       || String(a.title || '').localeCompare(String(b.title || ''), undefined, {sensitivity: 'base'})
   );
   const coverSummaryBooks = monthlyCoverSummaryBooks(yearMonth, books);
+  const monthListBooks = coverSummaryBooks.filter(book => libraryBookStatus(book) !== 'Paused');
 
   if (!books.length && !calendarBooks.length) {
     panel.innerHTML = `<div style="max-width:1300px;margin:0 auto;padding:1rem 0 2rem">
@@ -16683,21 +16698,21 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       </button>`;
     }).join('');
 
-  const monthBookList = books.length
-    ? `<div class="library-list">${books.map(b => `
+  const monthBookList = monthListBooks.length
+    ? `<div class="library-list monthly-reading-list">${monthListBooks.map(b => `
         <div class="library-list-row" ${bookClickAttributes(b, 'calendar')}>
           ${coverImageHTML(b, 'list-cover', 'library-list-cover')}
-          <div>
+          <div class="library-list-copy">
             <div class="library-list-title">${esc(b.title || 'Untitled')}</div>
             <div class="library-list-author">${authorProfileButton(b)}</div>
           </div>
           <div class="library-list-detail">${esc(b.genre || '—')}</div>
           <div class="library-list-detail">${pageCountForBook(b) ? `${pageMetric(pageCountForBook(b))} pages` : '—'}</div>
           <div class="library-list-detail">${b.start || b.end ? esc(`${b.start || ''}${b.end && b.end !== b.start ? ' → ' + b.end : ''}`) : '—'}</div>
-          <div class="library-list-detail">${b.rating ? ratingDisplay(b.rating) : '—'}</div>
+          <div class="library-list-detail monthly-reading-rating">${libraryRatingOrStatus(b)}</div>
         </div>
       `).join('')}</div>`
-    : '<p style="color:var(--muted);font-style:italic;margin:0">No books were finished this month.</p>';
+    : '<p style="color:var(--muted);font-style:italic;margin:0">No completed or DNF books were recorded this month.</p>';
 
   panel.innerHTML = `
     <div style="max-width:1300px;margin:0 auto;padding:0 0 2rem">
@@ -16767,7 +16782,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       <section style="margin-top:1.5rem">
         <div class="section-head" style="margin-bottom:0.75rem">
           <h2 style="font-size:1.25rem">Books Read in ${label}</h2>
-          <span class="badge">${books.length}</span>
+          <span class="badge">${monthListBooks.length}</span>
         </div>
         ${monthBookList}
       </section>
