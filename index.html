@@ -2742,16 +2742,28 @@
   }
   .monthly-cover-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: repeat(auto-fill, minmax(min(112px, 100%), 1fr));
     gap: 0.9rem;
+    overflow: hidden;
   }
   .monthly-cover-tile {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     background: rgba(247,248,255,0.72);
     border: 1px solid var(--aged);
     border-radius: 6px;
     cursor: pointer;
     padding: 0.6rem;
     text-align: center;
+  }
+  .monthly-cover-tile > * {
+    min-width: 0;
+    max-width: 100%;
   }
   .monthly-cover-tile:hover { border-color: var(--gold); box-shadow: 0 2px 10px var(--shadow); }
   .monthly-cover-tile .gallery-cover,
@@ -2764,15 +2776,41 @@
     margin: 0 auto 0.5rem;
   }
   .monthly-cover-title {
+    max-width: 100%;
     color: var(--deep);
     font-weight: 700;
     font-size: 0.86rem;
     line-height: 1.15;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .monthly-cover-author {
+    max-width: 100%;
     color: var(--muted);
     font-size: 0.75rem;
     margin-top: 0.2rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .monthly-cover-author .author-profile-links,
+  .monthly-cover-author .author-profile-link {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .monthly-cover-status {
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 0.35rem;
+  }
+  .monthly-cover-status .library-status-pill {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 0.16rem 0.34rem;
+    font-size: 0.62rem;
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .month-cover-summary-link {
     background: none;
@@ -16295,7 +16333,7 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
       ${coverImageHTML(book, 'gallery-cover', 'gallery-cover')}
       <div class="monthly-cover-title">${esc(book.title || 'Untitled')}</div>
       <div class="monthly-cover-author">${authorProfileButton(book)}</div>
-      ${paused ? `<div>${libraryRatingOrStatus(book)}</div>` : ''}
+      ${paused ? `<div class="monthly-cover-status">${libraryRatingOrStatus(book)}</div>` : ''}
       ${dates ? `<div class="monthly-cover-author">${esc(dates)}</div>` : ''}
     </div>`;
   }).join('');
