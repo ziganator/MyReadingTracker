@@ -4850,8 +4850,9 @@
   .social-page-head p { margin:.25rem 0 0; color:var(--muted); }
   .social-page-actions,.social-tabs,.social-card-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
   .social-tabs { margin-bottom:1rem; padding-bottom:.75rem; border-bottom:1px solid var(--border); }
-  .social-tabs button { border:1px solid var(--border); border-radius:7px; padding:.55rem .85rem; background:#fff; color:var(--ink); font-weight:700; cursor:pointer; }
-  .social-tabs button.active { color:#fff; border-color:transparent; background:var(--accent-gradient); }
+  .social-tabs button { min-height:40px; border:1.5px solid #cbd5f5; border-radius:10px; padding:.58rem .9rem; background:#fff; color:#294374; font:800 .88rem 'Crimson Pro',serif; cursor:pointer; box-shadow:0 2px 6px rgba(21,42,85,.045); transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease; }
+  .social-tabs button:hover { transform:translateY(-1px); border-color:#4169e1; background:#f7f9ff; box-shadow:0 4px 10px rgba(65,105,225,.1); }
+  .social-tabs button.active { color:#fff; border-color:transparent; background:var(--accent-gradient); box-shadow:0 5px 12px rgba(65,105,225,.2); }
   .social-layout { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(250px,.75fr); gap:1rem; align-items:start; }
   .social-feed,.social-side { display:grid; gap:1rem; }
   .social-panel,.social-post,.social-person-card { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 14px rgba(21,42,85,.06); }
@@ -4881,6 +4882,18 @@
   .social-book-suggestion span { margin-top:.08rem; color:var(--muted); font-size:.76rem; }
   .social-composer-footer { display:flex; align-items:end; justify-content:space-between; gap:.75rem; }
   .social-composer-footer label { min-width:150px; }
+  .social-page button.account-primary,.social-profile-settings button.account-primary {
+    min-height:42px; border:0; border-color:transparent !important; border-radius:10px; background:var(--accent-gradient); color:#fff; padding:.68rem 1rem; font:800 .93rem 'Crimson Pro',serif; letter-spacing:.01em; cursor:pointer; box-shadow:0 5px 12px rgba(65,105,225,.18); transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;
+  }
+  .social-page button.account-primary:hover,.social-profile-settings button.account-primary:hover { transform:translateY(-1px); filter:saturate(1.08) brightness(1.02); box-shadow:0 7px 16px rgba(65,105,225,.24); }
+  .social-page button.account-secondary,.social-profile-settings button.account-secondary {
+    min-height:40px; border:1.5px solid #b9c8f2; border-radius:10px; background:#fff; color:#294374; padding:.62rem .9rem; font:800 .9rem 'Crimson Pro',serif; cursor:pointer; box-shadow:0 2px 6px rgba(21,42,85,.045); transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease;
+  }
+  .social-page button.account-secondary:hover,.social-profile-settings button.account-secondary:hover { transform:translateY(-1px); border-color:#4169e1; background:#f7f9ff; box-shadow:0 4px 10px rgba(65,105,225,.1); }
+  .social-composer-footer button.account-primary { min-width:132px; min-height:46px; padding:.75rem 1.15rem; }
+  .social-page button:active,.social-profile-settings button:active { transform:translateY(0); box-shadow:0 2px 5px rgba(21,42,85,.12); }
+  .social-page button:focus-visible,.social-profile-settings button:focus-visible { outline:3px solid rgba(65,105,225,.2); outline-offset:2px; }
+  .social-page button:disabled,.social-profile-settings button:disabled { cursor:wait; opacity:.62; transform:none; box-shadow:none; }
   .social-post-head { display:flex; align-items:center; gap:.65rem; }
   .social-avatar { flex:0 0 42px; width:42px; height:42px; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--accent-gradient); color:#fff; font-weight:800; }
   .social-avatar img { width:100%; height:100%; object-fit:cover; }
@@ -4894,8 +4907,11 @@
   .social-book-copy strong,.social-book-copy span { display:block; overflow-wrap:anywhere; }
   .social-book-copy span { margin-top:.2rem; color:var(--muted); font-size:.82rem; }
   .social-post-footer { display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin-top:.75rem; }
-  .social-link-button { border:0; background:transparent; color:#4169e1; padding:.3rem .15rem; font-weight:700; cursor:pointer; }
-  .social-link-button.liked { color:#f06a00; }
+  .social-link-button { border:1px solid transparent; border-radius:8px; background:#f4f7ff; color:#4169e1; padding:.38rem .58rem; font:800 .82rem 'Crimson Pro',serif; cursor:pointer; transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease; }
+  .social-link-button:hover { transform:translateY(-1px); border-color:#cbd5f5; background:#edf2ff; }
+  .social-link-button.liked { border-color:#ffd2ad; background:#fff4ea; color:#d85f00; }
+  .social-link-button.danger { background:#fff7f6; color:#9b3a32; }
+  .social-link-button.danger:hover { border-color:#e7b8b4; background:#fff0ee; }
   .social-people-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
   .social-person-card { padding:.85rem; display:flex; align-items:flex-start; gap:.7rem; min-width:0; }
   .social-person-copy { flex:1; min-width:0; }
@@ -4921,6 +4937,8 @@
     .social-people-grid { grid-template-columns:1fr; }
     .social-composer-footer { align-items:stretch; flex-direction:column; }
     .social-composer-footer label { width:100%; }
+    .social-composer-footer button.account-primary { width:100%; }
+    .social-card-actions button { flex:1 1 120px; }
   }
 
 </style>
@@ -7231,7 +7249,7 @@ function socialPostHTML(post) {
   return `<article class="social-post">
     <div class="social-post-head">${socialAvatarHTML(profile,name)}
       <div class="social-post-byline"><strong>${esc(name)}</strong><span class="social-post-meta">${esc(socialPostDate(post.created_at))} · ${post.visibility === 'Public' ? 'Everyone' : 'Friends'}</span></div>
-      ${own ? `<button class="social-link-button" type="button" onclick="confirmDeleteSocialPost(${jsArg(post.id)})">Delete</button>` : ''}
+      ${own ? `<button class="social-link-button danger" type="button" onclick="confirmDeleteSocialPost(${jsArg(post.id)})">Delete</button>` : ''}
     </div>
     ${post.thoughts ? `<div class="social-post-thoughts">${esc(post.thoughts)}</div>` : ''}
     ${socialBookCardHTML(post)}
