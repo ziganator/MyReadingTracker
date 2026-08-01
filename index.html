@@ -4842,6 +4842,60 @@
     .club-roster-row { align-items:flex-start; flex-direction:column; }
   }
 
+  .social-page { max-width:1120px; margin:0 auto; }
+  .social-page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+  .social-page-head h2 { margin:0; }
+  .social-page-head p { margin:.25rem 0 0; color:var(--muted); }
+  .social-page-actions,.social-tabs,.social-card-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .social-tabs { margin-bottom:1rem; padding-bottom:.75rem; border-bottom:1px solid var(--border); }
+  .social-tabs button { border:1px solid var(--border); border-radius:7px; padding:.55rem .85rem; background:#fff; color:var(--ink); font-weight:700; cursor:pointer; }
+  .social-tabs button.active { color:#fff; border-color:transparent; background:var(--accent-gradient); }
+  .social-layout { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(250px,.75fr); gap:1rem; align-items:start; }
+  .social-feed,.social-side { display:grid; gap:1rem; }
+  .social-panel,.social-post,.social-person-card { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 14px rgba(21,42,85,.06); }
+  .social-panel,.social-post { padding:1rem; }
+  .social-panel h3 { margin:0 0 .7rem; color:var(--ink); }
+  .social-composer-fields { display:grid; gap:.65rem; }
+  .social-composer-fields select,.social-composer-fields textarea,.social-profile-fields input,.social-profile-fields textarea { width:100%; box-sizing:border-box; }
+  .social-composer-fields textarea,.social-profile-fields textarea { min-height:94px; resize:vertical; }
+  .social-composer-footer { display:flex; align-items:end; justify-content:space-between; gap:.75rem; }
+  .social-composer-footer label { min-width:150px; }
+  .social-post-head { display:flex; align-items:center; gap:.65rem; }
+  .social-avatar { flex:0 0 42px; width:42px; height:42px; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--accent-gradient); color:#fff; font-weight:800; }
+  .social-avatar img { width:100%; height:100%; object-fit:cover; }
+  .social-post-byline { min-width:0; flex:1; }
+  .social-post-byline strong,.social-person-copy strong { display:block; color:var(--ink); overflow-wrap:anywhere; }
+  .social-post-meta,.social-person-copy p,.social-empty { color:var(--muted); font-size:.8rem; }
+  .social-post-thoughts { margin:.85rem 0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.5; }
+  .social-book { display:grid; grid-template-columns:58px minmax(0,1fr); gap:.7rem; padding:.65rem; border:1px solid var(--border); border-radius:9px; background:rgba(65,105,225,.035); cursor:pointer; }
+  .social-book-cover { width:58px; height:87px; object-fit:cover; border-radius:4px; }
+  .social-book-copy { min-width:0; align-self:center; }
+  .social-book-copy strong,.social-book-copy span { display:block; overflow-wrap:anywhere; }
+  .social-book-copy span { margin-top:.2rem; color:var(--muted); font-size:.82rem; }
+  .social-post-footer { display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin-top:.75rem; }
+  .social-link-button { border:0; background:transparent; color:#4169e1; padding:.3rem .15rem; font-weight:700; cursor:pointer; }
+  .social-link-button.liked { color:#f06a00; }
+  .social-people-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+  .social-person-card { padding:.85rem; display:flex; align-items:flex-start; gap:.7rem; min-width:0; }
+  .social-person-copy { flex:1; min-width:0; }
+  .social-person-copy p { margin:.25rem 0 .55rem; line-height:1.35; }
+  .social-profile-fields { display:grid; gap:.65rem; }
+  .social-discoverable { display:flex; gap:.55rem; align-items:flex-start; font-size:.82rem; color:var(--muted); }
+  .social-discoverable input { width:auto; margin-top:.15rem; accent-color:#4169e1; }
+  .social-notice { padding:.85rem; border-radius:8px; border:1px solid #ffc08a; background:#fff6ed; color:#704019; line-height:1.45; }
+  @media (max-width:760px) {
+    .social-layout { grid-template-columns:1fr; }
+    .social-side { grid-row:1; }
+  }
+  @media (max-width:540px) {
+    .social-page-head { display:block; }
+    .social-page-actions { margin-top:.7rem; }
+    .social-page-actions button { flex:1; }
+    .social-people-grid { grid-template-columns:1fr; }
+    .social-composer-footer { align-items:stretch; flex-direction:column; }
+    .social-composer-footer label { width:100%; }
+  }
+
 </style>
 </head>
 <body>
@@ -4861,6 +4915,7 @@
 <main>
   <div class="tab-panel" id="tab-log-detail"></div>
   <div class="tab-panel" id="tab-stats"></div>
+  <div class="tab-panel" id="tab-social"></div>
   <div class="tab-panel" id="tab-month"></div>
   <div class="tab-panel" id="tab-search"></div>
   <div class="tab-panel active" id="tab-books"></div>
@@ -5086,6 +5141,14 @@ let statsAuthorRatingMinimum = 1;
 let statsAuthorSort = 'rating-desc';
 let statsDatabaseRefreshPromise = null;
 let statsDatabaseRefreshMessage = '';
+let socialProfiles = [];
+let socialFriendships = [];
+let socialPosts = [];
+let socialPostLikes = [];
+let socialStorageAvailable = false;
+let socialLoadMessage = '';
+let socialSection = 'feed';
+let socialPeopleQuery = '';
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
@@ -5809,6 +5872,13 @@ async function saveAccountProfile() {
     if (!response.ok) throw new Error(result.msg || result.message || 'The account details could not be saved.');
     if (result.id) saveSupabaseSession({...supabaseSession, user: result});
     updateAccountUI();
+    try {
+      await ensureSocialProfile();
+      if (socialStorageAvailable) await loadSocialData();
+      if (document.getElementById('tab-social')?.classList.contains('active')) buildSocialPage();
+    } catch (socialError) {
+      console.warn('Account saved, but the social display name was not synchronized:', socialError.message);
+    }
     setAccountStatus(email !== oldEmail
       ? 'Account saved. Check your email if Supabase asks you to confirm the new address.'
       : 'Account saved.');
@@ -6919,6 +6989,322 @@ function ratingDisplay(r) {
   
   return `<span class="rating ${ratingClass(r)}" style="display:inline-flex; align-items:center;">${arrowSvg}${formatUserRating(n)}</span>`;
 }
+
+// ─── Social feed and friends ──────────────────────────────────
+function currentSocialUserId() {
+  return supabaseSession?.user?.id || '';
+}
+
+function socialProfileFor(userId) {
+  return socialProfiles.find(profile => profile.user_id === userId) || null;
+}
+
+function socialDisplayName(userId) {
+  return socialProfileFor(userId)?.display_name || (userId === currentSocialUserId() ? accountDisplayName() : '') || 'Reader';
+}
+
+function socialInitials(name) {
+  const parts = String(name || 'Reader').trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] || 'R') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+function socialAvatarHTML(profile, name='Reader') {
+  return `<span class="social-avatar">${profile?.avatar_url
+    ? `<img src="${esc(profile.avatar_url)}" alt="" onerror="this.remove()">`
+    : esc(socialInitials(name))}</span>`;
+}
+
+function socialFriendshipWith(userId) {
+  const ownId = currentSocialUserId();
+  return socialFriendships.find(friendship =>
+    (friendship.requester_id === ownId && friendship.addressee_id === userId) ||
+    (friendship.requester_id === userId && friendship.addressee_id === ownId)
+  ) || null;
+}
+
+function socialFriendIds() {
+  const ownId = currentSocialUserId();
+  return socialFriendships
+    .filter(friendship => friendship.status === 'Accepted')
+    .map(friendship => friendship.requester_id === ownId ? friendship.addressee_id : friendship.requester_id);
+}
+
+function socialIncomingRequests() {
+  return socialFriendships.filter(friendship => friendship.status === 'Pending' && friendship.addressee_id === currentSocialUserId());
+}
+
+function socialOutgoingRequests() {
+  return socialFriendships.filter(friendship => friendship.status === 'Pending' && friendship.requester_id === currentSocialUserId());
+}
+
+async function ensureSocialProfile() {
+  if (!currentSocialUserId() || guestMode) return null;
+  const displayName = accountDisplayName() || socialProfileFor(currentSocialUserId())?.display_name || 'Reader';
+  const rows = await supabaseTableRequest('social_profiles', {
+    method:'POST',
+    query:'?on_conflict=user_id',
+    body:[{user_id:currentSocialUserId(), display_name:displayName}],
+    prefer:'resolution=merge-duplicates,return=representation'
+  });
+  return rows?.[0] || null;
+}
+
+async function loadSocialData() {
+  socialProfiles=[];
+  socialFriendships=[];
+  socialPosts=[];
+  socialPostLikes=[];
+  socialStorageAvailable=false;
+  socialLoadMessage='';
+  if (guestMode || !currentSocialUserId()) return false;
+  try {
+    await ensureSocialProfile();
+    const [profiles, friendships, posts, likes] = await Promise.all([
+      supabaseTableRequest('social_profiles', {query:'?select=user_id,display_name,bio,avatar_url,discoverable,created_at,updated_at&order=display_name.asc'}),
+      supabaseTableRequest('friendships', {query:'?select=id,requester_id,addressee_id,status,created_at,updated_at,accepted_at&order=created_at.desc'}),
+      supabaseTableRequest('social_posts', {query:'?select=id,user_id,book_id,book_title,book_author,cover_url,rating,thoughts,visibility,created_at,updated_at&order=created_at.desc&limit=100'}),
+      supabaseTableRequest('social_post_likes', {query:'?select=post_id,user_id,created_at'})
+    ]);
+    socialProfiles=profiles || [];
+    socialFriendships=friendships || [];
+    socialPosts=posts || [];
+    socialPostLikes=likes || [];
+    socialStorageAvailable=true;
+    return true;
+  } catch (error) {
+    console.warn('Social features are not available yet:', error.message);
+    socialLoadMessage='Run supabase_social.sql in the Supabase SQL Editor, then refresh Social.';
+    return false;
+  }
+}
+
+async function refreshSocialData(button=null) {
+  if (button) {
+    button.disabled=true;
+    button.textContent='Refreshing…';
+  }
+  await loadSocialData();
+  buildSocialPage();
+}
+
+function selectSocialSection(section) {
+  socialSection=['feed','friends','requests'].includes(section) ? section : 'feed';
+  buildSocialPage();
+}
+
+function socialBookOptions() {
+  const books=allReadBooks()
+    .filter(book => book.database_id)
+    .sort((a,b) => String(b.end || b.finished_on || '').localeCompare(String(a.end || a.finished_on || '')) || String(a.title || '').localeCompare(String(b.title || '')));
+  return books.map(book => `<option value="${esc(book.database_id)}">${esc(book.title)} — ${esc(displayBookContributor(book))}</option>`).join('');
+}
+
+function socialProfilePanelHTML() {
+  const profile=socialProfileFor(currentSocialUserId()) || {};
+  const name=profile.display_name || accountDisplayName() || 'Reader';
+  return `<section class="social-panel">
+    <h3>Your social profile</h3>
+    <div class="social-post-head" style="margin-bottom:.8rem">${socialAvatarHTML(profile,name)}<div class="social-post-byline"><strong>${esc(name)}</strong><span class="social-post-meta">Change your name in Account settings.</span></div></div>
+    <div class="social-profile-fields">
+      <label>Bio<textarea id="social-profile-bio" maxlength="500" placeholder="Tell other readers a little about yourself.">${esc(profile.bio || '')}</textarea></label>
+      <label>Avatar image URL<input id="social-profile-avatar" type="url" value="${esc(profile.avatar_url || '')}" placeholder="https://…"></label>
+      <label class="social-discoverable"><input id="social-profile-discoverable" type="checkbox" ${profile.discoverable !== false ? 'checked' : ''}><span><strong>Let readers find me</strong><br>Your name, bio, and avatar can appear in friend discovery.</span></label>
+      <button class="account-secondary" type="button" onclick="saveSocialProfile(this)">Save Social Profile</button>
+    </div>
+  </section>`;
+}
+
+function socialComposerHTML() {
+  return `<section class="social-panel">
+    <h3>Share with your reading friends</h3>
+    <div class="social-composer-fields">
+      <label>Book (optional)<select id="social-post-book"><option value="">No book attached</option>${socialBookOptions()}</select></label>
+      <label>Your thoughts<textarea id="social-post-thoughts" maxlength="2000" placeholder="What did you think? What stayed with you?"></textarea></label>
+      <div class="social-composer-footer">
+        <label>Who can see this?<select id="social-post-visibility"><option value="Friends">Friends only</option><option value="Public">Everyone</option></select></label>
+        <button class="account-primary" type="button" onclick="createSocialPost(this)">Share Post</button>
+      </div>
+    </div>
+  </section>`;
+}
+
+function socialPostDate(value) {
+  const date=new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString([], {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+}
+
+function socialBookCardHTML(post) {
+  if (!post.book_title) return '';
+  const local=allLibraryBooks().find(book => book.database_id === post.book_id)
+    || allLibraryBooks().find(book => normalizedKey(book.title) === normalizedKey(post.book_title));
+  const coverBook={title:post.book_title,author_full:post.book_author,cover_url:post.cover_url || local?.cover_url,genre:local?.genre};
+  const open=`onclick="openSocialPostBook(${jsArg(post.book_id)},${jsArg(post.book_title)})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSocialPostBook(${jsArg(post.book_id)},${jsArg(post.book_title)})}"`;
+  return `<div class="social-book" ${open}>
+    ${coverImageHTML(coverBook,'social','social-book-cover')}
+    <div class="social-book-copy"><strong>${esc(post.book_title)}</strong><span>${esc(post.book_author || '')}</span>${post.rating ? `<span>${ratingDisplay(post.rating)}</span>` : ''}</div>
+  </div>`;
+}
+
+function socialPostHTML(post) {
+  const profile=socialProfileFor(post.user_id);
+  const name=socialDisplayName(post.user_id);
+  const likes=socialPostLikes.filter(like => like.post_id === post.id);
+  const liked=likes.some(like => like.user_id === currentSocialUserId());
+  const own=post.user_id === currentSocialUserId();
+  return `<article class="social-post">
+    <div class="social-post-head">${socialAvatarHTML(profile,name)}
+      <div class="social-post-byline"><strong>${esc(name)}</strong><span class="social-post-meta">${esc(socialPostDate(post.created_at))} · ${post.visibility === 'Public' ? 'Everyone' : 'Friends'}</span></div>
+      ${own ? `<button class="social-link-button" type="button" onclick="confirmDeleteSocialPost(${jsArg(post.id)})">Delete</button>` : ''}
+    </div>
+    ${post.thoughts ? `<div class="social-post-thoughts">${esc(post.thoughts)}</div>` : ''}
+    ${socialBookCardHTML(post)}
+    <div class="social-post-footer"><button class="social-link-button ${liked ? 'liked' : ''}" type="button" onclick="toggleSocialPostLike(${jsArg(post.id)},${liked})">${liked ? '♥ Liked' : '♡ Like'}</button><span class="social-post-meta">${likes.length} ${likes.length === 1 ? 'like' : 'likes'}</span></div>
+  </article>`;
+}
+
+function socialFeedHTML() {
+  return `<div class="social-layout"><div class="social-feed">${socialComposerHTML()}${socialPosts.length
+    ? socialPosts.map(socialPostHTML).join('')
+    : '<section class="social-panel social-empty">Your feed is quiet. Share your latest read, or add a friend to start the conversation.</section>'}</div>
+    <aside class="social-side">${socialProfilePanelHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('friends')">Find Readers</button></section></aside></div>`;
+}
+
+function socialPersonCardHTML(profile, mode='discover') {
+  const friendship=socialFriendshipWith(profile.user_id);
+  const name=profile.display_name || 'Reader';
+  let actions='';
+  if (mode === 'friend' && friendship) {
+    actions=`<button class="account-secondary" type="button" onclick="confirmRemoveSocialFriend(${jsArg(friendship.id)},${jsArg(name)})">Remove Friend</button>`;
+  } else if (mode === 'incoming' && friendship) {
+    actions=`<button class="account-primary" type="button" onclick="acceptSocialFriendRequest(${jsArg(friendship.id)},this)">Accept</button><button class="account-secondary" type="button" onclick="deleteSocialFriendship(${jsArg(friendship.id)},this)">Decline</button>`;
+  } else if (mode === 'outgoing' && friendship) {
+    actions=`<button class="account-secondary" type="button" onclick="deleteSocialFriendship(${jsArg(friendship.id)},this)">Cancel Request</button>`;
+  } else {
+    actions=`<button class="account-primary" type="button" onclick="sendSocialFriendRequest(${jsArg(profile.user_id)},this)">Add Friend</button>`;
+  }
+  return `<article class="social-person-card">${socialAvatarHTML(profile,name)}<div class="social-person-copy"><strong>${esc(name)}</strong><p>${esc(profile.bio || 'A fellow reader.')}</p><div class="social-card-actions">${actions}</div></div></article>`;
+}
+
+function socialFriendsHTML() {
+  const friendIds=new Set(socialFriendIds());
+  const connectedIds=new Set(socialFriendships.flatMap(friendship => [friendship.requester_id,friendship.addressee_id]));
+  const query=normalizedKey(socialPeopleQuery);
+  const friends=socialProfiles.filter(profile => friendIds.has(profile.user_id));
+  const discovery=socialProfiles.filter(profile => profile.user_id !== currentSocialUserId() && !connectedIds.has(profile.user_id) && profile.discoverable !== false)
+    .filter(profile => !query || normalizedKey(`${profile.display_name} ${profile.bio || ''}`).includes(query));
+  return `<div class="social-feed">
+    <section class="social-panel"><h3>Your friends</h3>${friends.length ? `<div class="social-people-grid">${friends.map(profile => socialPersonCardHTML(profile,'friend')).join('')}</div>` : '<p class="social-empty">You have not added any friends yet.</p>'}</section>
+    <section class="social-panel"><h3>Find readers</h3><label>Search by name or bio<input type="search" value="${esc(socialPeopleQuery)}" placeholder="Search readers…" oninput="updateSocialPeopleSearch(this.value)"></label><div style="height:.75rem"></div>${discovery.length ? `<div class="social-people-grid">${discovery.map(profile => socialPersonCardHTML(profile,'discover')).join('')}</div>` : '<p class="social-empty">No available readers match that search.</p>'}</section>
+  </div>`;
+}
+
+function socialRequestsHTML() {
+  const incoming=socialIncomingRequests();
+  const outgoing=socialOutgoingRequests();
+  return `<div class="social-feed">
+    <section class="social-panel"><h3>Requests to you</h3>${incoming.length ? `<div class="social-people-grid">${incoming.map(request => socialPersonCardHTML(socialProfileFor(request.requester_id) || {user_id:request.requester_id,display_name:'Reader'},'incoming')).join('')}</div>` : '<p class="social-empty">No new friend requests.</p>'}</section>
+    <section class="social-panel"><h3>Requests you sent</h3>${outgoing.length ? `<div class="social-people-grid">${outgoing.map(request => socialPersonCardHTML(socialProfileFor(request.addressee_id) || {user_id:request.addressee_id,display_name:'Reader'},'outgoing')).join('')}</div>` : '<p class="social-empty">No outgoing requests.</p>'}</section>
+  </div>`;
+}
+
+function buildSocialPage() {
+  const panel=document.getElementById('tab-social');
+  if (!panel) return;
+  if (guestMode || !currentSocialUserId()) {
+    panel.innerHTML='<div class="social-page"><div class="social-page-head"><div><h2>Social</h2><p>Share books and conversations with other readers.</p></div></div><section class="social-panel"><h3>Sign in to join the conversation</h3><p class="social-empty">Friend requests and feed posts are connected to your Reading Tracker account.</p><button class="account-primary" type="button" onclick="openAccountPanel()">Open Account</button></section></div>';
+    return;
+  }
+  if (!socialStorageAvailable) {
+    panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Social</h2><p>Share books and conversations with other readers.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div><div class="social-notice">${esc(socialLoadMessage || 'Social is being set up. Run supabase_social.sql in Supabase, then refresh this page.')}</div></div>`;
+    return;
+  }
+  const requestCount=socialIncomingRequests().length;
+  const content=socialSection === 'friends' ? socialFriendsHTML() : socialSection === 'requests' ? socialRequestsHTML() : socialFeedHTML();
+  panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Social</h2><p>Share what you read, trade thoughts, and keep up with friends.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div>
+    <div class="social-tabs"><button class="${socialSection === 'feed' ? 'active' : ''}" type="button" onclick="selectSocialSection('feed')">Feed</button><button class="${socialSection === 'friends' ? 'active' : ''}" type="button" onclick="selectSocialSection('friends')">Friends (${socialFriendIds().length})</button><button class="${socialSection === 'requests' ? 'active' : ''}" type="button" onclick="selectSocialSection('requests')">Requests${requestCount ? ` (${requestCount})` : ''}</button></div>${content}</div>`;
+}
+
+function updateSocialPeopleSearch(value) {
+  socialPeopleQuery=value || '';
+  buildSocialPage();
+  requestAnimationFrame(() => {
+    const input=document.querySelector('#tab-social input[type="search"]');
+    if (input) { input.focus(); input.setSelectionRange(input.value.length,input.value.length); }
+  });
+}
+
+async function saveSocialProfile(button) {
+  if (button) { button.disabled=true; button.textContent='Saving…'; }
+  try {
+    await supabaseTableRequest('social_profiles', {
+      method:'PATCH', query:`?user_id=eq.${currentSocialUserId()}`,
+      body:{bio:document.getElementById('social-profile-bio')?.value.trim() || null, avatar_url:document.getElementById('social-profile-avatar')?.value.trim() || null, discoverable:Boolean(document.getElementById('social-profile-discoverable')?.checked)},
+      prefer:'return=minimal'
+    });
+    await refreshSocialData();
+  } catch (error) { showAppDialog('Social Profile Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Save Social Profile'; } }
+}
+
+async function createSocialPost(button) {
+  const bookId=document.getElementById('social-post-book')?.value || '';
+  const thoughts=document.getElementById('social-post-thoughts')?.value.trim() || '';
+  const visibility=document.getElementById('social-post-visibility')?.value === 'Public' ? 'Public' : 'Friends';
+  const book=bookId ? allLibraryBooks().find(item => item.database_id === bookId) : null;
+  if (!thoughts && !book) return showAppDialog('Nothing to Share','Write a thought or choose a book first.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  if (button) { button.disabled=true; button.textContent='Sharing…'; }
+  try {
+    await supabaseTableRequest('social_posts', {method:'POST', body:[{user_id:currentSocialUserId(),book_id:book?.database_id || null,book_title:book?.title || null,book_author:book ? displayBookContributor(book) : null,cover_url:book?.cover_url || null,rating:Number(book?.rating) || null,thoughts:thoughts || null,visibility}], prefer:'return=minimal'});
+    await refreshSocialData();
+  } catch (error) { showAppDialog('Post Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Share Post'; } }
+}
+
+function openSocialPostBook(bookId,title) {
+  const book=allLibraryBooks().find(item => item.database_id === bookId) || allLibraryBooks().find(item => normalizedKey(item.title) === normalizedKey(title));
+  if (!book) return showAppDialog('Book Not in Your Library',`“${title}” was shared by another reader.`, '<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  openBookDetailByTitle(book.title,'',bookRouteKey(book));
+}
+
+async function toggleSocialPostLike(postId,liked) {
+  try {
+    if (liked) await supabaseTableRequest('social_post_likes',{method:'DELETE',query:`?post_id=eq.${postId}&user_id=eq.${currentSocialUserId()}`});
+    else await supabaseTableRequest('social_post_likes',{method:'POST',body:[{post_id:postId,user_id:currentSocialUserId()}],prefer:'return=minimal'});
+    await refreshSocialData();
+  } catch (error) { showAppDialog('Like Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); }
+}
+
+function confirmDeleteSocialPost(postId) {
+  showAppDialog('Delete Post?','This removes the post and its likes.',`<button class="account-primary" type="button" onclick="deleteSocialPost(${jsArg(postId)})">Delete</button><button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>`);
+}
+
+async function deleteSocialPost(postId) {
+  closeAppDialog();
+  try { await supabaseTableRequest('social_posts',{method:'DELETE',query:`?id=eq.${postId}`}); await refreshSocialData(); }
+  catch (error) { showAppDialog('Delete Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); }
+}
+
+async function sendSocialFriendRequest(userId,button) {
+  if (button) { button.disabled=true; button.textContent='Sending…'; }
+  try { await supabaseTableRequest('friendships',{method:'POST',body:[{requester_id:currentSocialUserId(),addressee_id:userId,status:'Pending'}],prefer:'return=minimal'}); await refreshSocialData(); }
+  catch (error) { showAppDialog('Friend Request Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Add Friend'; } }
+}
+
+async function acceptSocialFriendRequest(friendshipId,button) {
+  if (button) { button.disabled=true; button.textContent='Accepting…'; }
+  try { await supabaseTableRequest('friendships',{method:'PATCH',query:`?id=eq.${friendshipId}`,body:{status:'Accepted',accepted_at:new Date().toISOString()},prefer:'return=minimal'}); await refreshSocialData(); }
+  catch (error) { showAppDialog('Friend Request Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); }
+}
+
+async function deleteSocialFriendship(friendshipId,button=null) {
+  closeAppDialog();
+  if (button) button.disabled=true;
+  try { await supabaseTableRequest('friendships',{method:'DELETE',query:`?id=eq.${friendshipId}`}); await refreshSocialData(); }
+  catch (error) { showAppDialog('Friend Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); }
+}
+
+function confirmRemoveSocialFriend(friendshipId,name) {
+  showAppDialog('Remove Friend?',`Remove ${name} from your friends?`, `<button class="account-primary" type="button" onclick="deleteSocialFriendship(${jsArg(friendshipId)})">Remove</button><button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>`);
+}
+
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -7356,7 +7742,7 @@ function buildHeaderStats() {
 function buildNav() {
   const tabs = [
     ['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
-    ['club-hub','Club Hub'],['picker','Picker']
+    ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
     `<button onclick="switchTab('${id}')" id="nav-${id}" type="button">${label}</button>`
@@ -7378,6 +7764,7 @@ function showTab(id, scrollMode='preserve') {
     buildStats();
     refreshStatsFromDatabase();
   }
+  if (id === 'social') buildSocialPage();
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+id);
   activeButton?.classList.add('active');
@@ -7490,7 +7877,7 @@ function applyHashRoute() {
     showTab('stats', 'content');
     return;
   }
-  const validTabs = ['log-detail','stats','search','books','series','clubs','club-hub','picker','month'];
+  const validTabs = ['log-detail','stats','social','search','books','series','clubs','club-hub','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   showTab(
     validTabs.includes(normalizedRequested) ? normalizedRequested : 'books',
@@ -8271,7 +8658,7 @@ function buildStats() {
     genres:()=>statsGenresHTML(reads), authors:()=>statsAuthorsHTML(reads), formats:()=>statsFormatsHTML(reads),
     series:()=>statsSeriesHTML(library), library:()=>statsLibraryHTML(library)
   }[statsSection]?.() || '';
-  panel.innerHTML=`<div class="stats-workspace"><div class="section-head"><div><h2>Reading Statistics</h2><p>Explore your reading patterns without changing your library.</p></div></div>
+  panel.innerHTML=`<div class="stats-workspace"><div class="section-head"><div><h2>Statistics Lab</h2><p>Explore your reading patterns without changing your library.</p></div></div>
     <div class="stats-filter-bar">
       <label>Read Year<select onchange="updateStatsFilter('year',this.value)"><option value="all">All years</option>${years.map(year=>`<option value="${year}" ${String(year)===statsYearFilter?'selected':''}>${year}</option>`).join('')}</select></label>
       <label>Genre<select onchange="updateStatsFilter('genre',this.value)"><option value="all">All genres</option>${genres.map(value=>`<option value="${esc(value)}" ${value===statsGenreFilter?'selected':''}>${esc(value)}</option>`).join('')}</select></label>
@@ -17459,6 +17846,7 @@ async function startTracker() {
   await loadUserSettings();
   await loadCollections();
   await loadBookClubs();
+  await loadSocialData();
   rebuildReadYearBuckets();
   rebuildSeriesFromLibraryBooks();
 
@@ -17471,6 +17859,7 @@ async function startTracker() {
   buildSeries();
   buildBookClubs();
   buildBookClubHub();
+  buildSocialPage();
   buildTBR();
   buildAuthors();
   rebuildRereadPool();
@@ -17614,6 +18003,7 @@ async function startGuestDemo() {
   buildGuestDemoData();
   await loadCollections();
   await loadBookClubs();
+  await loadSocialData();
   rebuildRereadPool();
   unlockTracker();
   updateAccountUI();
@@ -17625,6 +18015,7 @@ async function startGuestDemo() {
   buildSeries();
   buildBookClubs();
   buildBookClubHub();
+  buildSocialPage();
   buildTBR();
   buildAuthors();
   buildPicker();
