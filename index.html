@@ -4857,9 +4857,20 @@
   .social-panel,.social-post,.social-person-card { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 14px rgba(21,42,85,.06); }
   .social-panel,.social-post { padding:1rem; }
   .social-panel h3 { margin:0 0 .7rem; color:var(--ink); }
+  .social-composer { padding:1.15rem; border-color:rgba(65,105,225,.28); background:linear-gradient(145deg,#fff 0%,#f8faff 62%,#fff8f1 100%); }
+  .social-composer h3 { margin-bottom:.2rem; font-size:1.18rem; }
+  .social-composer-intro { margin:0 0 .9rem; color:var(--muted); font-size:.88rem; line-height:1.45; }
   .social-composer-fields { display:grid; gap:.65rem; }
   .social-composer-fields select,.social-composer-fields textarea,.social-composer-fields input { width:100%; box-sizing:border-box; }
-  .social-composer-fields textarea { min-height:94px; resize:vertical; }
+  .social-composer-fields label,.social-people-search-label { color:var(--ink); font-size:.83rem; font-weight:800; }
+  .social-composer-fields input[type="search"],.social-composer-fields select,.social-composer-fields textarea,.social-people-search-label input {
+    width:100%; box-sizing:border-box; margin-top:.3rem; border:1.5px solid #cbd5f5; border-radius:10px; background:rgba(255,255,255,.94); color:var(--ink); font:1rem 'Crimson Pro',serif; padding:.72rem .82rem; box-shadow:inset 0 1px 2px rgba(21,42,85,.035); transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+  }
+  .social-composer-fields input[type="search"]:focus,.social-composer-fields select:focus,.social-composer-fields textarea:focus,.social-people-search-label input:focus {
+    outline:none; border-color:#4169e1; background:#fff; box-shadow:0 0 0 3px rgba(65,105,225,.12),inset 0 1px 2px rgba(21,42,85,.025);
+  }
+  .social-composer-fields textarea { min-height:128px; resize:vertical; line-height:1.45; }
+  .social-composer-fields input::placeholder,.social-composer-fields textarea::placeholder,.social-people-search-label input::placeholder { color:#8994af; opacity:1; }
   .social-book-search { position:relative; }
   .social-book-suggestions { display:none; position:absolute; z-index:20; top:100%; left:0; right:0; max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:0 0 7px 7px; background:#fff; box-shadow:0 8px 18px rgba(21,42,85,.16); }
   .social-book-suggestions.open { display:block; }
@@ -4892,6 +4903,12 @@
   .social-discoverable { display:flex; gap:.55rem; align-items:flex-start; font-size:.82rem; color:var(--muted); }
   .account-dialog .social-discoverable { display:flex; }
   .social-discoverable input { width:auto; margin-top:.15rem; accent-color:#4169e1; }
+  .social-profile-settings { background:linear-gradient(145deg,rgba(255,255,255,.7),rgba(247,249,255,.9)); }
+  .social-profile-settings label:not(.social-discoverable) { color:var(--ink); text-transform:none; letter-spacing:0; }
+  .social-profile-settings #account-social-bio,.social-profile-settings #account-social-avatar {
+    box-sizing:border-box; margin-top:.28rem; border:1.5px solid #cbd5f5; border-radius:10px; background:#fff; padding:.72rem .82rem; box-shadow:inset 0 1px 2px rgba(21,42,85,.035); transition:border-color .18s ease,box-shadow .18s ease;
+  }
+  .social-profile-settings #account-social-bio:focus,.social-profile-settings #account-social-avatar:focus { outline:none; border-color:#4169e1; box-shadow:0 0 0 3px rgba(65,105,225,.12); }
   .social-notice { padding:.85rem; border-radius:8px; border:1px solid #ffc08a; background:#fff6ed; color:#704019; line-height:1.45; }
   @media (max-width:760px) {
     .social-layout { grid-template-columns:1fr; }
@@ -4995,22 +5012,22 @@
             </div>
           </div>
         </section>
-        <section class="account-settings-section">
-          <strong>Social Profile</strong>
-          <p>This is the profile other readers see. Your email address is never shown.</p>
+        <section class="account-settings-section social-profile-settings">
+          <strong>Your Reader Profile</strong>
+          <p>Introduce yourself to your reading circle. Your email address always stays private.</p>
           <div class="account-field-grid">
             <div style="grid-column:1/-1">
-              <label for="account-social-bio">Bio</label>
-              <textarea id="account-social-bio" maxlength="500" placeholder="Tell other readers a little about yourself."></textarea>
+              <label for="account-social-bio">A little about you</label>
+              <textarea id="account-social-bio" maxlength="500" placeholder="What do you love to read? Tell other readers a little about yourself."></textarea>
             </div>
             <div style="grid-column:1/-1">
-              <label for="account-social-avatar">Avatar Image URL</label>
-              <input id="account-social-avatar" type="url" placeholder="https://…">
+              <label for="account-social-avatar">Profile photo link</label>
+              <input id="account-social-avatar" type="url" placeholder="Paste an image link here…">
             </div>
           </div>
           <label class="social-discoverable" style="margin-top:.75rem;text-transform:none">
             <input id="account-social-discoverable" type="checkbox" checked>
-            <span><strong style="font-family:inherit;font-size:.86rem">Let readers find me</strong>Your name, bio, and avatar can appear in friend discovery.</span>
+            <span><strong style="font-family:inherit;font-size:.86rem">Help other readers find me</strong>Your name, introduction, and photo can appear when people look for friends.</span>
           </label>
           <p id="account-social-note"></p>
           <div class="account-actions" style="margin-top:.65rem">
@@ -7135,18 +7152,19 @@ function socialSearchableBooks() {
 
 function socialComposerHTML() {
   socialComposerBookId='';
-  return `<section class="social-panel">
-    <h3>Share with your reading friends</h3>
+  return `<section class="social-panel social-composer">
+    <h3>Share something with your reading circle</h3>
+    <p class="social-composer-intro">Share a favorite moment, a strong opinion, or simply what you just finished.</p>
     <div class="social-composer-fields">
-      <label class="social-book-search">Book (optional)
-        <input id="social-post-book" type="search" autocomplete="off" placeholder="Start typing a title…" oninput="updateSocialBookSuggestions(this.value)" onkeydown="if(event.key==='Escape')hideSocialBookSuggestions()">
+      <label class="social-book-search">Which book? <span style="color:var(--muted);font-weight:600">(optional)</span>
+        <input id="social-post-book" type="search" autocomplete="off" placeholder="Type a title to find it…" oninput="updateSocialBookSuggestions(this.value)" onkeydown="if(event.key==='Escape')hideSocialBookSuggestions()">
         <input id="social-post-book-id" type="hidden" value="">
         <span class="social-book-suggestions" id="social-book-suggestions"></span>
       </label>
-      <label>Your thoughts<textarea id="social-post-thoughts" maxlength="2000" placeholder="What did you think? What stayed with you?"></textarea></label>
+      <label>What would you like to share?<textarea id="social-post-thoughts" maxlength="2000" placeholder="Loved it? Hated it? Still thinking about it? Tell your reading circle…"></textarea></label>
       <div class="social-composer-footer">
-        <label>Who can see this?<select id="social-post-visibility"><option value="Friends">Friends only</option><option value="Public">Everyone</option></select></label>
-        <button class="account-primary" type="button" onclick="createSocialPost(this)">Share Post</button>
+        <label>Share with<select id="social-post-visibility"><option value="Friends">My friends</option><option value="Public">Everyone</option></select></label>
+        <button class="account-primary" type="button" onclick="createSocialPost(this)">Post to Feed</button>
       </div>
     </div>
   </section>`;
@@ -7224,8 +7242,8 @@ function socialPostHTML(post) {
 function socialFeedHTML() {
   return `<div class="social-layout"><div class="social-feed">${socialComposerHTML()}${socialPosts.length
     ? socialPosts.map(socialPostHTML).join('')
-    : '<section class="social-panel social-empty">Your feed is quiet. Share your latest read, or add a friend to start the conversation.</section>'}</div>
-    <aside class="social-side"><section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('friends')">Find Readers</button></section></aside></div>`;
+    : '<section class="social-panel social-empty">It’s quiet here for now. Share what you’re reading, or find a few readers to follow along with.</section>'}</div>
+    <aside class="social-side"><section class="social-panel"><h3>Your reading circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('friends')">Meet Other Readers</button></section></aside></div>`;
 }
 
 function socialPersonCardHTML(profile, mode='discover') {
@@ -7253,7 +7271,7 @@ function socialFriendsHTML() {
     .filter(profile => !query || normalizedKey(`${profile.display_name} ${profile.bio || ''}`).includes(query));
   return `<div class="social-feed">
     <section class="social-panel"><h3>Your friends</h3>${friends.length ? `<div class="social-people-grid">${friends.map(profile => socialPersonCardHTML(profile,'friend')).join('')}</div>` : '<p class="social-empty">You have not added any friends yet.</p>'}</section>
-    <section class="social-panel"><h3>Find readers</h3><label>Search by name or bio<input type="search" value="${esc(socialPeopleQuery)}" placeholder="Search readers…" oninput="updateSocialPeopleSearch(this.value)"></label><div style="height:.75rem"></div>${discovery.length ? `<div class="social-people-grid">${discovery.map(profile => socialPersonCardHTML(profile,'discover')).join('')}</div>` : '<p class="social-empty">No available readers match that search.</p>'}</section>
+    <section class="social-panel"><h3>Meet other readers</h3><label class="social-people-search-label">Search by name or reading interests<input type="search" value="${esc(socialPeopleQuery)}" placeholder="Who are you looking for?" oninput="updateSocialPeopleSearch(this.value)"></label><div style="height:.75rem"></div>${discovery.length ? `<div class="social-people-grid">${discovery.map(profile => socialPersonCardHTML(profile,'discover')).join('')}</div>` : '<p class="social-empty">No readers match that search just yet.</p>'}</section>
   </div>`;
 }
 
@@ -7261,8 +7279,8 @@ function socialRequestsHTML() {
   const incoming=socialIncomingRequests();
   const outgoing=socialOutgoingRequests();
   return `<div class="social-feed">
-    <section class="social-panel"><h3>Requests to you</h3>${incoming.length ? `<div class="social-people-grid">${incoming.map(request => socialPersonCardHTML(socialProfileFor(request.requester_id) || {user_id:request.requester_id,display_name:'Reader'},'incoming')).join('')}</div>` : '<p class="social-empty">No new friend requests.</p>'}</section>
-    <section class="social-panel"><h3>Requests you sent</h3>${outgoing.length ? `<div class="social-people-grid">${outgoing.map(request => socialPersonCardHTML(socialProfileFor(request.addressee_id) || {user_id:request.addressee_id,display_name:'Reader'},'outgoing')).join('')}</div>` : '<p class="social-empty">No outgoing requests.</p>'}</section>
+    <section class="social-panel"><h3>Readers who want to connect</h3>${incoming.length ? `<div class="social-people-grid">${incoming.map(request => socialPersonCardHTML(socialProfileFor(request.requester_id) || {user_id:request.requester_id,display_name:'Reader'},'incoming')).join('')}</div>` : '<p class="social-empty">No new friend requests right now.</p>'}</section>
+    <section class="social-panel"><h3>Requests you’ve sent</h3>${outgoing.length ? `<div class="social-people-grid">${outgoing.map(request => socialPersonCardHTML(socialProfileFor(request.addressee_id) || {user_id:request.addressee_id,display_name:'Reader'},'outgoing')).join('')}</div>` : '<p class="social-empty">You haven’t sent any requests yet.</p>'}</section>
   </div>`;
 }
 
@@ -7270,16 +7288,16 @@ function buildSocialPage() {
   const panel=document.getElementById('tab-social');
   if (!panel) return;
   if (guestMode || !currentSocialUserId()) {
-    panel.innerHTML='<div class="social-page"><div class="social-page-head"><div><h2>Social</h2><p>Share books and conversations with other readers.</p></div></div><section class="social-panel"><h3>Sign in to join the conversation</h3><p class="social-empty">Friend requests and feed posts are connected to your Reading Tracker account.</p><button class="account-primary" type="button" onclick="openAccountPanel()">Open Account</button></section></div>';
+    panel.innerHTML='<div class="social-page"><div class="social-page-head"><div><h2>Your Reading Circle</h2><p>A friendly place to share books, opinions, and recommendations.</p></div></div><section class="social-panel"><h3>Come join the conversation</h3><p class="social-empty">Sign in to share what you’re reading and connect with other readers.</p><button class="account-primary" type="button" onclick="openAccountPanel()">Sign In</button></section></div>';
     return;
   }
   if (!socialStorageAvailable) {
-    panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Social</h2><p>Share books and conversations with other readers.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div><div class="social-notice">${esc(socialLoadMessage || 'Social is being set up. Run supabase_social.sql in Supabase, then refresh this page.')}</div></div>`;
+    panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Your Reading Circle</h2><p>A friendly place to share books, opinions, and recommendations.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div><div class="social-notice">${esc(socialLoadMessage || 'Your reading circle is being set up. Run supabase_social.sql in Supabase, then refresh this page.')}</div></div>`;
     return;
   }
   const requestCount=socialIncomingRequests().length;
   const content=socialSection === 'friends' ? socialFriendsHTML() : socialSection === 'requests' ? socialRequestsHTML() : socialFeedHTML();
-  panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Social</h2><p>Share what you read, trade thoughts, and keep up with friends.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div>
+  panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Your Reading Circle</h2><p>Swap thoughts, discover good books, and see what your friends are reading.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div>
     <div class="social-tabs"><button class="${socialSection === 'feed' ? 'active' : ''}" type="button" onclick="selectSocialSection('feed')">Feed</button><button class="${socialSection === 'friends' ? 'active' : ''}" type="button" onclick="selectSocialSection('friends')">Friends (${socialFriendIds().length})</button><button class="${socialSection === 'requests' ? 'active' : ''}" type="button" onclick="selectSocialSection('requests')">Requests${requestCount ? ` (${requestCount})` : ''}</button></div>${content}</div>`;
 }
 
@@ -7342,7 +7360,7 @@ async function createSocialPost(button) {
   try {
     await supabaseTableRequest('social_posts', {method:'POST', body:[{user_id:currentSocialUserId(),book_id:book?.database_id || null,book_title:book?.title || typedTitle || null,book_author:book ? displayBookContributor(book) : null,cover_url:book?.cover_url || null,rating:Number(book?.rating) || null,thoughts:thoughts || null,visibility}], prefer:'return=minimal'});
     await refreshSocialData();
-  } catch (error) { showAppDialog('Post Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Share Post'; } }
+  } catch (error) { showAppDialog('Post Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Post to Feed'; } }
 }
 
 function openSocialPostBook(bookId,title) {
