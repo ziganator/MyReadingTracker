@@ -254,7 +254,8 @@
     text-transform: uppercase;
   }
   .account-dialog input,
-  .account-dialog select {
+  .account-dialog select,
+  .account-dialog textarea {
     width: 100%;
     background: #fff;
     border: 1px solid var(--border);
@@ -262,6 +263,7 @@
     font: 1rem 'Crimson Pro', serif;
     padding: 0.55rem 0.65rem;
   }
+  .account-dialog textarea { min-height:88px; resize:vertical; }
   .account-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
   .account-actions button {
     border: 1px solid var(--border);
@@ -4856,8 +4858,16 @@
   .social-panel,.social-post { padding:1rem; }
   .social-panel h3 { margin:0 0 .7rem; color:var(--ink); }
   .social-composer-fields { display:grid; gap:.65rem; }
-  .social-composer-fields select,.social-composer-fields textarea,.social-profile-fields input,.social-profile-fields textarea { width:100%; box-sizing:border-box; }
-  .social-composer-fields textarea,.social-profile-fields textarea { min-height:94px; resize:vertical; }
+  .social-composer-fields select,.social-composer-fields textarea,.social-composer-fields input { width:100%; box-sizing:border-box; }
+  .social-composer-fields textarea { min-height:94px; resize:vertical; }
+  .social-book-search { position:relative; }
+  .social-book-suggestions { display:none; position:absolute; z-index:20; top:100%; left:0; right:0; max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:0 0 7px 7px; background:#fff; box-shadow:0 8px 18px rgba(21,42,85,.16); }
+  .social-book-suggestions.open { display:block; }
+  .social-book-suggestion { display:block; width:100%; padding:.55rem .65rem; border:0; border-bottom:1px solid rgba(203,213,245,.65); background:#fff; color:var(--ink); text-align:left; cursor:pointer; }
+  .social-book-suggestion:hover,.social-book-suggestion:focus { background:#f3f6ff; outline:none; }
+  .social-book-suggestion:last-child { border-bottom:0; }
+  .social-book-suggestion strong,.social-book-suggestion span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .social-book-suggestion span { margin-top:.08rem; color:var(--muted); font-size:.76rem; }
   .social-composer-footer { display:flex; align-items:end; justify-content:space-between; gap:.75rem; }
   .social-composer-footer label { min-width:150px; }
   .social-post-head { display:flex; align-items:center; gap:.65rem; }
@@ -4879,8 +4889,8 @@
   .social-person-card { padding:.85rem; display:flex; align-items:flex-start; gap:.7rem; min-width:0; }
   .social-person-copy { flex:1; min-width:0; }
   .social-person-copy p { margin:.25rem 0 .55rem; line-height:1.35; }
-  .social-profile-fields { display:grid; gap:.65rem; }
   .social-discoverable { display:flex; gap:.55rem; align-items:flex-start; font-size:.82rem; color:var(--muted); }
+  .account-dialog .social-discoverable { display:flex; }
   .social-discoverable input { width:auto; margin-top:.15rem; accent-color:#4169e1; }
   .social-notice { padding:.85rem; border-radius:8px; border:1px solid #ffc08a; background:#fff6ed; color:#704019; line-height:1.45; }
   @media (max-width:760px) {
@@ -4983,6 +4993,28 @@
               <button class="account-primary" type="button" onclick="changeAccountPassword()">Save Password</button>
               <button class="account-secondary" type="button" onclick="togglePasswordChange(false)">Cancel</button>
             </div>
+          </div>
+        </section>
+        <section class="account-settings-section">
+          <strong>Social Profile</strong>
+          <p>This is the profile other readers see. Your email address is never shown.</p>
+          <div class="account-field-grid">
+            <div style="grid-column:1/-1">
+              <label for="account-social-bio">Bio</label>
+              <textarea id="account-social-bio" maxlength="500" placeholder="Tell other readers a little about yourself."></textarea>
+            </div>
+            <div style="grid-column:1/-1">
+              <label for="account-social-avatar">Avatar Image URL</label>
+              <input id="account-social-avatar" type="url" placeholder="https://…">
+            </div>
+          </div>
+          <label class="social-discoverable" style="margin-top:.75rem;text-transform:none">
+            <input id="account-social-discoverable" type="checkbox" checked>
+            <span><strong style="font-family:inherit;font-size:.86rem">Let readers find me</strong>Your name, bio, and avatar can appear in friend discovery.</span>
+          </label>
+          <p id="account-social-note"></p>
+          <div class="account-actions" style="margin-top:.65rem">
+            <button class="account-primary" type="button" onclick="saveSocialProfile(this)">Save Social Profile</button>
           </div>
         </section>
         <section class="account-settings-section">
@@ -5149,6 +5181,7 @@ let socialStorageAvailable = false;
 let socialLoadMessage = '';
 let socialSection = 'feed';
 let socialPeopleQuery = '';
+let socialComposerBookId = '';
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
@@ -5579,6 +5612,7 @@ function openAccountPanel() {
   document.getElementById('account-panel')?.classList.add('open');
   renderRatingScaleSetting();
   renderGenreColorSettings();
+  renderSocialProfileSettings();
   setAccountStatus('');
 }
 
@@ -5633,6 +5667,7 @@ function updateAccountUI() {
   updateSiteTitle();
   renderRatingScaleSetting();
   renderGenreColorSettings();
+  renderSocialProfileSettings();
   if (signedIn) {
     refreshImportedLibraryStatus();
   } else {
@@ -7092,33 +7127,22 @@ function selectSocialSection(section) {
   buildSocialPage();
 }
 
-function socialBookOptions() {
-  const books=allReadBooks()
+function socialSearchableBooks() {
+  return allReadBooks()
     .filter(book => book.database_id)
-    .sort((a,b) => String(b.end || b.finished_on || '').localeCompare(String(a.end || a.finished_on || '')) || String(a.title || '').localeCompare(String(b.title || '')));
-  return books.map(book => `<option value="${esc(book.database_id)}">${esc(book.title)} — ${esc(displayBookContributor(book))}</option>`).join('');
-}
-
-function socialProfilePanelHTML() {
-  const profile=socialProfileFor(currentSocialUserId()) || {};
-  const name=profile.display_name || accountDisplayName() || 'Reader';
-  return `<section class="social-panel">
-    <h3>Your social profile</h3>
-    <div class="social-post-head" style="margin-bottom:.8rem">${socialAvatarHTML(profile,name)}<div class="social-post-byline"><strong>${esc(name)}</strong><span class="social-post-meta">Change your name in Account settings.</span></div></div>
-    <div class="social-profile-fields">
-      <label>Bio<textarea id="social-profile-bio" maxlength="500" placeholder="Tell other readers a little about yourself.">${esc(profile.bio || '')}</textarea></label>
-      <label>Avatar image URL<input id="social-profile-avatar" type="url" value="${esc(profile.avatar_url || '')}" placeholder="https://…"></label>
-      <label class="social-discoverable"><input id="social-profile-discoverable" type="checkbox" ${profile.discoverable !== false ? 'checked' : ''}><span><strong>Let readers find me</strong><br>Your name, bio, and avatar can appear in friend discovery.</span></label>
-      <button class="account-secondary" type="button" onclick="saveSocialProfile(this)">Save Social Profile</button>
-    </div>
-  </section>`;
+    .sort((a,b) => String(a.title || '').localeCompare(String(b.title || '')));
 }
 
 function socialComposerHTML() {
+  socialComposerBookId='';
   return `<section class="social-panel">
     <h3>Share with your reading friends</h3>
     <div class="social-composer-fields">
-      <label>Book (optional)<select id="social-post-book"><option value="">No book attached</option>${socialBookOptions()}</select></label>
+      <label class="social-book-search">Book (optional)
+        <input id="social-post-book" type="search" autocomplete="off" placeholder="Start typing a title…" oninput="updateSocialBookSuggestions(this.value)" onkeydown="if(event.key==='Escape')hideSocialBookSuggestions()">
+        <input id="social-post-book-id" type="hidden" value="">
+        <span class="social-book-suggestions" id="social-book-suggestions"></span>
+      </label>
       <label>Your thoughts<textarea id="social-post-thoughts" maxlength="2000" placeholder="What did you think? What stayed with you?"></textarea></label>
       <div class="social-composer-footer">
         <label>Who can see this?<select id="social-post-visibility"><option value="Friends">Friends only</option><option value="Public">Everyone</option></select></label>
@@ -7126,6 +7150,41 @@ function socialComposerHTML() {
       </div>
     </div>
   </section>`;
+}
+
+function updateSocialBookSuggestions(value) {
+  socialComposerBookId='';
+  const hidden=document.getElementById('social-post-book-id');
+  if (hidden) hidden.value='';
+  const suggestions=document.getElementById('social-book-suggestions');
+  if (!suggestions) return;
+  const query=normalizedKey(value);
+  if (query.length < 2) {
+    suggestions.innerHTML='';
+    suggestions.classList.remove('open');
+    return;
+  }
+  const matches=socialSearchableBooks().filter(book => normalizedKey(`${book.title} ${displayBookContributor(book)}`).includes(query)).slice(0,8);
+  suggestions.innerHTML=matches.length
+    ? matches.map(book => `<button class="social-book-suggestion" type="button" onclick="selectSocialComposerBook(${jsArg(book.database_id)})"><strong>${esc(book.title)}</strong><span>${esc(displayBookContributor(book))}</span></button>`).join('')
+    : '<span class="social-empty" style="display:block;padding:.65rem">No matching books. You can still share the title you typed.</span>';
+  suggestions.classList.add('open');
+}
+
+function selectSocialComposerBook(bookId) {
+  const book=socialSearchableBooks().find(item => item.database_id === bookId);
+  if (!book) return;
+  socialComposerBookId=book.database_id;
+  const input=document.getElementById('social-post-book');
+  const hidden=document.getElementById('social-post-book-id');
+  if (input) input.value=book.title;
+  if (hidden) hidden.value=book.database_id;
+  hideSocialBookSuggestions();
+  document.getElementById('social-post-thoughts')?.focus();
+}
+
+function hideSocialBookSuggestions() {
+  document.getElementById('social-book-suggestions')?.classList.remove('open');
 }
 
 function socialPostDate(value) {
@@ -7166,7 +7225,7 @@ function socialFeedHTML() {
   return `<div class="social-layout"><div class="social-feed">${socialComposerHTML()}${socialPosts.length
     ? socialPosts.map(socialPostHTML).join('')
     : '<section class="social-panel social-empty">Your feed is quiet. Share your latest read, or add a friend to start the conversation.</section>'}</div>
-    <aside class="social-side">${socialProfilePanelHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('friends')">Find Readers</button></section></aside></div>`;
+    <aside class="social-side"><section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('friends')">Find Readers</button></section></aside></div>`;
 }
 
 function socialPersonCardHTML(profile, mode='discover') {
@@ -7233,27 +7292,55 @@ function updateSocialPeopleSearch(value) {
   });
 }
 
+function renderSocialProfileSettings() {
+  const profile=socialProfileFor(currentSocialUserId()) || {};
+  const bio=document.getElementById('account-social-bio');
+  const avatar=document.getElementById('account-social-avatar');
+  const discoverable=document.getElementById('account-social-discoverable');
+  const note=document.getElementById('account-social-note');
+  if (bio) bio.value=profile.bio || '';
+  if (avatar) avatar.value=profile.avatar_url || '';
+  if (discoverable) discoverable.checked=profile.discoverable !== false;
+  if (note) note.textContent=currentSocialUserId() && !socialStorageAvailable
+    ? 'Run supabase_social.sql to enable social profile settings.'
+    : '';
+}
+
 async function saveSocialProfile(button) {
+  const bio=document.getElementById('account-social-bio')?.value.trim() || null;
+  const avatarUrl=document.getElementById('account-social-avatar')?.value.trim() || null;
+  const discoverable=Boolean(document.getElementById('account-social-discoverable')?.checked);
   if (button) { button.disabled=true; button.textContent='Saving…'; }
+  setAccountStatus('Saving social profile...',false,true);
   try {
     await supabaseTableRequest('social_profiles', {
       method:'PATCH', query:`?user_id=eq.${currentSocialUserId()}`,
-      body:{bio:document.getElementById('social-profile-bio')?.value.trim() || null, avatar_url:document.getElementById('social-profile-avatar')?.value.trim() || null, discoverable:Boolean(document.getElementById('social-profile-discoverable')?.checked)},
+      body:{bio,avatar_url:avatarUrl,discoverable},
       prefer:'return=minimal'
     });
-    await refreshSocialData();
-  } catch (error) { showAppDialog('Social Profile Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Save Social Profile'; } }
+    await loadSocialData();
+    renderSocialProfileSettings();
+    if (document.getElementById('tab-social')?.classList.contains('active')) buildSocialPage();
+    setAccountStatus('Social profile saved.');
+  } catch (error) {
+    setAccountStatus(error.message,true);
+  } finally {
+    if (button) { button.disabled=false; button.textContent='Save Social Profile'; }
+  }
 }
 
 async function createSocialPost(button) {
-  const bookId=document.getElementById('social-post-book')?.value || '';
+  const typedTitle=document.getElementById('social-post-book')?.value.trim() || '';
+  const bookId=document.getElementById('social-post-book-id')?.value || socialComposerBookId || '';
   const thoughts=document.getElementById('social-post-thoughts')?.value.trim() || '';
   const visibility=document.getElementById('social-post-visibility')?.value === 'Public' ? 'Public' : 'Friends';
-  const book=bookId ? allLibraryBooks().find(item => item.database_id === bookId) : null;
-  if (!thoughts && !book) return showAppDialog('Nothing to Share','Write a thought or choose a book first.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  const searchable=socialSearchableBooks();
+  const book=(bookId ? searchable.find(item => item.database_id === bookId) : null)
+    || searchable.find(item => normalizedKey(item.title) === normalizedKey(typedTitle));
+  if (!thoughts && !typedTitle) return showAppDialog('Nothing to Share','Write a thought or enter a book first.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
   if (button) { button.disabled=true; button.textContent='Sharing…'; }
   try {
-    await supabaseTableRequest('social_posts', {method:'POST', body:[{user_id:currentSocialUserId(),book_id:book?.database_id || null,book_title:book?.title || null,book_author:book ? displayBookContributor(book) : null,cover_url:book?.cover_url || null,rating:Number(book?.rating) || null,thoughts:thoughts || null,visibility}], prefer:'return=minimal'});
+    await supabaseTableRequest('social_posts', {method:'POST', body:[{user_id:currentSocialUserId(),book_id:book?.database_id || null,book_title:book?.title || typedTitle || null,book_author:book ? displayBookContributor(book) : null,cover_url:book?.cover_url || null,rating:Number(book?.rating) || null,thoughts:thoughts || null,visibility}], prefer:'return=minimal'});
     await refreshSocialData();
   } catch (error) { showAppDialog('Post Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Share Post'; } }
 }
