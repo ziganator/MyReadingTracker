@@ -4848,6 +4848,42 @@
   .social-page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
   .social-page-head h2 { margin:0; }
   .social-page-head p { margin:.25rem 0 0; color:var(--muted); }
+  .social-welcome { position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr); gap:1.1rem; margin-bottom:1rem; padding:1.2rem; border:1px solid rgba(65,105,225,.24); border-radius:15px; background:linear-gradient(135deg,rgba(255,122,0,.1),rgba(255,255,255,.96) 45%,rgba(65,105,225,.11)); box-shadow:0 8px 24px rgba(21,42,85,.07); }
+  .social-welcome::after { content:''; position:absolute; right:-72px; bottom:-92px; width:210px; height:210px; border-radius:50%; background:radial-gradient(circle,rgba(65,105,225,.13),rgba(65,105,225,0) 70%); pointer-events:none; }
+  .social-welcome-copy,.social-welcome-now { position:relative; z-index:1; min-width:0; }
+  .social-welcome-top { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
+  .social-welcome-kicker { margin-bottom:.22rem; color:#d85f00; font-size:.68rem; font-weight:900; letter-spacing:.15em; text-transform:uppercase; }
+  .social-welcome h2 { margin:0; color:var(--ink); font-size:clamp(1.65rem,3.2vw,2.35rem); line-height:1.05; }
+  .social-welcome-copy > p { max-width:620px; margin:.45rem 0 .9rem; color:#586783; font-size:.94rem; line-height:1.5; }
+  .social-welcome-stats { display:flex; gap:.55rem; flex-wrap:wrap; }
+  .social-welcome-stat { min-width:104px; border:1px solid rgba(65,105,225,.2); border-radius:10px; background:rgba(255,255,255,.72); padding:.55rem .68rem; color:var(--ink); text-align:left; cursor:pointer; box-shadow:0 2px 8px rgba(21,42,85,.045); transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease; }
+  .social-welcome-stat:hover { transform:translateY(-1px); border-color:#4169e1; box-shadow:0 5px 12px rgba(65,105,225,.11); }
+  .social-welcome-stat strong,.social-welcome-stat span { display:block; }
+  .social-welcome-stat strong { color:#294374; font-size:1.16rem; line-height:1; }
+  .social-welcome-stat span { margin-top:.18rem; color:var(--muted); font:700 .72rem 'Crimson Pro',serif; }
+  .social-welcome-now { align-self:stretch; display:grid; align-content:center; justify-items:center; min-height:154px; padding:.9rem; border:1px solid rgba(255,122,0,.2); border-radius:12px; background:rgba(255,255,255,.68); text-align:center; }
+  .social-now-label { margin-bottom:.5rem; color:#4169e1; font-size:.66rem; font-weight:900; letter-spacing:.13em; text-transform:uppercase; }
+  .social-now-shelf { display:flex; align-items:center; justify-content:center; min-height:82px; margin-bottom:.48rem; padding-left:12px; }
+  .social-now-book { display:block; width:56px; height:84px; margin-left:-12px; padding:0; overflow:hidden; border:2px solid #fff; border-radius:5px; background:#eef2ff; cursor:pointer; box-shadow:0 4px 10px rgba(21,42,85,.2); transition:transform .16s ease; }
+  .social-now-book:hover { transform:translateY(-4px) rotate(-1deg); z-index:2; }
+  .social-now-cover { width:100%; height:100%; object-fit:cover; border-radius:3px; }
+  .social-welcome-now strong,.social-welcome-now span { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .social-welcome-now strong { color:var(--ink); font-size:.92rem; }
+  .social-welcome-now span { margin-top:.14rem; color:var(--muted); font-size:.76rem; }
+  .social-feed-heading { display:flex; align-items:end; justify-content:space-between; gap:.75rem; padding:0 .1rem; }
+  .social-feed-heading h3 { margin:0; color:var(--ink); }
+  .social-feed-heading span { color:var(--muted); font-size:.78rem; }
+  .social-prompt { border-color:rgba(255,122,0,.3); background:linear-gradient(145deg,#fffaf5,#fff); }
+  .social-prompt-mark { color:#d85f00; font-size:1.25rem; line-height:1; }
+  .social-prompt p { margin:.35rem 0 .8rem; color:var(--ink); font-size:1rem; font-weight:700; line-height:1.4; }
+  .social-mini-people { display:grid; gap:.6rem; }
+  .social-mini-person { display:grid; grid-template-columns:38px minmax(0,1fr) auto; gap:.55rem; align-items:center; min-width:0; }
+  .social-mini-person .social-avatar { width:38px; height:38px; flex-basis:38px; }
+  .social-mini-copy { min-width:0; }
+  .social-mini-copy strong,.social-mini-copy span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .social-mini-copy strong { color:var(--ink); font-size:.84rem; }
+  .social-mini-copy span { margin-top:.08rem; color:var(--muted); font-size:.7rem; }
+  .social-mini-person .account-primary { min-height:34px !important; padding:.42rem .58rem !important; font-size:.77rem !important; }
   .social-page-actions,.social-tabs,.social-card-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
   .social-tabs { margin-bottom:1rem; padding-bottom:.75rem; border-bottom:1px solid var(--border); }
   .social-tabs button { min-height:40px; border:1.5px solid #cbd5f5; border-radius:10px; padding:.58rem .9rem; background:#fff; color:#294374; font:800 .88rem 'Crimson Pro',serif; cursor:pointer; box-shadow:0 2px 6px rgba(21,42,85,.045); transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease; }
@@ -4926,7 +4962,14 @@
   }
   .social-profile-settings #account-social-bio:focus,.social-profile-settings #account-social-avatar:focus { outline:none; border-color:#4169e1; box-shadow:0 0 0 3px rgba(65,105,225,.12); }
   .social-notice { padding:.85rem; border-radius:8px; border:1px solid #ffc08a; background:#fff6ed; color:#704019; line-height:1.45; }
+  @media (max-width:880px) {
+    .social-welcome { grid-template-columns:minmax(0,1fr) 230px; }
+  }
   @media (max-width:760px) {
+    .social-welcome { grid-template-columns:1fr; }
+    .social-welcome-now { grid-template-columns:auto minmax(0,1fr); grid-template-rows:auto auto auto; column-gap:.8rem; justify-items:start; min-height:0; text-align:left; }
+    .social-now-label { grid-column:1/-1; }
+    .social-now-shelf { grid-row:2/4; margin:0; }
     .social-layout { grid-template-columns:1fr; }
     .social-side { grid-row:1; }
   }
@@ -4939,6 +4982,12 @@
     .social-composer-footer label { width:100%; }
     .social-composer-footer button.account-primary { width:100%; }
     .social-card-actions button { flex:1 1 120px; }
+    .social-welcome { padding:.9rem; }
+    .social-welcome-top { display:block; }
+    .social-welcome-top .account-secondary { width:100%; margin-top:.7rem; }
+    .social-welcome-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .social-welcome-stat { min-width:0; padding:.5rem; text-align:center; }
+    .social-welcome-stat span { font-size:.66rem; }
   }
 
 </style>
@@ -4960,10 +5009,10 @@
 <main>
   <div class="tab-panel" id="tab-log-detail"></div>
   <div class="tab-panel" id="tab-stats"></div>
-  <div class="tab-panel" id="tab-social"></div>
+  <div class="tab-panel active" id="tab-social"></div>
   <div class="tab-panel" id="tab-month"></div>
   <div class="tab-panel" id="tab-search"></div>
-  <div class="tab-panel active" id="tab-books"></div>
+  <div class="tab-panel" id="tab-books"></div>
   <div class="tab-panel" id="tab-series"></div>
   <div class="tab-panel" id="tab-clubs"></div>
   <div class="tab-panel" id="tab-club-hub"></div>
@@ -5249,7 +5298,7 @@ function openStandalonePage(event) {
   page.querySelector('#series-modal')?.classList.remove('open');
   page.querySelector('#app-dialog')?.classList.remove('open');
   const html = `<!DOCTYPE html>\n${page.outerHTML}`;
-  const route = window.location.hash || '#books';
+  const route = window.location.hash || '#social';
   const standaloneWindow = window.open('', '_blank');
   if (!standaloneWindow) {
     showAppDialog(
@@ -7257,11 +7306,103 @@ function socialPostHTML(post) {
   </article>`;
 }
 
+const SOCIAL_READING_PROMPTS = [
+  'What book would you love to read again for the first time?',
+  'Which character has stayed with you lately?',
+  'What is the best opening chapter you have read?',
+  'What book surprised you most this year?',
+  'What are you hoping your next book makes you feel?',
+  'Which book would you recommend without hesitation?',
+  'What is one popular book you just could not connect with?'
+];
+
+function currentSocialPrompt() {
+  const now=new Date();
+  const localDay=Math.floor(new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime()/86400000);
+  return SOCIAL_READING_PROMPTS[Math.abs(localDay)%SOCIAL_READING_PROMPTS.length];
+}
+
+function socialGreeting() {
+  const hour=new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function socialCurrentYearReadCount() {
+  const year=new Date().getFullYear();
+  return allReadBooks().filter(book => {
+    if (readYearForBook(book) === year) return true;
+    return (book.reading_sessions || []).some(session => {
+      const sessionYear=Number(session.year_read || session.read_year)
+        || Number(String(session.finished_on || session.started_on || session.month_read || '').slice(0,4));
+      return sessionYear === year && String(session.status || 'Read') === 'Read';
+    });
+  }).length;
+}
+
+function socialWelcomeHTML() {
+  const firstName=accountDisplayName().split(/\s+/)[0] || 'Reader';
+  const currentBooks=currentlyReadingBooks();
+  const friendCount=socialFriendIds().length;
+  const currentYear=new Date().getFullYear();
+  const readingAction=currentBooks.length ? 'openCurrentlyReadingModal(event)' : "switchTab('books')";
+  const readingLabel=currentBooks.length === 1 ? currentBooks[0].title : currentBooks.length ? `${currentBooks.length} books in progress` : 'Choose your next read';
+  const readingDetail=currentBooks.length === 1 ? displayBookContributor(currentBooks[0]) : currentBooks.length ? 'Open your active reading list' : 'Your current books will appear here';
+  return `<section class="social-welcome">
+    <div class="social-welcome-copy">
+      <div class="social-welcome-top"><div><div class="social-welcome-kicker">Your Reading Circle</div><h2>${socialGreeting()}, ${esc(firstName)}</h2></div><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div>
+      <p>Catch up with fellow readers, share what is on your mind, and find your next great conversation.</p>
+      <div class="social-welcome-stats">
+        <button class="social-welcome-stat" type="button" onclick="${readingAction}"><strong>${currentBooks.length}</strong><span>Reading now</span></button>
+        <button class="social-welcome-stat" type="button" onclick="switchTab('log-detail')"><strong>${socialCurrentYearReadCount()}</strong><span>Finished in ${currentYear}</span></button>
+        <button class="social-welcome-stat" type="button" onclick="selectSocialSection('friends')"><strong>${friendCount}</strong><span>${friendCount === 1 ? 'Reading friend' : 'Reading friends'}</span></button>
+      </div>
+    </div>
+    <div class="social-welcome-now">
+      <div class="social-now-label">📖 Reading now</div>
+      ${currentBooks.length ? `<div class="social-now-shelf">${currentBooks.slice(0,4).map(book => `<button class="social-now-book" type="button" aria-label="Open ${esc(book.title)}" ${bookClickAttributes(book)}>${coverImageHTML(book,'social-now-cover','social-now-cover')}</button>`).join('')}</div>` : '<div class="social-now-shelf" aria-hidden="true">📚</div>'}
+      <strong>${esc(readingLabel)}</strong><span>${esc(readingDetail)}</span>
+    </div>
+  </section>`;
+}
+
+function socialPromptHTML() {
+  return `<section class="social-panel social-prompt"><div class="social-prompt-mark">✦</div><h3>Today’s conversation starter</h3><p>${esc(currentSocialPrompt())}</p><button class="account-primary" type="button" onclick="useSocialPrompt()">Answer This Prompt</button></section>`;
+}
+
+function useSocialPrompt() {
+  socialSection='feed';
+  buildSocialPage();
+  requestAnimationFrame(() => {
+    const thoughts=document.getElementById('social-post-thoughts');
+    if (!thoughts) return;
+    thoughts.value=`${currentSocialPrompt()}\n\n`;
+    thoughts.focus();
+    thoughts.setSelectionRange(thoughts.value.length,thoughts.value.length);
+  });
+}
+
+function socialSuggestedProfiles(limit=3) {
+  const connectedIds=new Set(socialFriendships.flatMap(friendship => [friendship.requester_id,friendship.addressee_id]));
+  return socialProfiles
+    .filter(profile => profile.user_id !== currentSocialUserId() && !connectedIds.has(profile.user_id) && profile.discoverable !== false)
+    .slice(0,limit);
+}
+
+function socialSuggestionsPreviewHTML() {
+  const suggestions=socialSuggestedProfiles();
+  return `<section class="social-panel"><h3>People to meet</h3>${suggestions.length ? `<div class="social-mini-people">${suggestions.map(profile => {
+    const name=profile.display_name || 'Reader';
+    return `<div class="social-mini-person">${socialAvatarHTML(profile,name)}<div class="social-mini-copy"><strong>${esc(name)}</strong><span>${esc(profile.bio || 'A fellow reader.')}</span></div><button class="account-primary" type="button" onclick="sendSocialFriendRequest(${jsArg(profile.user_id)},this)">Add</button></div>`;
+  }).join('')}</div>` : '<p class="social-empty">You’re all caught up with the readers available to meet.</p>'}<button class="account-secondary" style="margin-top:.75rem" type="button" onclick="selectSocialSection('friends')">Browse Readers</button></section>`;
+}
+
 function socialFeedHTML() {
-  return `<div class="social-layout"><div class="social-feed">${socialComposerHTML()}${socialPosts.length
+  return `<div class="social-layout"><div class="social-feed">${socialComposerHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
     ? socialPosts.map(socialPostHTML).join('')
     : '<section class="social-panel social-empty">It’s quiet here for now. Share what you’re reading, or find a few readers to follow along with.</section>'}</div>
-    <aside class="social-side"><section class="social-panel"><h3>Your reading circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('friends')">Meet Other Readers</button></section></aside></div>`;
+    <aside class="social-side">${socialPromptHTML()}${socialSuggestionsPreviewHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('requests')">View Requests</button></section></aside></div>`;
 }
 
 function socialPersonCardHTML(profile, mode='discover') {
@@ -7315,7 +7456,7 @@ function buildSocialPage() {
   }
   const requestCount=socialIncomingRequests().length;
   const content=socialSection === 'friends' ? socialFriendsHTML() : socialSection === 'requests' ? socialRequestsHTML() : socialFeedHTML();
-  panel.innerHTML=`<div class="social-page"><div class="social-page-head"><div><h2>Your Reading Circle</h2><p>Swap thoughts, discover good books, and see what your friends are reading.</p></div><div class="social-page-actions"><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div></div>
+  panel.innerHTML=`<div class="social-page">${socialWelcomeHTML()}
     <div class="social-tabs"><button class="${socialSection === 'feed' ? 'active' : ''}" type="button" onclick="selectSocialSection('feed')">Feed</button><button class="${socialSection === 'friends' ? 'active' : ''}" type="button" onclick="selectSocialSection('friends')">Friends (${socialFriendIds().length})</button><button class="${socialSection === 'requests' ? 'active' : ''}" type="button" onclick="selectSocialSection('requests')">Requests${requestCount ? ` (${requestCount})` : ''}</button></div>${content}</div>`;
 }
 
@@ -7966,7 +8107,7 @@ function parseBookRoute(hash=window.location.hash) {
 function applyHashRoute() {
   if (!trackerStarted) return;
   if (!window.location.hash) {
-    history.replaceState(appHistoryState(), '', '#books');
+    history.replaceState(appHistoryState(), '', '#social');
   } else if (!history.state?.readingTrackerEntry) {
     history.replaceState(appHistoryState(), '', window.location.href);
   }
@@ -7989,7 +8130,7 @@ function applyHashRoute() {
     showMonthSummary(monthRoute[1], false);
     return;
   }
-  const requested = window.location.hash.replace(/^#/, '') || 'books';
+  const requested = window.location.hash.replace(/^#/, '') || 'social';
   const normalizedRequested = requested === 'log' ? 'log-detail' : requested;
   if (requested === 'log') {
     history.replaceState(appHistoryState(), '', '#log-detail');
@@ -8003,7 +8144,7 @@ function applyHashRoute() {
   const validTabs = ['log-detail','stats','social','search','books','series','clubs','club-hub','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   showTab(
-    validTabs.includes(normalizedRequested) ? normalizedRequested : 'books',
+    validTabs.includes(normalizedRequested) ? normalizedRequested : 'social',
     Number.isFinite(savedScroll) ? savedScroll : 'content'
   );
 }
