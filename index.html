@@ -4896,6 +4896,10 @@
   .social-panel,.social-post,.social-person-card { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 14px rgba(21,42,85,.06); }
   .social-panel,.social-post { padding:1rem; }
   .social-panel h3 { margin:0 0 .7rem; color:var(--ink); }
+  .social-create-post { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.7rem; align-items:center; padding:.8rem 1rem; }
+  .social-create-post .social-avatar { width:40px; height:40px; flex-basis:40px; }
+  .social-create-trigger { width:100%; min-height:42px; border:1.5px solid #cbd5f5; border-radius:10px; background:#f7f9ff; color:#74809d; padding:.65rem .82rem; font:600 .92rem 'Crimson Pro',serif; text-align:left; cursor:pointer; transition:border-color .16s ease,background .16s ease,box-shadow .16s ease; }
+  .social-create-trigger:hover { border-color:#4169e1; background:#fff; box-shadow:0 3px 10px rgba(65,105,225,.09); }
   .social-composer { padding:1.15rem; border-color:rgba(65,105,225,.28); background:linear-gradient(145deg,#fff 0%,#f8faff 62%,#fff8f1 100%); }
   .social-composer h3 { margin-bottom:.2rem; font-size:1.18rem; }
   .social-composer-intro { margin:0 0 .9rem; color:var(--muted); font-size:.88rem; line-height:1.45; }
@@ -4920,14 +4924,14 @@
   .social-book-suggestion span { margin-top:.08rem; color:var(--muted); font-size:.76rem; }
   .social-composer-footer { display:flex; align-items:end; justify-content:space-between; gap:.75rem; }
   .social-composer-footer label { min-width:150px; }
-  .social-page button.account-primary,.social-profile-settings button.account-primary {
+  .social-page button.account-primary,.social-profile-settings button.account-primary,.social-post-dialog button.account-primary {
     min-height:42px; border:0; border-color:transparent !important; border-radius:10px; background:var(--accent-gradient); color:#fff; padding:.68rem 1rem; font:800 .93rem 'Crimson Pro',serif; letter-spacing:.01em; cursor:pointer; box-shadow:0 5px 12px rgba(65,105,225,.18); transition:transform .16s ease,box-shadow .16s ease,filter .16s ease;
   }
-  .social-page button.account-primary:hover,.social-profile-settings button.account-primary:hover { transform:translateY(-1px); filter:saturate(1.08) brightness(1.02); box-shadow:0 7px 16px rgba(65,105,225,.24); }
-  .social-page button.account-secondary,.social-profile-settings button.account-secondary {
+  .social-page button.account-primary:hover,.social-profile-settings button.account-primary:hover,.social-post-dialog button.account-primary:hover { transform:translateY(-1px); filter:saturate(1.08) brightness(1.02); box-shadow:0 7px 16px rgba(65,105,225,.24); }
+  .social-page button.account-secondary,.social-profile-settings button.account-secondary,.social-post-dialog button.account-secondary {
     min-height:40px; border:1.5px solid #b9c8f2; border-radius:10px; background:#fff; color:#294374; padding:.62rem .9rem; font:800 .9rem 'Crimson Pro',serif; cursor:pointer; box-shadow:0 2px 6px rgba(21,42,85,.045); transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease;
   }
-  .social-page button.account-secondary:hover,.social-profile-settings button.account-secondary:hover { transform:translateY(-1px); border-color:#4169e1; background:#f7f9ff; box-shadow:0 4px 10px rgba(65,105,225,.1); }
+  .social-page button.account-secondary:hover,.social-profile-settings button.account-secondary:hover,.social-post-dialog button.account-secondary:hover { transform:translateY(-1px); border-color:#4169e1; background:#f7f9ff; box-shadow:0 4px 10px rgba(65,105,225,.1); }
   .social-composer-footer button.account-primary { min-width:132px; min-height:46px; padding:.75rem 1.15rem; }
   .social-page button:active,.social-profile-settings button:active { transform:translateY(0); box-shadow:0 2px 5px rgba(21,42,85,.12); }
   .social-page button:focus-visible,.social-profile-settings button:focus-visible { outline:3px solid rgba(65,105,225,.2); outline-offset:2px; }
@@ -4964,6 +4968,14 @@
   }
   .social-profile-settings #account-social-bio:focus,.social-profile-settings #account-social-avatar:focus { outline:none; border-color:#4169e1; box-shadow:0 0 0 3px rgba(65,105,225,.12); }
   .social-notice { padding:.85rem; border-radius:8px; border:1px solid #ffc08a; background:#fff6ed; color:#704019; line-height:1.45; }
+  .social-post-modal { display:none; position:fixed; inset:0; z-index:1700; place-items:center; padding:1rem; background:rgba(10,24,57,.64); backdrop-filter:blur(5px); }
+  .social-post-modal.open { display:grid; }
+  .social-post-dialog { position:relative; width:min(680px,100%); max-height:min(88vh,760px); overflow:auto; border:1px solid rgba(65,105,225,.28); border-radius:16px; background:#fff; box-shadow:0 24px 70px rgba(10,24,57,.35); }
+  .social-post-dialog .social-composer { margin:0; border:0; border-radius:16px; box-shadow:none; padding:1.35rem; }
+  .social-post-dialog .social-composer h3 { padding-right:2.2rem; }
+  .social-post-close { position:absolute; z-index:3; top:.72rem; right:.72rem; display:grid; place-items:center; width:36px; height:36px; border:1px solid #cbd5f5; border-radius:10px; background:#fff; color:#294374; font-size:1rem; cursor:pointer; box-shadow:0 2px 7px rgba(21,42,85,.08); }
+  .social-post-close:hover { border-color:#4169e1; background:#f7f9ff; }
+  body.social-post-open { overflow:hidden; }
   @media (max-width:880px) {
     .social-welcome { grid-template-columns:minmax(0,1fr) 230px; }
   }
@@ -4990,6 +5002,11 @@
     .social-welcome-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
     .social-welcome-stat { min-width:0; padding:.5rem; text-align:center; }
     .social-welcome-stat span { font-size:.66rem; }
+    .social-create-post { grid-template-columns:auto minmax(0,1fr); }
+    .social-create-post > .account-primary { grid-column:2; width:100%; }
+    .social-post-modal { align-items:end; padding:0; }
+    .social-post-dialog { width:100%; max-height:92vh; border-radius:18px 18px 0 0; }
+    .social-post-dialog .social-composer { border-radius:18px 18px 0 0; padding:1.15rem; }
   }
 
 </style>
@@ -5192,6 +5209,12 @@
     <h3 id="app-dialog-title">Something went wrong</h3>
     <p id="app-dialog-message"></p>
     <div class="account-actions" id="app-dialog-actions"></div>
+  </div>
+</div>
+<div class="social-post-modal" id="social-post-modal" onclick="closeSocialPostModal(event)">
+  <div class="social-post-dialog" role="dialog" aria-modal="true" aria-labelledby="social-post-modal-title">
+    <button class="social-post-close" type="button" onclick="closeSocialPostModal()" aria-label="Close create post">✕</button>
+    <div id="social-post-modal-content"></div>
   </div>
 </div>
 <script>
@@ -7222,7 +7245,7 @@ function socialSearchableBooks() {
 function socialComposerHTML() {
   socialComposerBookId='';
   return `<section class="social-panel social-composer">
-    <h3>Share something with your reading circle</h3>
+    <h3 id="social-post-modal-title">Share something with your reading circle</h3>
     <p class="social-composer-intro">Share a favorite moment, a strong opinion, or simply what you just finished.</p>
     <div class="social-composer-fields">
       <label class="social-book-search">Which book? <span style="color:var(--muted);font-weight:600">(optional)</span>
@@ -7237,6 +7260,32 @@ function socialComposerHTML() {
       </div>
     </div>
   </section>`;
+}
+
+function openSocialPostModal(initialThoughts='') {
+  const modal=document.getElementById('social-post-modal');
+  const content=document.getElementById('social-post-modal-content');
+  if (!modal || !content) return;
+  content.innerHTML=socialComposerHTML();
+  modal.classList.add('open');
+  document.body.classList.add('social-post-open');
+  requestAnimationFrame(() => {
+    const thoughts=document.getElementById('social-post-thoughts');
+    if (!thoughts) return;
+    thoughts.value=initialThoughts;
+    thoughts.focus();
+    thoughts.setSelectionRange(thoughts.value.length,thoughts.value.length);
+  });
+}
+
+function closeSocialPostModal(event=null) {
+  const modal=document.getElementById('social-post-modal');
+  if (!modal || (event && event.target !== modal)) return;
+  modal.classList.remove('open');
+  document.body.classList.remove('social-post-open');
+  const content=document.getElementById('social-post-modal-content');
+  if (content) content.innerHTML='';
+  socialComposerBookId='';
 }
 
 function updateSocialBookSuggestions(value) {
@@ -7376,13 +7425,7 @@ function socialPromptHTML() {
 function useSocialPrompt() {
   socialSection='feed';
   buildSocialPage();
-  requestAnimationFrame(() => {
-    const thoughts=document.getElementById('social-post-thoughts');
-    if (!thoughts) return;
-    thoughts.value=`${currentSocialPrompt()}\n\n`;
-    thoughts.focus();
-    thoughts.setSelectionRange(thoughts.value.length,thoughts.value.length);
-  });
+  openSocialPostModal(`${currentSocialPrompt()}\n\n`);
 }
 
 function socialSuggestedProfiles(limit=3) {
@@ -7400,8 +7443,14 @@ function socialSuggestionsPreviewHTML() {
   }).join('')}</div>` : '<p class="social-empty">You’re all caught up with the readers available to meet.</p>'}<button class="account-secondary" style="margin-top:.75rem" type="button" onclick="selectSocialSection('friends')">Browse Readers</button></section>`;
 }
 
+function socialCreatePostCardHTML() {
+  const profile=socialProfileFor(currentSocialUserId());
+  const name=socialDisplayName(currentSocialUserId());
+  return `<section class="social-panel social-create-post">${socialAvatarHTML(profile,name)}<button class="social-create-trigger" type="button" onclick="openSocialPostModal()">Share a reading thought…</button><button class="account-primary" type="button" onclick="openSocialPostModal()">Create Post</button></section>`;
+}
+
 function socialFeedHTML() {
-  return `<div class="social-layout"><div class="social-feed">${socialComposerHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
+  return `<div class="social-layout"><div class="social-feed">${socialCreatePostCardHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
     ? socialPosts.map(socialPostHTML).join('')
     : '<section class="social-panel social-empty">It’s quiet here for now. Share what you’re reading, or find a few readers to follow along with.</section>'}</div>
     <aside class="social-side">${socialPromptHTML()}${socialSuggestionsPreviewHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('requests')">View Requests</button></section></aside></div>`;
@@ -7521,6 +7570,7 @@ async function createSocialPost(button) {
   try {
     await supabaseTableRequest('social_posts', {method:'POST', body:[{user_id:currentSocialUserId(),book_id:book?.database_id || null,book_title:book?.title || typedTitle || null,book_author:book ? displayBookContributor(book) : null,cover_url:book?.cover_url || null,rating:Number(book?.rating) || null,thoughts:thoughts || null,visibility}], prefer:'return=minimal'});
     await refreshSocialData();
+    closeSocialPostModal();
   } catch (error) { showAppDialog('Post Error',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>'); if (button) { button.disabled=false; button.textContent='Post to Feed'; } }
 }
 
@@ -17095,6 +17145,10 @@ function closeSeriesModal(e) {
   if (e.target === document.getElementById('series-modal')) closeTrackedModal();
 }
 document.addEventListener('keydown', e => {
+  if (e.key==='Escape' && document.getElementById('social-post-modal')?.classList.contains('open')) {
+    closeSocialPostModal();
+    return;
+  }
   if (e.key==='Escape' && document.getElementById('series-modal')?.classList.contains('open')) {
     closeTrackedModal();
   }
