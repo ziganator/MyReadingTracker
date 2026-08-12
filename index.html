@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Reading Tracker</title>
-<link rel="icon" type="image/png" href="assets/mrt-app-icon.png">
-<link rel="apple-touch-icon" href="assets/mrt-app-icon.png">
+<link rel="icon" type="image/png" href="assets/mrt-app-icon-20260812.png">
+<link rel="apple-touch-icon" href="assets/mrt-app-icon-20260812.png">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -4223,7 +4223,9 @@
     justify-self: center;
   }
   .site-logo {
-    width: clamp(132px, 18vw, 252px);
+    width: clamp(96px, 10vw, 140px);
+    max-height: 132px;
+    object-fit: contain;
     filter: drop-shadow(0 7px 13px rgba(23,45,95,0.1));
   }
   .account-button,
@@ -5017,7 +5019,7 @@
   <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
   <div class="header-ornament">✦ ✦ ✦</div>
   <div class="site-brand">
-    <img class="site-logo" src="assets/mrt-logo.png?v=20260801-2" alt="MRT">
+    <img class="site-logo" src="assets/mrt-logo-20260812.png" alt="MRT">
     <h1 id="site-title">My Reading Tracker</h1>
   </div>
   <p class="header-sub">A lifetime of stories</p>
