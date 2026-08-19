@@ -1025,6 +1025,7 @@
     box-shadow: 0 7px 22px rgba(23,45,95,0.2);
   }
   .cascade-menu-panel { top: calc(100% + 5px); left: 0; }
+  .cascade-menu-align-end > .cascade-menu-panel { left: auto; right: 0; }
   .cascade-menu.open > .cascade-menu-panel { display: block; }
   .cascade-menu-group { position: relative; }
   .cascade-menu-group > button,
@@ -5272,7 +5273,15 @@ let booksBulkMode = false;
 let booksBulkSelection = new Set();
 let booksBulkVisible = [];
 let booksPage = 1;
-const BOOKS_PAGE_SIZE = 72;
+const BOOKS_PAGE_SIZES = [25, 50, 100, 250];
+let booksPageSize = (() => {
+  try {
+    const saved = Number(localStorage.getItem('reading-tracker-books-page-size'));
+    return BOOKS_PAGE_SIZES.includes(saved) ? saved : 50;
+  } catch (_) {
+    return 50;
+  }
+})();
 let booksFilterSignature = '';
 let bookDetailNavigationContexts = {books: [], tbr: []};
 let readTimesReadCleanupAttempted = false;
@@ -12858,15 +12867,19 @@ function clearBooksBulkSelection() {
 }
 
 function booksPaginationHTML(total) {
-  const totalPages = Math.max(1, Math.ceil(total / BOOKS_PAGE_SIZE));
-  if (total <= BOOKS_PAGE_SIZE) return '';
-  const first = ((booksPage - 1) * BOOKS_PAGE_SIZE) + 1;
-  const last = Math.min(total, booksPage * BOOKS_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total / booksPageSize));
+  const first = total ? ((booksPage - 1) * booksPageSize) + 1 : 0;
+  const last = Math.min(total, booksPage * booksPageSize);
   return `<div class="library-pagination" aria-label="Library pages">
-    <span>Showing ${first}-${last} of ${total}</span>
-    <button class="account-secondary" type="button" onclick="setBooksPage(${booksPage - 1})" ${booksPage <= 1 ? 'disabled' : ''}>Previous</button>
+    <label>Books per page
+      <select aria-label="Books per page" onchange="setBooksPageSize(this.value)">
+        ${BOOKS_PAGE_SIZES.map(size => `<option value="${size}" ${booksPageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
+      </select>
+    </label>
+    ${total ? `<span>Showing ${first}-${last} of ${total}</span>` : ''}
+    ${totalPages > 1 ? `<button class="account-secondary" type="button" onclick="setBooksPage(${booksPage - 1})" ${booksPage <= 1 ? 'disabled' : ''}>Previous</button>
     <span>Page ${booksPage} of ${totalPages}</span>
-    <button class="account-secondary" type="button" onclick="setBooksPage(${booksPage + 1})" ${booksPage >= totalPages ? 'disabled' : ''}>Next</button>
+    <button class="account-secondary" type="button" onclick="setBooksPage(${booksPage + 1})" ${booksPage >= totalPages ? 'disabled' : ''}>Next</button>` : ''}
   </div>`;
 }
 
@@ -12874,6 +12887,15 @@ function setBooksPage(page) {
   booksPage = Math.max(1, Number(page) || 1);
   filterBooks();
   document.getElementById('books-results')?.scrollIntoView({block: 'start', behavior: 'smooth'});
+}
+
+function setBooksPageSize(value) {
+  const size = Number(value);
+  if (!BOOKS_PAGE_SIZES.includes(size)) return;
+  booksPageSize = size;
+  booksPage = 1;
+  try { localStorage.setItem('reading-tracker-books-page-size', String(size)); } catch (_) {}
+  filterBooks();
 }
 
 let booksControlPanel = '';
@@ -12908,7 +12930,7 @@ function booksViewMenuHTML() {
     ['list-minimal', 'Minimal list'], ['bookcase', 'Bookcase']
   ].map(([value, label]) => `<button type="button" class="cascade-choice ${booksView === value ? 'selected' : ''}"
     onclick="setLibraryView('books',${jsArg(value)});closeCascadeMenus()">${label}</button>`).join('');
-  return `<div class="cascade-menu" id="books-view-cascade-menu">
+  return `<div class="cascade-menu cascade-menu-align-end" id="books-view-cascade-menu">
     <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-view',event)">View</button>
     <div class="cascade-menu-panel" onclick="event.stopPropagation()">${choices}</div>
   </div>`;
@@ -14170,6 +14192,36 @@ async function lookupBookInfoForEditor() {
   }
 }
 
+async function lookupBookByTitleAuthorForEditor() {
+  const status = document.getElementById('book-editor-status-message');
+  const title = bookEditorValue('book-editor-title');
+  const author = bookEditorValue('book-editor-author');
+  if (!title) {
+    if (status) status.textContent = '';
+    showEditError('Enter a title before looking up book information.');
+    document.getElementById('book-editor-title')?.focus();
+    return;
+  }
+  if (status) status.textContent = 'Searching book sources...';
+  try {
+    const titleKey = normalizedKey(title);
+    const results = await fetchBookSearchCandidates(author ? `${title} ${author}` : title);
+    bookEditorEditionCandidates = results
+      .filter(edition => {
+        const editionTitle = normalizedKey(edition.title || '');
+        return editionTitle.includes(titleKey) || titleKey.includes(editionTitle);
+      })
+      .slice(0, 24);
+    if (!bookEditorEditionCandidates.length) throw new Error('No close title matches were found.');
+    renderEditionPicker('book-editor-edition-picker', bookEditorEditionCandidates, null, 'selectBookEditorEdition');
+    if (status) status.textContent =
+      `${bookEditorEditionCandidates.length} title match${bookEditorEditionCandidates.length === 1 ? '' : 'es'} found. Select an edition, review the fields, then save changes.`;
+  } catch (error) {
+    if (status) status.textContent = '';
+    showEditError(String(error?.message || 'The title and author lookup failed.'));
+  }
+}
+
 function setBookEditorValue(id, value) {
   const input = document.getElementById(id);
   if (!input || value === undefined || value === null || !String(value).trim()) return;
@@ -14259,6 +14311,9 @@ function openBookEditor(title, source='', key='') {
           <input id="book-editor-isbn" value="${esc(book.isbn || '')}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookInfoForEditor()}">
           <button class="account-primary" type="button" onclick="lookupBookInfoForEditor()">Find Book Info Online</button>
+        </div>
+        <div class="book-editor-cover-actions">
+          <button class="editor-button" type="button" onclick="lookupBookByTitleAuthorForEditor()">Find by Title / Author</button>
         </div>
         <div class="edition-picker" id="book-editor-edition-picker"></div>
       </div>
@@ -14882,10 +14937,10 @@ function filterBooks() {
     booksFilterSignature = signature;
     booksPage = 1;
   }
-  const totalPages = Math.max(1, Math.ceil(filtered.length / BOOKS_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / booksPageSize));
   booksPage = Math.min(booksPage, totalPages);
-  const pageStart = (booksPage - 1) * BOOKS_PAGE_SIZE;
-  const pageBooks = filtered.slice(pageStart, pageStart + BOOKS_PAGE_SIZE);
+  const pageStart = (booksPage - 1) * booksPageSize;
+  const pageBooks = filtered.slice(pageStart, pageStart + booksPageSize);
   booksBulkVisible = pageBooks;
   if (booksBulkMode) {
     const visibleKeys = new Set(pageBooks.map(bulkBookKey));
@@ -14894,7 +14949,7 @@ function filterBooks() {
     ));
   }
   renderLibraryCollection(pageBooks, 'books', booksView);
-  document.getElementById('book-count').textContent = filtered.length > BOOKS_PAGE_SIZE
+  document.getElementById('book-count').textContent = filtered.length > booksPageSize
     ? `${filtered.length} matching books`
     : `Showing ${filtered.length} of ${libraryBooks.length} books`;
   document.getElementById('book-count-criteria').textContent = booksCriteriaText();
