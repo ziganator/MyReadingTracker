@@ -1026,6 +1026,21 @@
   }
   .cascade-menu-panel { top: calc(100% + 5px); left: 0; }
   .cascade-menu-align-end > .cascade-menu-panel { left: auto; right: 0; }
+  .library-filter-menu > .cascade-menu-panel,
+  .library-sort-menu > .cascade-menu-panel {
+    width: min(320px, calc(100vw - 24px));
+    max-height: min(560px, calc(100vh - 112px));
+    overflow-y: auto;
+  }
+  .library-filter-fields { display: grid; gap: 0.65rem; }
+  .library-filter-fields label { display: grid; gap: 0.25rem; color: var(--deep); font-size: 0.8rem; font-weight: 700; }
+  .library-filter-fields input,
+  .library-filter-fields select { min-height: 36px; width: 100%; }
+  .library-filter-format { display: grid; gap: 0.3rem; }
+  .library-filter-format > span { color: var(--deep); font-size: 0.8rem; font-weight: 700; }
+  .library-filter-format-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.28rem 0.5rem; }
+  .library-filter-format-options label { display: flex; align-items: center; gap: 0.35rem; color: var(--ink); font-size: 0.78rem; font-weight: 600; }
+  .library-filter-clear { width: 100%; margin-top: 0.15rem; }
   .cascade-menu.open > .cascade-menu-panel { display: block; }
   .cascade-menu-group { position: relative; }
   .cascade-menu-group > button,
@@ -5266,6 +5281,7 @@ let booksSortCustomized = false;
 let booksStatusFilter = 'all';
 let booksGenreFilter = '';
 let booksYearFilter = '';
+let booksPublicationYearFilter = '';
 let booksOwnedFilter = '';
 let booksFormatFilters = new Set();
 let booksSearchQuery = '';
@@ -12317,47 +12333,32 @@ function cascadeGroup(label, choices) {
   </div>`;
 }
 
-function booksCascadeMenu(genres, years) {
-  const genreChoices = [
-    cascadeChoice('books','genre','','All Genres',booksGenreFilter === ''),
-    ...genres.map(genre => cascadeChoice('books','genre',genre,genre,booksGenreFilter === genre))
+function booksFilterMenuHTML(genres) {
+  const genreOptions = [
+    '<option value="">All genres</option>',
+    ...genres.map(genre => `<option value="${esc(genre)}" ${booksGenreFilter === genre ? 'selected' : ''}>${esc(genre)}</option>`)
   ].join('');
-  const yearChoices = [
-    cascadeChoice('books','year','','All Reading Years',booksYearFilter === ''),
-    ...years.map(year => cascadeChoice('books','year',year,String(year),String(booksYearFilter) === String(year)))
-  ].join('');
-  const ownedChoices = [
-    cascadeChoice('books','owned','','All Ownership',booksOwnedFilter === ''),
-    cascadeChoice('books','owned','owned','Owned',booksOwnedFilter === 'owned'),
-    cascadeChoice('books','owned','not-owned','Not Owned',booksOwnedFilter === 'not-owned')
-  ].join('');
-  const formatChoices = [
-    cascadeChoice('books','format','','All Formats',!booksFormatFilters.size),
-    ...OWNED_FORMAT_FILTER_OPTIONS.map(([value, label]) =>
-      cascadeChoice('books','format',value,label,booksFormatFilters.has(value))
-    )
-  ].join('');
-  const sortChoices = [
-    ['author:asc','Author: A-Z'], ['author:desc','Author: Z-A'],
-    ['title:asc','Title: A-Z'], ['title:desc','Title: Z-A'],
-    ['series:asc','Series Name: A-Z'], ['series:desc','Series Name: Z-A'],
-    ['series_release:asc','Series: Release Order'], ['series_release:desc','Series: Newest Release First'],
-    ['genre:asc','Genre: A-Z'], ['genre:desc','Genre: Z-A'],
-    ['year_pub:desc','Publication: Newest'], ['year_pub:asc','Publication: Oldest'],
-    ['year_read:desc','Read: Newest'], ['year_read:asc','Read: Oldest'],
-    ['rating:desc','Rating: Highest'], ['rating:asc','Rating: Lowest']
-  ].map(([value,label]) => cascadeSortChoice(value,label)).join('') +
-    cascadeChoice('books','sort-reset','','Reset Order',false);
-  const filters = cascadeMenuHTML('books-filter', [
-    cascadeGroup('Genre', genreChoices),
-    cascadeGroup('Reading Year', yearChoices),
-    cascadeGroup('Ownership', ownedChoices),
-    cascadeGroup('Format', formatChoices)
-  ], 'Filter');
-  const sorting = cascadeMenuHTML('books-sort', [
-    cascadeGroup('Order Priority', sortChoices)
-  ], 'Sort');
-  return `${filters}${sorting}`;
+  const formatOptions = OWNED_FORMAT_FILTER_OPTIONS.map(([value, label]) => `<label>
+    <input type="checkbox" value="${esc(value)}" ${booksFormatFilters.has(value) ? 'checked' : ''}
+      onchange="setBooksFormatFilter(this.value,this.checked)">${esc(label)}
+  </label>`).join('');
+  return `<div class="cascade-menu library-filter-menu" id="books-filter-cascade-menu">
+    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-filter',event)">Filter</button>
+    <div class="cascade-menu-panel" onclick="event.stopPropagation()">
+      <div class="library-filter-fields">
+        <label>Genre<select onchange="setBooksGenreFilter(this.value)">${genreOptions}</select></label>
+        <label>Reading Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksYearFilter)}" onchange="setBooksReadingYearFilter(this.value)"></label>
+        <label>Publication Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksPublicationYearFilter)}" onchange="setBooksPublicationYearFilter(this.value)"></label>
+        <label>Ownership<select onchange="setBooksOwnershipFilter(this.value)">
+          <option value="" ${booksOwnedFilter === '' ? 'selected' : ''}>All books</option>
+          <option value="owned" ${booksOwnedFilter === 'owned' ? 'selected' : ''}>Owned</option>
+          <option value="not-owned" ${booksOwnedFilter === 'not-owned' ? 'selected' : ''}>Not owned</option>
+        </select></label>
+        <div class="library-filter-format"><span>Format</span><div class="library-filter-format-options">${formatOptions}</div></div>
+        <button class="account-secondary library-filter-clear" type="button" onclick="clearBooksFilters()">Clear Filters</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 const BOOKS_SORT_OPTIONS = [
@@ -12370,6 +12371,20 @@ const BOOKS_SORT_OPTIONS = [
   ['year_read:desc','Read: Newest'], ['year_read:asc','Read: Oldest'],
   ['rating:desc','Rating: Highest'], ['rating:asc','Rating: Lowest']
 ];
+
+function booksSortMenuHTML() {
+  const selected = `${booksSortLevels[0]?.field || 'author'}:${booksSortLevels[0]?.direction || 'asc'}`;
+  return `<div class="cascade-menu library-sort-menu" id="books-sort-cascade-menu">
+    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-sort',event)">Sort</button>
+    <div class="cascade-menu-panel" onclick="event.stopPropagation()">
+      <label class="library-filter-fields">Sort books by
+        <select onchange="setBooksPrimarySort(this.value);closeCascadeMenus()">
+          ${BOOKS_SORT_OPTIONS.map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+  </div>`;
+}
 
 function booksSidebarSelect(label, html) {
   return `<label class="books-sidebar-field"><span>${esc(label)}</span>${html}</label>`;
@@ -12569,6 +12584,41 @@ function setBooksFormatFilter(value, selected) {
   if (selected) next.add(value);
   else next.delete(value);
   booksFormatFilters = next;
+  booksPage = 1;
+  filterBooks();
+}
+
+function setBooksGenreFilter(value) {
+  booksGenreFilter = value || '';
+  booksPage = 1;
+  filterBooks();
+}
+
+function setBooksReadingYearFilter(value) {
+  booksYearFilter = String(value || '').replace(/\D/g, '').slice(0, 4);
+  booksPage = 1;
+  filterBooks();
+}
+
+function setBooksPublicationYearFilter(value) {
+  booksPublicationYearFilter = String(value || '').replace(/\D/g, '').slice(0, 4);
+  booksPage = 1;
+  filterBooks();
+}
+
+function setBooksOwnershipFilter(value) {
+  booksOwnedFilter = value || '';
+  booksPage = 1;
+  filterBooks();
+}
+
+function clearBooksFilters() {
+  booksGenreFilter = '';
+  booksYearFilter = '';
+  booksPublicationYearFilter = '';
+  booksOwnedFilter = '';
+  booksFormatFilters = new Set();
+  booksPage = 1;
   filterBooks();
 }
 
@@ -12578,6 +12628,7 @@ function setBooksPrimarySort(value) {
   booksSortCustomized = !(booksSortLevels[0].field === 'author' && booksSortLevels[0].direction === 'asc');
   booksSortField = booksSortLevels[0].field;
   booksSortDirection = booksSortLevels[0].direction;
+  booksPage = 1;
   buildBooks();
 }
 
@@ -12786,6 +12837,7 @@ function booksCriteriaText() {
   if (selectedCollection && selectedCollection.slug !== 'all-books') criteria.push(`Collection: ${selectedCollection.name}`);
   if (booksGenreFilter) criteria.push(`Genre: ${booksGenreFilter}`);
   if (booksYearFilter) criteria.push(`Reading year: ${booksYearFilter}`);
+  if (booksPublicationYearFilter) criteria.push(`Publication year: ${booksPublicationYearFilter}`);
   if (booksOwnedFilter === 'owned') criteria.push('Owned');
   if (booksOwnedFilter === 'not-owned') criteria.push('Not owned');
   if (booksFormatFilters.size) {
@@ -12981,7 +13033,8 @@ function booksToolbarHTML(genres, years) {
         </div>
         <div class="books-toolbar-tools">
           ${booksCollectionMenuHTML()}
-          ${booksCascadeMenu(genres, years)}
+          ${booksFilterMenuHTML(genres)}
+          ${booksSortMenuHTML()}
           ${booksViewMenuHTML()}
         </div>
       </div>
@@ -14173,7 +14226,9 @@ async function lookupSynopsisForEditor() {
 
 async function lookupBookInfoForEditor() {
   const status = document.getElementById('book-editor-status-message');
-  const isbn = bookEditorValue('book-editor-isbn').replace(/[^0-9Xx]/g, '').toUpperCase();
+  const rawISBN = bookEditorValue('book-editor-isbn');
+  if (!rawISBN) return lookupBookByTitleAuthorForEditor();
+  const isbn = rawISBN.replace(/[^0-9Xx]/g, '').toUpperCase();
   if (![10, 13].includes(isbn.length)) {
     if (status) status.textContent = '';
     showEditError('Enter a valid ISBN-10 or ISBN-13 before looking up book information.');
@@ -14311,9 +14366,6 @@ function openBookEditor(title, source='', key='') {
           <input id="book-editor-isbn" value="${esc(book.isbn || '')}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookInfoForEditor()}">
           <button class="account-primary" type="button" onclick="lookupBookInfoForEditor()">Find Book Info Online</button>
-        </div>
-        <div class="book-editor-cover-actions">
-          <button class="editor-button" type="button" onclick="lookupBookByTitleAuthorForEditor()">Find by Title / Author</button>
         </div>
         <div class="edition-picker" id="book-editor-edition-picker"></div>
       </div>
@@ -14910,6 +14962,7 @@ function filterBooks() {
   const q = booksSearchQuery.toLowerCase();
   const g = booksGenreFilter;
   const y = booksYearFilter;
+  const publicationYear = booksPublicationYearFilter;
   const o = booksOwnedFilter;
   const formats = booksFormatFilters;
   const collection = normalizeBooksCollectionFilter();
@@ -14920,6 +14973,7 @@ function filterBooks() {
     if (collection && !bookBelongsToCollection(b, collection)) return false;
     if (g && b.genre !== g) return false;
     if (y && Math.floor(b.year_read) !== parseInt(y)) return false;
+    if (publicationYear && publicationYearForBook(b) !== parseInt(publicationYear)) return false;
     if (o === 'owned' && !ownedValue(b.own)) return false;
     if (o === 'not-owned' && ownedValue(b.own)) return false;
     if (formats.size && !formats.has(bookFormatKey(b.format || 'Book'))) return false;
@@ -14927,12 +14981,12 @@ function filterBooks() {
   });
   
   const currentBook = currentReadingBook();
-  if (currentBook && !q && !g && !y && !o && !formats.size && collection?.slug === 'all-books') {
+  if (currentBook && !q && !g && !y && !publicationYear && !o && !formats.size && collection?.slug === 'all-books') {
     filtered = filtered.filter(book => book.title !== currentBook.title);
     filtered.unshift({...currentBook, _currentlyReading: true});
   }
   filtered = sortedBooks(filtered);
-  const signature = JSON.stringify({q, g, y, o, formats:[...formats].sort(), collection:collection?.id || '', sort:booksSortLevels, view:booksView});
+  const signature = JSON.stringify({q, g, y, publicationYear, o, formats:[...formats].sort(), collection:collection?.id || '', sort:booksSortLevels, view:booksView});
   if (signature !== booksFilterSignature) {
     booksFilterSignature = signature;
     booksPage = 1;
