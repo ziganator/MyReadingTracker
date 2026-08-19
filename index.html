@@ -1889,12 +1889,26 @@
 }
 .add-book-mode button:last-child { border-right: 0; }
 .add-book-mode button.active { background: var(--burnt); color: #fff; }
-.isbn-lookup-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
-  margin-bottom: 0;
-}
+  .isbn-lookup-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    margin-bottom: 0;
+  }
+  .add-book-search-row {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto;
+  }
+  .library-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin: 1rem 0 0;
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+  .library-pagination button { min-height: 36px; }
 .book-search-results {
   display: grid;
   gap: 0.55rem;
@@ -2869,7 +2883,14 @@
     .author-row { grid-template-columns: 100px 1fr 50px; }
     .author-avg { display: none; }
     nav button { font-size: 0.78rem; padding: 0.6rem 0.8rem; }
+    nav .nav-mobile-secondary { display: none; }
+    nav .nav-mobile-more { display: inline-flex; align-items: center; justify-content: center; }
+    nav .nav-mobile-primary,
+    nav .nav-mobile-more { flex: 1 1 0; min-width: 0; }
+    .add-book-search-row { grid-template-columns: 1fr; }
+    .library-pagination { justify-content: center; }
   }
+  @media (min-width: 701px) { .nav-mobile-more { display: none; } }
   .book-card{
     display:flex;
     flex-direction:column;
@@ -5250,6 +5271,9 @@ let booksSearchQuery = '';
 let booksBulkMode = false;
 let booksBulkSelection = new Set();
 let booksBulkVisible = [];
+let booksPage = 1;
+const BOOKS_PAGE_SIZE = 72;
+let booksFilterSignature = '';
 let bookDetailNavigationContexts = {books: [], tbr: []};
 let readTimesReadCleanupAttempted = false;
 let pageCountSyncRunning = false;
@@ -8047,7 +8071,7 @@ function buildHeaderStats() {
   }
 
   document.getElementById('headerStats').innerHTML = `
-    <div class="stat-item"><div class="stat-num">${DATA.books.length}</div><div class="stat-label">Books Read</div></div>
+    <div class="stat-item"><div class="stat-num">${DATA.books.length}</div><div class="stat-label">Unique Books Read</div></div>
     <div class="stat-item"><div class="stat-num">${DATA.ratings_2026.length}</div><div class="stat-label">Read in 2026</div></div>
     <div class="stat-item"><div class="stat-num">${DATA.ratings_2025.length}</div><div class="stat-label">Read in 2025</div></div>
     <div class="stat-item"><div class="stat-num">${avg}</div><div class="stat-label">Avg Rating</div></div>
@@ -8059,12 +8083,22 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log-detail','Reading Log'],['stats','Stats'],['search','Search'],['books','Books'],['series','Series'],
+    ['log-detail','Reading Log'],['stats','Statistic Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
     ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
+  const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
-    `<button onclick="switchTab('${id}')" id="nav-${id}" type="button">${label}</button>`
-  ).join('');
+    `<button onclick="switchTab('${id}')" id="nav-${id}" class="${mobilePrimary.has(id) ? 'nav-mobile-primary' : 'nav-mobile-secondary'}" type="button">${label}</button>`
+  ).join('') + `<button onclick="openMobileNavigationMenu()" id="nav-more" class="nav-mobile-more" type="button">More</button>`;
+}
+
+function openMobileNavigationMenu() {
+  const tabs = [
+    ['search', 'Online Lookup'], ['series', 'Series'], ['club-hub', 'Club Hub'], ['picker', 'Picker']
+  ];
+  showAppDialog('More', 'More places in your reading tracker.', tabs.map(([id, label]) =>
+    `<button class="account-secondary" type="button" onclick="closeAppDialog();switchTab(${jsArg(id)})">${esc(label)}</button>`
+  ).join(''));
 }
 function pageContentTop(panel) {
   const nav = document.getElementById('mainNav');
@@ -8086,6 +8120,8 @@ function showTab(id, scrollMode='preserve') {
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+id);
   activeButton?.classList.add('active');
+  const moreButton = document.getElementById('nav-more');
+  if (moreButton && !activeButton?.classList.contains('nav-mobile-primary')) moreButton.classList.add('active');
   if (activeButton && window.matchMedia('(max-width: 700px)').matches) {
     const nav = activeButton.parentElement;
     nav?.scrollTo({
@@ -9592,7 +9628,7 @@ function showYear(year) {
   }).join('');
 
   const statCards = [
-    ['📚', yearCount, 'Books Read'],
+    ['📚', yearCount, showAllYears ? 'Reading Entries' : 'Books Read'],
     ['📄', pageMetric(pageStats.pages), 'Pages Read'],
     ['📄', pageStats.avgPagesPerMonth ? pageMetric(pageStats.avgPagesPerMonth) : '—', 'Avg Pages / Month'],
     ['⭐', avg, 'Avg Rating'],
@@ -10450,12 +10486,8 @@ function applyBookEditorViewMode() {
   const button = document.getElementById('book-editor-minimal-toggle');
   if (button) {
     button.setAttribute('aria-pressed', bookEditorMinimalMode ? 'true' : 'false');
-    button.textContent = bookEditorMinimalMode ? 'Minimal: On' : 'Minimal: Off';
+    button.textContent = bookEditorMinimalMode ? 'Show all fields' : 'Show fewer fields';
   }
-  const label = document.getElementById('book-editor-view-label');
-  if (label) label.textContent = bookEditorMinimalMode
-    ? 'Essential fields are shown'
-    : 'All book fields are shown';
 }
 
 function toggleBookEditorViewMode() {
@@ -10465,9 +10497,8 @@ function toggleBookEditorViewMode() {
 }
 
 function bookEditorViewToggleHTML() {
-  return `<div class="editor-view-bar">
-    <span id="book-editor-view-label"></span>
-    <button class="editor-view-toggle" id="book-editor-minimal-toggle" type="button" onclick="toggleBookEditorViewMode()">Minimal: On</button>
+  return `<div class="editor-view-bar editor-view-bar-simple">
+    <button class="editor-view-toggle" id="book-editor-minimal-toggle" type="button" onclick="toggleBookEditorViewMode()">Show all fields</button>
   </div>`;
 }
 
@@ -10817,17 +10848,25 @@ function openAddBookDialog(defaultStatus='TBR') {
   addBookEditionCandidates = [];
   selectedAddBookEdition = null;
   document.getElementById('modal-series-name').textContent = 'Add a Book';
-  document.getElementById('modal-series-sub').textContent = 'Enter the details yourself or look up an ISBN.';
+  document.getElementById('modal-series-sub').textContent = 'Enter the details, look up an ISBN, or search by title and author.';
   document.getElementById('modal-series-body').innerHTML = `
     ${bookEditorViewToggleHTML()}
     <div class="add-book-mode">
       <button id="add-mode-manual" class="active" type="button" onclick="setAddBookMode('manual')">Enter Manually</button>
       <button id="add-mode-isbn" type="button" onclick="setAddBookMode('isbn')">Look Up ISBN</button>
+      <button id="add-mode-search" type="button" onclick="setAddBookMode('search')">Search Title / Author</button>
     </div>
     <div class="isbn-lookup-row" id="isbn-lookup-row" style="display:none">
       <input id="add-book-isbn-lookup" type="text" inputmode="numeric" placeholder="ISBN-10 or ISBN-13"
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByISBN()}">
       <button class="account-primary" type="button" onclick="lookupBookByISBN()">Look Up</button>
+    </div>
+    <div class="isbn-lookup-row add-book-search-row" id="add-book-search-row" style="display:none">
+      <input id="add-book-search-title" type="search" placeholder="Book title" autocomplete="off"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByTitleAuthor()}">
+      <input id="add-book-search-author" type="search" placeholder="Author (optional)" autocomplete="off"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByTitleAuthor()}">
+      <button class="account-primary" type="button" onclick="lookupBookByTitleAuthor()">Search</button>
     </div>
     <div class="picker-settings-status add-book-status-message" id="add-book-status-message"
       role="status" aria-live="polite"></div>
@@ -10835,7 +10874,7 @@ function openAddBookDialog(defaultStatus='TBR') {
     <div class="add-book-fields book-editor-mode-scope">
       <button class="add-book-cover" id="add-book-cover" type="button"
         onclick="document.getElementById('add-book-cover-url')?.focus()">
-        <span>Click to add a cover-image link</span>
+        <span>Add a cover-image link below</span>
       </button>
       <div class="add-book-field full"><label for="add-book-title">Title</label><input id="add-book-title" type="text"></div>
       <div class="add-book-field full"><label for="add-book-author">Author</label><input id="add-book-author" type="text"></div>
@@ -10893,9 +10932,13 @@ function setAddBookMode(mode) {
   addBookMode = mode;
   document.getElementById('add-mode-manual')?.classList.toggle('active', mode === 'manual');
   document.getElementById('add-mode-isbn')?.classList.toggle('active', mode === 'isbn');
-  const row = document.getElementById('isbn-lookup-row');
-  if (row) row.style.display = mode === 'isbn' ? 'grid' : 'none';
+  document.getElementById('add-mode-search')?.classList.toggle('active', mode === 'search');
+  const isbnRow = document.getElementById('isbn-lookup-row');
+  const searchRow = document.getElementById('add-book-search-row');
+  if (isbnRow) isbnRow.style.display = mode === 'isbn' ? 'grid' : 'none';
+  if (searchRow) searchRow.style.display = mode === 'search' ? 'grid' : 'none';
   if (mode === 'isbn') document.getElementById('add-book-isbn-lookup')?.focus();
+  if (mode === 'search') document.getElementById('add-book-search-title')?.focus();
 }
 
 function renderAddBookCover() {
@@ -10903,7 +10946,7 @@ function renderAddBookCover() {
   if (!button) return;
   button.innerHTML = addBookCoverUrl
     ? `<img src="${esc(addBookCoverUrl)}" alt="Book cover" onerror="this.parentElement.innerHTML='<span>Cover link could not be loaded. Edit the link below.</span>'">`
-    : '<span>Click to add a cover-image link</span>';
+    : '<span>Add a cover-image link below</span>';
 }
 
 function setAddBookCoverUrl(value) {
@@ -11586,6 +11629,41 @@ async function lookupBookByISBN() {
     message.textContent = `${addBookEditionCandidates.length} edition record${addBookEditionCandidates.length === 1 ? '' : 's'} found. Select one, review the details, then save it.`;
   } catch (error) {
     message.textContent = `${error.message} You can enter the book manually.`;
+  }
+}
+
+async function lookupBookByTitleAuthor() {
+  const title = document.getElementById('add-book-search-title')?.value.trim() || '';
+  const author = document.getElementById('add-book-search-author')?.value.trim() || '';
+  const message = document.getElementById('add-book-status-message');
+  if (!title) {
+    if (message) message.textContent = 'Enter a title to search.';
+    document.getElementById('add-book-search-title')?.focus();
+    return;
+  }
+  if (message) message.textContent = 'Searching book sources...';
+  try {
+    const query = author ? `${title} ${author}` : title;
+    const titleKey = normalizedKey(title);
+    const authorKey = normalizedKey(author);
+    const matches = await fetchBookSearchCandidates(query);
+    addBookEditionCandidates = matches
+      .filter(edition => {
+        const editionTitle = normalizedKey(edition.title || '');
+        const editionAuthors = normalizedKey((edition.authors || []).join(' '));
+        return (!titleKey || editionTitle.includes(titleKey) || titleKey.includes(editionTitle)) &&
+          (!authorKey || editionAuthors.includes(authorKey) || authorKey.includes(editionAuthors));
+      })
+      .slice(0, 24);
+    if (!addBookEditionCandidates.length) {
+      if (message) message.textContent = 'No close matches were found. You can still enter the book manually.';
+      document.getElementById('add-book-edition-picker').innerHTML = '';
+      return;
+    }
+    renderEditionPicker('add-book-edition-picker', addBookEditionCandidates, null, 'selectAddBookEdition');
+    if (message) message.textContent = `${addBookEditionCandidates.length} match${addBookEditionCandidates.length === 1 ? '' : 'es'} found. Choose the edition that matches your book.`;
+  } catch (error) {
+    if (message) message.textContent = `${error.message} You can still enter the book manually.`;
   }
 }
 
@@ -12363,15 +12441,12 @@ function booksSidebarSortHTML() {
 function booksCollectionMenuHTML() {
   if (guestMode) return '';
   const selected = normalizeBooksCollectionFilter();
-  const label = selected?.name || 'Collections';
   const choices = libraryCollections.map(collection => `
     <button type="button" class="cascade-choice ${collection.id === selected?.id ? 'selected' : ''}"
       onclick="selectBooksCollection(${jsArg(collection.id)},event)">${esc(collection.name)}</button>
   `).join('');
   return `<div class="cascade-menu books-collection-menu" id="books-collection-cascade-menu">
-    <button type="button" class="picker-command secondary" onclick="toggleCascadeMenu('books-collection',event)">
-      ${esc(label)}
-    </button>
+    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-collection',event)">Collections</button>
     <div class="cascade-menu-panel" onclick="event.stopPropagation()">
       ${choices}
       <button type="button" class="collection-select-manage" onclick="closeCascadeMenus();openCollectionManager()">Manage collections</button>
@@ -12382,6 +12457,7 @@ function booksCollectionMenuHTML() {
 function selectBooksCollection(collectionId, event) {
   event?.stopPropagation();
   booksStatusFilter = collectionId;
+  booksPage = 1;
   closeCascadeMenus();
   buildBooks();
 }
@@ -12466,6 +12542,7 @@ function applyCascadeChoice(scope, kind, value) {
       booksSortField = 'author';
       booksSortDirection = 'asc';
     }
+    booksPage = 1;
     buildBooks();
   } else {
     if (kind === 'category') tbrCategoryFilter = value;
@@ -12497,6 +12574,7 @@ function setBooksPrimarySort(value) {
 
 function setBooksSearch(value) {
   booksSearchQuery = value;
+  booksPage = 1;
   filterBooks();
   const clear = document.getElementById('book-search-clear');
   if (clear) clear.style.display = value ? 'block' : 'none';
@@ -12504,6 +12582,7 @@ function setBooksSearch(value) {
 
 function clearBooksSearch() {
   booksSearchQuery = '';
+  booksPage = 1;
   const input = document.getElementById('book-search');
   if (input) {
     input.value = '';
@@ -12778,6 +12857,25 @@ function clearBooksBulkSelection() {
   filterBooks();
 }
 
+function booksPaginationHTML(total) {
+  const totalPages = Math.max(1, Math.ceil(total / BOOKS_PAGE_SIZE));
+  if (total <= BOOKS_PAGE_SIZE) return '';
+  const first = ((booksPage - 1) * BOOKS_PAGE_SIZE) + 1;
+  const last = Math.min(total, booksPage * BOOKS_PAGE_SIZE);
+  return `<div class="library-pagination" aria-label="Library pages">
+    <span>Showing ${first}-${last} of ${total}</span>
+    <button class="account-secondary" type="button" onclick="setBooksPage(${booksPage - 1})" ${booksPage <= 1 ? 'disabled' : ''}>Previous</button>
+    <span>Page ${booksPage} of ${totalPages}</span>
+    <button class="account-secondary" type="button" onclick="setBooksPage(${booksPage + 1})" ${booksPage >= totalPages ? 'disabled' : ''}>Next</button>
+  </div>`;
+}
+
+function setBooksPage(page) {
+  booksPage = Math.max(1, Number(page) || 1);
+  filterBooks();
+  document.getElementById('books-results')?.scrollIntoView({block: 'start', behavior: 'smooth'});
+}
+
 let booksControlPanel = '';
 
 function setBooksSidebarOpen(open, panel='') {
@@ -12804,10 +12902,16 @@ function closeBooksControlPanel() {
   buildBooks();
 }
 
-function booksControlButton(panel, label) {
-  const active = booksControlPanel === panel;
-  return `<button class="picker-command secondary books-control-button ${active ? 'active' : ''}" type="button"
-    onclick="toggleBooksControlPanel(${jsArg(panel)})">${esc(label)}</button>`;
+function booksViewMenuHTML() {
+  const choices = [
+    ['cards', 'Cards'], ['cover-minimal', 'Covers'], ['list', 'List'],
+    ['list-minimal', 'Minimal list'], ['bookcase', 'Bookcase']
+  ].map(([value, label]) => `<button type="button" class="cascade-choice ${booksView === value ? 'selected' : ''}"
+    onclick="setLibraryView('books',${jsArg(value)});closeCascadeMenus()">${label}</button>`).join('');
+  return `<div class="cascade-menu" id="books-view-cascade-menu">
+    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-view',event)">View</button>
+    <div class="cascade-menu-panel" onclick="event.stopPropagation()">${choices}</div>
+  </div>`;
 }
 
 function booksControlPanelTitle(panel) {
@@ -12844,7 +12948,7 @@ function booksToolbarHTML(genres, years) {
       <div class="books-toolbar-row">
         <div class="books-toolbar-actions">
           <button class="picker-command" type="button" onclick="openAddBookDialog('TBR')">+ Add Book</button>
-          <button class="picker-command secondary" type="button" onclick="toggleBooksBulkMode()">${booksBulkMode ? 'Done Selecting' : 'Select Books'}</button>
+          <button class="picker-command secondary" type="button" onclick="toggleBooksBulkMode()">${booksBulkMode ? 'Done Selecting' : 'Bulk Select'}</button>
         </div>
         <div class="books-toolbar-search">
           <input type="text" id="book-search" value="${esc(booksSearchQuery)}"
@@ -12854,13 +12958,11 @@ function booksToolbarHTML(genres, years) {
             onclick="clearBooksSearch()" style="display:${booksSearchQuery ? 'block' : 'none'}">×</button>
         </div>
         <div class="books-toolbar-tools">
-          ${booksControlButton('collection', 'Collections')}
-          ${booksControlButton('filters', 'Filter')}
-          ${booksControlButton('sort', 'Sort')}
-          ${booksControlButton('view', 'View')}
+          ${booksCollectionMenuHTML()}
+          ${booksCascadeMenu(genres, years)}
+          ${booksViewMenuHTML()}
         </div>
       </div>
-      ${booksControlPanelHTML(genres, years)}
     </div>
   `;
 }
@@ -13018,6 +13120,7 @@ function buildBooks() {
           <button class="account-primary" id="books-bulk-apply" type="button" onclick="openBulkEditDialog()">Bulk Edit</button>
         </div>
         <div id="books-results"></div>
+        <div id="books-pagination"></div>
       </div>
     </div>
   `;
@@ -14774,16 +14877,29 @@ function filterBooks() {
     filtered.unshift({...currentBook, _currentlyReading: true});
   }
   filtered = sortedBooks(filtered);
-  booksBulkVisible = filtered;
+  const signature = JSON.stringify({q, g, y, o, formats:[...formats].sort(), collection:collection?.id || '', sort:booksSortLevels, view:booksView});
+  if (signature !== booksFilterSignature) {
+    booksFilterSignature = signature;
+    booksPage = 1;
+  }
+  const totalPages = Math.max(1, Math.ceil(filtered.length / BOOKS_PAGE_SIZE));
+  booksPage = Math.min(booksPage, totalPages);
+  const pageStart = (booksPage - 1) * BOOKS_PAGE_SIZE;
+  const pageBooks = filtered.slice(pageStart, pageStart + BOOKS_PAGE_SIZE);
+  booksBulkVisible = pageBooks;
   if (booksBulkMode) {
-    const visibleKeys = new Set(filtered.map(bulkBookKey));
+    const visibleKeys = new Set(pageBooks.map(bulkBookKey));
     booksBulkSelection = new Set([...booksBulkSelection].filter(key =>
       visibleKeys.has(key) || allLibraryBooks().some(book => bulkBookKey(book) === key)
     ));
   }
-  renderLibraryCollection(filtered, 'books', booksView);
-  document.getElementById('book-count').textContent = `Showing ${filtered.length} of ${libraryBooks.length} books`;
+  renderLibraryCollection(pageBooks, 'books', booksView);
+  document.getElementById('book-count').textContent = filtered.length > BOOKS_PAGE_SIZE
+    ? `${filtered.length} matching books`
+    : `Showing ${filtered.length} of ${libraryBooks.length} books`;
   document.getElementById('book-count-criteria').textContent = booksCriteriaText();
+  const pagination = document.getElementById('books-pagination');
+  if (pagination) pagination.innerHTML = booksPaginationHTML(filtered.length);
   updateBooksBulkBar();
 }
 
@@ -15447,12 +15563,12 @@ function pickerPreferenceStorageKey() {
 async function loadPickerPreferences() {
   let saved = null;
   try {
-    const profiles = await supabaseTableRequest('profiles', {
+    const settings = await supabaseTableRequest('user_settings', {
       query: '?select=picker_categories&limit=1'
     });
-    saved = profiles?.[0]?.picker_categories;
+    saved = settings?.[0]?.picker_categories;
   } catch (error) {
-    console.warn('Picker preferences are using local storage:', error.message);
+    console.warn('Picker preferences are using local storage until the picker settings migration is applied:', error.message);
   }
   if (!Array.isArray(saved) || !saved.length) {
     try {
@@ -15472,15 +15588,10 @@ async function savePickerPreferences(closeSettings=false) {
   const status = document.getElementById('picker-settings-status');
   if (status) status.textContent = 'Saving...';
   try {
-    await supabaseTableRequest('profiles', {
-      method: 'PATCH',
-      query: `?id=eq.${encodeURIComponent(supabaseSession.user.id)}`,
-      body: {picker_categories: pickerCategoryPreferences},
-      prefer: 'return=minimal'
-    });
+    await saveUserSettings({picker_categories: pickerCategoryPreferences});
     if (status) status.textContent = 'Saved to your account.';
   } catch (error) {
-    if (status) status.textContent = 'Saved on this device only. Supabase needs a one-time setup before these choices can sync with your other devices.';
+    if (status) status.textContent = 'Saved on this device only. Run supabase_picker_categories.sql once to sync these choices with your other devices.';
   }
   Object.keys(shuffleState).forEach(key => delete shuffleState[key]);
   renderPicker(false);
