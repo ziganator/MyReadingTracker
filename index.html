@@ -3152,6 +3152,7 @@
     background: var(--accent-gradient);
     color: #fff;
   }
+  .editor-view-actions { margin-right: auto; }
   .book-editor-mode-scope.editor-minimal .editor-optional {
     display: none !important;
   }
@@ -10521,8 +10522,9 @@ function toggleBookEditorViewMode() {
   applyBookEditorViewMode();
 }
 
-function bookEditorViewToggleHTML() {
+function bookEditorViewToggleHTML(includeLookup=false) {
   return `<div class="editor-view-bar editor-view-bar-simple">
+    ${includeLookup ? `<div class="editor-view-actions"><button class="editor-button" type="button" onclick="lookupBookInfoForEditor()">Find Book Info Online</button></div>` : ''}
     <button class="editor-view-toggle" id="book-editor-minimal-toggle" type="button" onclick="toggleBookEditorViewMode()">Show all fields</button>
   </div>`;
 }
@@ -14342,7 +14344,7 @@ function openBookEditor(title, source='', key='') {
   document.getElementById('modal-series-name').textContent = 'Edit Book';
   document.getElementById('modal-series-sub').textContent = book.title || title;
   document.getElementById('modal-series-body').innerHTML = `
-    ${bookEditorViewToggleHTML()}
+    ${bookEditorViewToggleHTML(true)}
     <div class="book-editor-grid book-editor-mode-scope">
       <input id="book-editor-database-id" type="hidden" value="${esc(book.database_id || '')}">
       <input id="book-editor-route-key" type="hidden" value="${esc(editorBookKey)}">
@@ -14365,7 +14367,6 @@ function openBookEditor(title, source='', key='') {
         <div class="isbn-lookup-row">
           <input id="book-editor-isbn" value="${esc(book.isbn || '')}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookInfoForEditor()}">
-          <button class="account-primary" type="button" onclick="lookupBookInfoForEditor()">Find Book Info Online</button>
         </div>
         <div class="edition-picker" id="book-editor-edition-picker"></div>
       </div>
