@@ -1029,30 +1029,27 @@
   .cascade-menu-align-end > .cascade-menu-panel { left: auto; right: 0; }
   .library-filter-menu > .cascade-menu-panel,
   .library-sort-menu > .cascade-menu-panel {
-    width: min(320px, calc(100vw - 24px));
+    width: min(370px, calc(100vw - 24px));
     max-height: min(560px, calc(100vh - 112px));
     overflow-y: auto;
   }
-  .library-filter-fields { display: grid; gap: 0.65rem; }
-  .library-filter-fields label { display: grid; gap: 0.25rem; color: var(--deep); font-size: 0.8rem; font-weight: 700; }
-  .library-filter-fields input,
-  .library-filter-fields select { min-height: 36px; width: 100%; }
-  .library-filter-format { display: grid; gap: 0.3rem; }
-  .library-filter-format > span { color: var(--deep); font-size: 0.8rem; font-weight: 700; }
-  .library-filter-format-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.28rem 0.5rem; }
-  .library-filter-format-options label { display: flex; align-items: center; gap: 0.35rem; color: var(--ink); font-size: 0.78rem; font-weight: 600; }
-  .library-filter-clear { width: 100%; margin-top: 0.15rem; }
-  .library-sort-select {
-    min-width: 154px;
-    min-height: 38px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--card-bg);
-    color: var(--ink);
-    cursor: pointer;
-    font: 600 0.92rem 'Crimson Pro', serif;
-    padding: 0.35rem 1.8rem 0.35rem 0.75rem;
-  }
+  .library-filter-menu > .cascade-menu-panel { padding: 0.75rem; }
+  .library-filter-header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--border); }
+  .library-filter-header strong { display: block; color: var(--deep); font: 700 1rem 'Playfair Display', serif; }
+  .library-filter-header span { display: block; margin-top: 0.1rem; color: var(--muted); font-size: 0.76rem; }
+  .library-filter-clear { flex: 0 0 auto; border: 0; background: transparent; color: var(--burnt); cursor: pointer; font: 700 0.77rem 'Crimson Pro', serif; padding: 0.18rem 0; text-decoration: underline; text-underline-offset: 0.16rem; }
+  .library-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+  .library-filter-field { display: grid; gap: 0.28rem; color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.035em; text-transform: uppercase; }
+  .library-filter-field.wide { grid-column: 1 / -1; }
+  .library-filter-field input,
+  .library-filter-field select { min-height: 38px; width: 100%; color: var(--ink); font-size: 0.9rem; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .library-filter-format { display: grid; gap: 0.45rem; grid-column: 1 / -1; margin-top: 0.1rem; padding-top: 0.7rem; border-top: 1px solid rgba(203,213,245,0.7); }
+  .library-filter-format > span { color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.035em; text-transform: uppercase; }
+  .library-filter-format-options { display: flex; flex-wrap: wrap; gap: 0.38rem; }
+  .library-filter-format-options label { position: relative; display: inline-flex; align-items: center; min-height: 31px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--ink); cursor: pointer; font-size: 0.79rem; font-weight: 700; padding: 0.22rem 0.62rem; }
+  .library-filter-format-options input { position: absolute; opacity: 0; pointer-events: none; }
+  .library-filter-format-options label:has(input:checked) { border-color: var(--burnt); background: rgba(65,105,225,0.12); color: var(--deep); box-shadow: inset 0 0 0 1px rgba(65,105,225,0.14); }
+  .library-filter-format-options label:has(input:checked)::before { content: "✓"; margin-right: 0.28rem; color: var(--burnt); }
   .cascade-menu.open > .cascade-menu-panel { display: block; }
   .cascade-menu-group { position: relative; }
   .cascade-menu-group > button,
@@ -1083,7 +1080,6 @@
     max-height: min(390px, 70vh);
     overflow-y: auto;
   }
-  .cascade-menu-group:hover > .cascade-submenu,
   .cascade-menu-group.open > .cascade-submenu { display: block; }
   .cascade-choice.selected { color: var(--burnt); background: var(--aged); }
   .cascade-choice.selected::after { content: "✓"; font-weight: 800; }
@@ -12397,6 +12393,7 @@ function cascadeGroup(label, choices) {
 }
 
 function booksFilterMenuHTML(genres) {
+  const activeCount = booksActiveFilterCount();
   const genreOptions = [
     '<option value="">All genres</option>',
     ...genres.map(genre => `<option value="${esc(genre)}" ${booksGenreFilter === genre ? 'selected' : ''}>${esc(genre)}</option>`)
@@ -12406,19 +12403,22 @@ function booksFilterMenuHTML(genres) {
       onchange="setBooksFormatFilter(this.value,this.checked)">${esc(label)}
   </label>`).join('');
   return `<div class="cascade-menu library-filter-menu" id="books-filter-cascade-menu">
-    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-filter',event)">Filter</button>
+    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-filter',event)">Filter${activeCount ? ` (${activeCount})` : ''}</button>
     <div class="cascade-menu-panel" onclick="event.stopPropagation()">
-      <div class="library-filter-fields">
-        <label>Genre<select onchange="setBooksGenreFilter(this.value)">${genreOptions}</select></label>
-        <label>Reading Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksYearFilter)}" onchange="setBooksReadingYearFilter(this.value)"></label>
-        <label>Publication Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksPublicationYearFilter)}" onchange="setBooksPublicationYearFilter(this.value)"></label>
-        <label>Ownership<select onchange="setBooksOwnershipFilter(this.value)">
+      <div class="library-filter-header">
+        <div><strong>Filter Library</strong><span>${activeCount ? `${activeCount} active filter${activeCount === 1 ? '' : 's'}` : 'Choose one or more filters'}</span></div>
+        ${activeCount ? '<button class="library-filter-clear" type="button" onclick="clearBooksFilters()">Clear All</button>' : ''}
+      </div>
+      <div class="library-filter-grid">
+        <label class="library-filter-field wide">Genre<select onchange="setBooksGenreFilter(this.value)">${genreOptions}</select></label>
+        <label class="library-filter-field">Reading Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksYearFilter)}" onchange="setBooksReadingYearFilter(this.value)"></label>
+        <label class="library-filter-field">Publication Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksPublicationYearFilter)}" onchange="setBooksPublicationYearFilter(this.value)"></label>
+        <label class="library-filter-field wide">Ownership<select onchange="setBooksOwnershipFilter(this.value)">
           <option value="" ${booksOwnedFilter === '' ? 'selected' : ''}>All books</option>
           <option value="owned" ${booksOwnedFilter === 'owned' ? 'selected' : ''}>Owned</option>
           <option value="not-owned" ${booksOwnedFilter === 'not-owned' ? 'selected' : ''}>Not owned</option>
         </select></label>
         <div class="library-filter-format"><span>Format</span><div class="library-filter-format-options">${formatOptions}</div></div>
-        <button class="account-secondary library-filter-clear" type="button" onclick="clearBooksFilters()">Clear Filters</button>
       </div>
     </div>
   </div>`;
@@ -12435,12 +12435,14 @@ const BOOKS_SORT_OPTIONS = [
   ['rating:desc','Rating: Highest'], ['rating:asc','Rating: Lowest']
 ];
 
-function booksSortSelectHTML() {
+function booksSortMenuHTML() {
   const selected = `${booksSortLevels[0]?.field || 'author'}:${booksSortLevels[0]?.direction || 'asc'}`;
-  return `<label class="sr-only" for="books-sort-select">Sort books</label>
-    <select id="books-sort-select" class="library-sort-select" aria-label="Sort books" onchange="setBooksPrimarySort(this.value)">
-      ${BOOKS_SORT_OPTIONS.map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>Sort: ${esc(label)}</option>`).join('')}
-    </select>`;
+  const choices = BOOKS_SORT_OPTIONS.map(([value, label]) => `<button type="button" class="cascade-choice ${selected === value ? 'selected' : ''}"
+    onclick="selectBooksSort(${jsArg(value)},event)">${esc(label)}</button>`).join('');
+  return `<div class="cascade-menu library-sort-menu" id="books-sort-cascade-menu">
+    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-sort',event)">Sort</button>
+    <div class="cascade-menu-panel" onclick="event.stopPropagation()">${choices}</div>
+  </div>`;
 }
 
 function booksSidebarSelect(label, html) {
@@ -12549,6 +12551,12 @@ function selectBooksCollection(collectionId, event) {
   buildBooks();
 }
 
+function selectBooksSort(value, event) {
+  event?.stopPropagation();
+  closeCascadeMenus();
+  setBooksPrimarySort(value);
+}
+
 function tbrCascadeMenu(categories, genres, years) {
   const categoryChoices = [
     cascadeChoice('tbr','category','','All Picker Categories',tbrCategoryFilter === ''),
@@ -12649,30 +12657,59 @@ function setBooksFormatFilter(value, selected) {
   booksFormatFilters = next;
   booksPage = 1;
   filterBooks();
+  updateBooksFilterMenuState();
+}
+
+function booksActiveFilterCount() {
+  return [booksGenreFilter, booksYearFilter, booksPublicationYearFilter, booksOwnedFilter]
+    .filter(Boolean).length + booksFormatFilters.size;
+}
+
+function updateBooksFilterMenuState() {
+  const menu = document.getElementById('books-filter-cascade-menu');
+  if (!menu) return;
+  const count = booksActiveFilterCount();
+  const toggle = menu.querySelector('.cascade-menu-toggle');
+  if (toggle) toggle.textContent = `Filter${count ? ` (${count})` : ''}`;
+  const status = menu.querySelector('.library-filter-header span');
+  if (status) status.textContent = count
+    ? `${count} active filter${count === 1 ? '' : 's'}`
+    : 'Choose one or more filters';
+  const header = menu.querySelector('.library-filter-header');
+  const clear = header?.querySelector('.library-filter-clear');
+  if (count && !clear && header) {
+    header.insertAdjacentHTML('beforeend', '<button class="library-filter-clear" type="button" onclick="clearBooksFilters()">Clear All</button>');
+  } else if (!count && clear) {
+    clear.remove();
+  }
 }
 
 function setBooksGenreFilter(value) {
   booksGenreFilter = value || '';
   booksPage = 1;
   filterBooks();
+  updateBooksFilterMenuState();
 }
 
 function setBooksReadingYearFilter(value) {
   booksYearFilter = String(value || '').replace(/\D/g, '').slice(0, 4);
   booksPage = 1;
   filterBooks();
+  updateBooksFilterMenuState();
 }
 
 function setBooksPublicationYearFilter(value) {
   booksPublicationYearFilter = String(value || '').replace(/\D/g, '').slice(0, 4);
   booksPage = 1;
   filterBooks();
+  updateBooksFilterMenuState();
 }
 
 function setBooksOwnershipFilter(value) {
   booksOwnedFilter = value || '';
   booksPage = 1;
   filterBooks();
+  updateBooksFilterMenuState();
 }
 
 function clearBooksFilters() {
@@ -12682,7 +12719,7 @@ function clearBooksFilters() {
   booksOwnedFilter = '';
   booksFormatFilters = new Set();
   booksPage = 1;
-  filterBooks();
+  buildBooks();
 }
 
 function setBooksPrimarySort(value) {
@@ -13097,7 +13134,7 @@ function booksToolbarHTML(genres, years) {
         <div class="books-toolbar-tools">
           ${booksCollectionMenuHTML()}
           ${booksFilterMenuHTML(genres)}
-          ${booksSortSelectHTML()}
+          ${booksSortMenuHTML()}
           ${booksViewMenuHTML()}
         </div>
       </div>
