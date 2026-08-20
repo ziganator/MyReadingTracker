@@ -1024,6 +1024,7 @@
     background: var(--card-bg);
     box-shadow: 0 7px 22px rgba(23,45,95,0.2);
   }
+  .cascade-menu-panel { max-width: calc(100vw - 16px); }
   .cascade-menu-panel { top: calc(100% + 5px); left: 0; }
   .cascade-menu-align-end > .cascade-menu-panel { left: auto; right: 0; }
   .library-filter-menu > .cascade-menu-panel,
@@ -1041,6 +1042,17 @@
   .library-filter-format-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.28rem 0.5rem; }
   .library-filter-format-options label { display: flex; align-items: center; gap: 0.35rem; color: var(--ink); font-size: 0.78rem; font-weight: 600; }
   .library-filter-clear { width: 100%; margin-top: 0.15rem; }
+  .library-sort-select {
+    min-width: 154px;
+    min-height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--ink);
+    cursor: pointer;
+    font: 600 0.92rem 'Crimson Pro', serif;
+    padding: 0.35rem 1.8rem 0.35rem 0.75rem;
+  }
   .cascade-menu.open > .cascade-menu-panel { display: block; }
   .cascade-menu-group { position: relative; }
   .cascade-menu-group > button,
@@ -12302,27 +12314,68 @@ function toggleCascadeMenu(scope, event) {
   event?.stopPropagation();
   const menu = document.getElementById(`${scope}-cascade-menu`);
   document.querySelectorAll('.cascade-menu.open').forEach(openMenu => {
-    if (openMenu !== menu) openMenu.classList.remove('open');
+    if (openMenu !== menu) {
+      openMenu.classList.remove('open');
+      clearCascadeMenuPosition(openMenu);
+    }
   });
-  menu?.classList.toggle('open');
+  if (!menu) return;
+  const willOpen = !menu.classList.contains('open');
+  menu.classList.toggle('open', willOpen);
+  if (willOpen) requestAnimationFrame(() => fitCascadeMenu(menu));
+  else clearCascadeMenuPosition(menu);
 }
 
 function toggleCascadeGroup(button, event) {
   event?.stopPropagation();
   const group = button.closest('.cascade-menu-group');
   group?.parentElement?.querySelectorAll('.cascade-menu-group.open').forEach(openGroup => {
-    if (openGroup !== group) openGroup.classList.remove('open');
+    if (openGroup !== group) {
+      openGroup.classList.remove('open');
+      clearCascadeMenuPosition(openGroup, '.cascade-submenu');
+    }
   });
-  group?.classList.toggle('open');
+  if (!group) return;
+  const willOpen = !group.classList.contains('open');
+  group.classList.toggle('open', willOpen);
+  if (willOpen) requestAnimationFrame(() => fitCascadeMenu(group, '.cascade-submenu'));
+  else clearCascadeMenuPosition(group, '.cascade-submenu');
+}
+
+function cascadeMenuPanel(container, selector = '.cascade-menu-panel') {
+  return container?.querySelector(selector) || null;
+}
+
+function clearCascadeMenuPosition(container, selector) {
+  const panel = cascadeMenuPanel(container, selector);
+  if (panel) panel.style.removeProperty('transform');
+}
+
+function fitCascadeMenu(container, selector) {
+  const panel = cascadeMenuPanel(container, selector);
+  if (!panel || getComputedStyle(panel).display === 'none') return;
+  panel.style.removeProperty('transform');
+  const edge = 8;
+  const viewportWidth = document.documentElement.clientWidth;
+  const bounds = panel.getBoundingClientRect();
+  let horizontalShift = 0;
+  if (bounds.right > viewportWidth - edge) horizontalShift -= bounds.right - (viewportWidth - edge);
+  if (bounds.left + horizontalShift < edge) horizontalShift += edge - (bounds.left + horizontalShift);
+  if (horizontalShift) panel.style.transform = `translateX(${Math.round(horizontalShift)}px)`;
 }
 
 function closeCascadeMenus() {
   document.querySelectorAll('.cascade-menu.open,.cascade-menu-group.open').forEach(item => {
     item.classList.remove('open');
+    clearCascadeMenuPosition(item, item.classList.contains('cascade-menu-group') ? '.cascade-submenu' : undefined);
   });
 }
 
 document.addEventListener('click', closeCascadeMenus);
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.cascade-menu.open').forEach(menu => fitCascadeMenu(menu));
+  document.querySelectorAll('.cascade-menu-group.open').forEach(group => fitCascadeMenu(group, '.cascade-submenu'));
+});
 
 function cascadeChoice(scope, kind, value, label, selected) {
   return `<button type="button" class="cascade-choice ${selected ? 'selected' : ''}"
@@ -12382,18 +12435,12 @@ const BOOKS_SORT_OPTIONS = [
   ['rating:desc','Rating: Highest'], ['rating:asc','Rating: Lowest']
 ];
 
-function booksSortMenuHTML() {
+function booksSortSelectHTML() {
   const selected = `${booksSortLevels[0]?.field || 'author'}:${booksSortLevels[0]?.direction || 'asc'}`;
-  return `<div class="cascade-menu library-sort-menu" id="books-sort-cascade-menu">
-    <button type="button" class="cascade-menu-toggle" onclick="toggleCascadeMenu('books-sort',event)">Sort</button>
-    <div class="cascade-menu-panel" onclick="event.stopPropagation()">
-      <label class="library-filter-fields">Sort books by
-        <select onchange="setBooksPrimarySort(this.value);closeCascadeMenus()">
-          ${BOOKS_SORT_OPTIONS.map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${esc(label)}</option>`).join('')}
-        </select>
-      </label>
-    </div>
-  </div>`;
+  return `<label class="sr-only" for="books-sort-select">Sort books</label>
+    <select id="books-sort-select" class="library-sort-select" aria-label="Sort books" onchange="setBooksPrimarySort(this.value)">
+      ${BOOKS_SORT_OPTIONS.map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>Sort: ${esc(label)}</option>`).join('')}
+    </select>`;
 }
 
 function booksSidebarSelect(label, html) {
@@ -12475,7 +12522,13 @@ function booksSidebarSortHTML() {
 function booksCollectionMenuHTML() {
   if (guestMode) return '';
   const selected = normalizeBooksCollectionFilter();
-  const choices = libraryCollections.map(collection => `
+  const priority = new Map([['all-books', 0], ['tbr', 1], ['wishlist', 2]]);
+  const orderedCollections = [...libraryCollections].sort((a, b) => {
+    const aPriority = priority.has(a.slug) ? priority.get(a.slug) : 3;
+    const bPriority = priority.has(b.slug) ? priority.get(b.slug) : 3;
+    return aPriority - bPriority || String(a.name).localeCompare(String(b.name), undefined, {sensitivity:'base'});
+  });
+  const choices = orderedCollections.map(collection => `
     <button type="button" class="cascade-choice ${collection.id === selected?.id ? 'selected' : ''}"
       onclick="selectBooksCollection(${jsArg(collection.id)},event)">${esc(collection.name)}</button>
   `).join('');
@@ -13044,7 +13097,7 @@ function booksToolbarHTML(genres, years) {
         <div class="books-toolbar-tools">
           ${booksCollectionMenuHTML()}
           ${booksFilterMenuHTML(genres)}
-          ${booksSortMenuHTML()}
+          ${booksSortSelectHTML()}
           ${booksViewMenuHTML()}
         </div>
       </div>
