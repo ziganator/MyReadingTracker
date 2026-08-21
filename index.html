@@ -1865,6 +1865,18 @@
     padding: 0.35rem 0.75rem;
     white-space: nowrap;
   }
+  .book-editor-save-actions {
+    display: grid;
+    justify-items: end;
+    gap: 0.35rem;
+    max-width: min(260px, 40vw);
+  }
+  .book-editor-save-actions .picker-settings-status {
+    color: #dce6ff;
+    font-size: 0.76rem;
+    line-height: 1.25;
+    text-align: right;
+  }
   .modal-close {
     background: none; border: none; color: var(--gold-light); cursor: pointer;
     width: 44px; height: 44px; font-size: 1.5rem; line-height: 1; padding: 0;
@@ -14472,6 +14484,11 @@ function showAppDialog(title, message, actions) {
 }
 
 function showEditError(message) {
+  const inlineStatus = document.getElementById('book-editor-status-message');
+  if (inlineStatus) {
+    inlineStatus.textContent = message || 'An unexpected error occurred while editing this book.';
+    return;
+  }
   showAppDialog(
     'Book Editor Error',
     message || 'An unexpected error occurred while editing this book.',
@@ -14749,9 +14766,11 @@ function openBookEditor(title, source='', key='') {
       <button class="account-secondary" style="color:#9b2020;margin-left:auto" type="button"
         onclick="showDeleteBookConfirmation(${jsArg(book.title)},${jsArg(book.author_full || book.author || '')},${jsArg(book.database_id || '')})">Delete Book</button>
     </div>
-    <div class="picker-settings-status" id="book-editor-status-message"></div>
   `;
-  openModal(null, 'book-editor', true, `<button class="account-primary" type="button" onclick="confirmBookEditorSave(${jsArg(title)},${jsArg(source)},${jsArg(key || bookRouteKey(book))})">Save Changes</button>`);
+  openModal(null, 'book-editor', true, `<div class="book-editor-save-actions">
+    <button class="account-primary" type="button" onclick="confirmBookEditorSave(${jsArg(title)},${jsArg(source)},${jsArg(key || bookRouteKey(book))})">Save Changes</button>
+    <div class="picker-settings-status" id="book-editor-status-message" role="status" aria-live="polite"></div>
+  </div>`);
   applyBookEditorViewMode();
   updateShortStoryFullBookControls();
   updatePausedPageControls();
