@@ -12405,14 +12405,14 @@ function buildSearch() {
   renderSearchPageResults();
 }
 
-function renderLibraryCollection(books, scope, view) {
+function renderLibraryCollection(books, scope, view, navigationBooks=books) {
   const target = document.getElementById(`${scope}-results`);
   if (!target) return;
   const sourceForBook = book => libraryBookStatus(book) === 'TBR'
     ? 'tbr'
     : (libraryBookStatus(book) === 'Wishlist' ? 'wishlist' : '');
   if (scope === 'books' || scope === 'tbr') {
-    bookDetailNavigationContexts[scope] = books.map(book => ({
+    bookDetailNavigationContexts[scope] = navigationBooks.map(book => ({
       key: bookRouteKey(book),
       title: book.title || '',
       source: sourceForBook(book)
@@ -15347,7 +15347,7 @@ function filterBooks() {
       visibleKeys.has(key) || allLibraryBooks().some(book => bulkBookKey(book) === key)
     ));
   }
-  renderLibraryCollection(pageBooks, 'books', booksView);
+  renderLibraryCollection(pageBooks, 'books', booksView, filtered);
   document.getElementById('book-count').textContent = filtered.length > booksPageSize
     ? `${filtered.length} matching books`
     : `Showing ${filtered.length} of ${libraryBooks.length} books`;
