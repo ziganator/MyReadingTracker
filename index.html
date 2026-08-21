@@ -434,6 +434,15 @@
   }
   nav button:hover { background: rgba(255,255,255,0.1); color: var(--gold-light); }
   nav button.active { background: var(--gold); color: var(--deep); }
+  /* Keep the desktop navigation on one clear row.  At narrower desktop widths,
+     secondary destinations move into the existing More menu instead of wrapping. */
+  @media (min-width: 701px) and (max-width: 980px) {
+    nav { flex-wrap: nowrap; overflow: hidden; }
+    nav .nav-mobile-secondary { display: none; }
+    nav .nav-mobile-more { display: inline-flex; align-items: center; justify-content: center; }
+    nav .nav-mobile-primary,
+    nav .nav-mobile-more { flex: 1 1 0; min-width: 0; padding-inline: 0.65rem; }
+  }
 
   /* ─── Layout ──────────────────────────────────── */
   main {
@@ -1579,6 +1588,22 @@
   tbody td { padding: 0.6rem 0.8rem; vertical-align: top; }
   .book-title { font-weight: 600; color: var(--deep); }
   .book-series { font-style: italic; color: var(--muted); font-size: 0.85rem; }
+  .series-link {
+    appearance: none;
+    border: 0;
+    border-bottom: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+    text-align: inherit;
+  }
+  .series-link:hover,
+  .series-link:focus-visible { color: var(--rust); outline: none; }
+  .series-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .book-series,
   .library-card-series,
   .library-list-series,
@@ -2306,7 +2331,8 @@
   min-height: 0;
   overflow-y: auto;
 }
-  .series-filter-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .series-filter-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+  .series-filter-count { color: var(--muted); font-size: 0.86rem; font-weight: 600; margin-left: auto; }
   .filter-btn {
     background: var(--aged); border: 1px solid var(--border); border-radius: 20px;
     color: var(--ink); cursor: pointer; font-family: 'Crimson Pro', serif;
@@ -3848,6 +3874,11 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     width: 100%;
+  }
+  .series-filter-count {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    text-align: center;
   }
 
   .card-grid,
@@ -8729,10 +8760,10 @@ function statsGroupBooks(kind, value='', scope='reads') {
 function statsBookListRowHTML(book) {
   const status=libraryBookStatus(book);
   const source=status==='TBR'?'tbr':(status==='Wishlist'?'wishlist':'');
-  const details=[status,book.genre,book.format,book.series?seriesLabelForBook(book):''].filter(Boolean).join(' · ');
+  const details=[esc(status),esc(book.genre||''),esc(book.format||''),book.series?seriesLabelHTML(book):''].filter(Boolean).join(' · ');
   return `<div class="author-library-book" role="button" tabindex="0" ${bookClickAttributes(book,source)} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
     ${coverImageHTML(book,'modal-cover','modal-cover')}
-    <span class="modal-book-info"><span class="modal-book-title">${esc(book.title||'Untitled')}</span><span class="modal-book-meta" style="display:block">${authorProfileButton(book)}${details?` · ${esc(details)}`:''}${book.rating?` · ${ratingDisplay(book.rating)}`:''}</span></span>
+    <span class="modal-book-info"><span class="modal-book-title">${esc(book.title||'Untitled')}</span><span class="modal-book-meta" style="display:block">${authorProfileButton(book)}${details?` · ${details}`:''}${book.rating?` · ${ratingDisplay(book.rating)}`:''}</span></span>
   </div>`;
 }
 
@@ -10044,7 +10075,32 @@ function seriesLabelForBook(book) {
 }
 
 function seriesLabelHTML(book) {
-  return esc(seriesLabelForBook(book)).replace(/ #/g, '&nbsp;#');
+  const label = seriesLabelForBook(book);
+  const name = String(book?.series || '').trim();
+  if (!label || !name) return '';
+  return `<button class="series-link" type="button" onclick="openSeriesByName(${jsArg(name)},event)">${esc(label).replace(/ #/g, '&nbsp;#')}</button>`;
+}
+
+function seriesNameHTML(name) {
+  const value = String(name || '').trim();
+  if (!value) return '';
+  return `<button class="series-link" type="button" onclick="openSeriesByName(${jsArg(value)},event)">${esc(value)}</button>`;
+}
+
+function openSeriesByName(seriesName, evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const name = String(seriesName || '').trim();
+  if (!name) return;
+  rebuildSeriesFromLibraryBooks();
+  const series = DATA.series.find(item => normalizedKey(item.series) === normalizedKey(name));
+  const firstBook = allLibraryBooks().find(book => normalizedKey(book.series) === normalizedKey(name));
+  openSeriesModal(series || {
+    series: name,
+    author: firstBook?.author_full || firstBook?.author || '',
+    books_read: 0,
+    total: 0
+  }, evt);
 }
 
 function spineAppearance(book) {
@@ -14215,7 +14271,7 @@ function renderBookDetailPage(title, source='', key='') {
           ${b.series && b.series_position ? `
             <div class="series-position-box">
               <span>Book ${esc(b.series_position)}</span>
-              <span>in the ${esc(b.series)} series</span>
+              <span>in the ${seriesNameHTML(b.series)} series</span>
             </div>
           ` : ''}
 
@@ -15296,6 +15352,7 @@ function buildSeries() {
       <button class="filter-btn" onclick="filterSeries('progress',this)">In Progress</button>
       <button class="filter-btn" onclick="filterSeries('done',this)">Completed</button>
       <button class="filter-btn" onclick="filterSeries('abandoned',this)">Abandoned</button>
+      <span id="series-filter-count" class="series-filter-count" aria-live="polite"></span>
     </div>
     <div id="series-grid" class="series-grid"></div>
   `;
@@ -15339,6 +15396,13 @@ list = [...list].sort((a,b) => {
 
   const grid = document.getElementById('series-grid');
   if (!grid) return;
+  const count = document.getElementById('series-filter-count');
+  if (count) {
+    const total = DATA.series.filter(s=>s.series && s.series!=='Completed' && s.author!=='Author').length;
+    count.textContent = list.length === total
+      ? `${total} series shown`
+      : `${list.length} shown of ${total} series`;
+  }
   if (!list.length) {
     grid.innerHTML = '<p style="color:var(--muted);font-style:italic;padding:1rem 0">No series match this filter.</p>';
     return;
@@ -15496,13 +15560,13 @@ function authorLibraryBookHTML(book) {
   const source=status==='TBR'?'tbr':(status==='Wishlist'?'wishlist':'');
   const series=book.series?seriesLabelForBook(book):'';
   const statusPill=status==='TBR'||status==='Wishlist'?`<span class="author-book-status ${status==='Wishlist'?'wishlist':''}">${status}</span>`:'';
-  return `<button class="author-library-book" type="button" ${bookClickAttributes(book,source)}>
+  return `<div class="author-library-book" role="button" tabindex="0" ${bookClickAttributes(book,source)} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
     ${coverImageHTML(book,'modal-cover','modal-cover')}
     <span class="modal-book-info"><span class="modal-book-title">${esc(book.title||'Untitled')}</span>
-      ${series?`<span class="author-book-series">${esc(series)}</span>`:''}${statusPill}
+      ${series?`<span class="author-book-series">${seriesLabelHTML(book)}</span>`:''}${statusPill}
       ${book.genre||book.rating?`<span class="modal-book-meta" style="display:block;margin-top:.24rem">${esc(book.genre||'')}${book.genre&&book.rating?' · ':''}${book.rating?ratingDisplay(book.rating):''}</span>`:''}
     </span>
-  </button>`;
+  </div>`;
 }
 
 function authorBiographyLoadingHTML() {
