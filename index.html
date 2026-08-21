@@ -1353,6 +1353,11 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
+  .books-toolbar-summary {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding-top: 0.1rem;
+  }
   .book-count-criteria:empty { display: none; }
   .book-count-criteria:not(:empty)::before { content: "·"; margin-right: 0.75rem; }
   .current-library-badge {
@@ -13360,6 +13365,10 @@ function booksToolbarHTML(genres, years) {
           <button type="button" onclick="openNativeLibraryOptions()">☰ Browse Options${booksActiveFilterCount() ? ` <strong>(${booksActiveFilterCount()})</strong>` : ''}</button>
         </div>
       </div>
+      <div class="book-count-line books-toolbar-summary">
+        <span id="book-count"></span>
+        <span class="book-count-criteria" id="book-count-criteria"></span>
+      </div>
     </div>
   `;
 }
@@ -13506,10 +13515,6 @@ function buildBooks() {
     <div class="books-layout" id="books-layout">
       <div class="books-main">
         ${booksToolbarHTML(genres, years)}
-        <div class="book-count-line">
-          <span id="book-count"></span>
-          <span class="book-count-criteria" id="book-count-criteria"></span>
-        </div>
         <div class="bulk-action-bar" id="books-bulk-bar" hidden>
           <strong id="books-bulk-count">0 selected</strong>
           <button class="account-secondary" type="button" onclick="selectAllVisibleBooks()">Select All Visible</button>
