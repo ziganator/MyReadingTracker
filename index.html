@@ -5065,6 +5065,54 @@
     .social-post-dialog .social-composer { border-radius:18px 18px 0 0; padding:1.15rem; }
   }
 
+  .books-native-options,
+  .native-library-options { display:none; }
+  .nav-label-native { display:none; }
+  @media (max-width:700px) {
+    html.native-app .books-toolbar-tools { display:none !important; }
+    html.native-app .books-native-options { display:block; width:100%; }
+    html.native-app .books-native-options button {
+      display:flex; width:100%; min-height:44px; align-items:center; justify-content:center; gap:.45rem;
+      border:1px solid #4169e1; border-radius:9px; background:rgba(65,105,225,.08); color:var(--deep);
+      cursor:pointer; font:800 .92rem inherit;
+    }
+    html.native-app .books-native-options button strong { color:var(--burnt); }
+    html.native-app .native-library-options {
+      position:fixed; inset:0; z-index:1800; align-items:end; background:rgba(12,25,57,.42); backdrop-filter:blur(4px);
+    }
+    html.native-app .native-library-options.open { display:flex; }
+    html.native-app .native-library-sheet {
+      width:100%; max-height:84dvh; overflow:auto; padding:0.5rem 1rem calc(1rem + env(safe-area-inset-bottom));
+      border:1px solid rgba(65,105,225,.3); border-radius:20px 20px 0 0; background:#fff;
+      box-shadow:0 -16px 44px rgba(12,25,57,.26);
+    }
+    html.native-app .native-library-handle { width:42px; height:4px; margin:0 auto .65rem; border-radius:999px; background:#cbd5f5; }
+    html.native-app .native-library-head { display:grid; grid-template-columns:36px minmax(0,1fr) 36px; align-items:center; gap:.55rem; margin-bottom:.8rem; }
+    html.native-app .native-library-head h2 { margin:0; color:var(--deep); font:800 1.2rem 'Playfair Display',serif; text-align:center; }
+    html.native-app .native-library-head button { display:grid; width:36px; height:36px; place-items:center; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--deep); cursor:pointer; font:800 1rem inherit; }
+    html.native-app .native-library-menu { display:grid; gap:.55rem; }
+    html.native-app .native-library-menu button { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.4rem .8rem; width:100%; min-height:59px; padding:.7rem .8rem; border:1px solid var(--border); border-radius:10px; background:linear-gradient(135deg,#fff,rgba(65,105,225,.06)); color:var(--ink); cursor:pointer; font:inherit; text-align:left; }
+    html.native-app .native-library-menu strong { color:var(--deep); font-size:.95rem; }
+    html.native-app .native-library-menu small { grid-column:1; color:var(--muted); font-size:.76rem; }
+    html.native-app .native-library-menu b { grid-column:2; grid-row:1 / span 2; align-self:center; color:var(--burnt); font-size:1.3rem; }
+    html.native-app .native-library-section { display:grid; gap:.65rem; }
+    html.native-app .native-library-section > p { margin:0; color:var(--muted); font-size:.8rem; }
+    html.native-app .native-library-choice { display:flex; width:100%; min-height:43px; align-items:center; justify-content:space-between; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--ink); cursor:pointer; font:700 .9rem inherit; padding:.5rem .7rem; text-align:left; }
+    html.native-app .native-library-choice.selected { border-color:#4169e1; background:rgba(65,105,225,.09); color:var(--deep); }
+    html.native-app .native-library-choice.selected::after { content:'✓'; color:var(--burnt); font-weight:900; }
+    html.native-app .native-library-filter { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; }
+    html.native-app .native-library-filter .library-filter-field.wide,
+    html.native-app .native-library-filter .library-filter-format,
+    html.native-app .native-library-filter .native-filter-clear { grid-column:1 / -1; }
+    html.native-app .native-filter-clear { min-height:40px; border:1px solid #ffb45e; border-radius:8px; background:#fff8f1; color:#a74b00; cursor:pointer; font:800 .84rem inherit; }
+    html.native-app body.native-library-options-open { overflow:hidden; }
+    html.native-app nav { justify-content:stretch; gap:.2rem; overflow:hidden; padding:.35rem .38rem calc(.35rem + env(safe-area-inset-bottom)); }
+    html.native-app nav button { flex:1 1 0 !important; min-width:0 !important; padding:.35rem .1rem; overflow:hidden; font-size:.7rem; text-align:center; text-overflow:ellipsis; }
+    html.native-app nav button.active { box-shadow:none; }
+    html.native-app .nav-label-full { display:none; }
+    html.native-app .nav-label-native { display:inline; }
+  }
+
 </style>
 </head>
 <body>
@@ -5266,6 +5314,12 @@
     <p id="app-dialog-message"></p>
     <div class="account-actions" id="app-dialog-actions"></div>
   </div>
+</div>
+<div class="native-library-options" id="native-library-options" role="dialog" aria-modal="true" aria-labelledby="native-library-options-title" onclick="closeNativeLibraryOptions(event)">
+  <section class="native-library-sheet" onclick="event.stopPropagation()">
+    <div class="native-library-handle"></div>
+    <div id="native-library-options-content"></div>
+  </section>
 </div>
 <div class="social-post-modal" id="social-post-modal" onclick="closeSocialPostModal(event)">
   <div class="social-post-dialog" role="dialog" aria-modal="true" aria-labelledby="social-post-modal-title">
@@ -8129,9 +8183,10 @@ function buildNav() {
     ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
   const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
+  const nativeLabels = {'log-detail':'Log', stats:'Stats', books:'Library', social:'Social'};
   document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
-    `<button onclick="switchTab('${id}')" id="nav-${id}" class="${mobilePrimary.has(id) ? 'nav-mobile-primary' : 'nav-mobile-secondary'}" type="button">${label}</button>`
-  ).join('') + `<button onclick="openMobileNavigationMenu()" id="nav-more" class="nav-mobile-more" type="button">More</button>`;
+    `<button onclick="switchTab('${id}')" id="nav-${id}" class="${mobilePrimary.has(id) ? 'nav-mobile-primary' : 'nav-mobile-secondary'}" type="button" aria-label="${esc(label)}"><span class="nav-label-full">${esc(label)}</span><span class="nav-label-native">${esc(nativeLabels[id] || label)}</span></button>`
+  ).join('') + `<button onclick="openMobileNavigationMenu()" id="nav-more" class="nav-mobile-more" type="button"><span class="nav-label-full">More</span><span class="nav-label-native">More</span></button>`;
 }
 
 function openMobileNavigationMenu() {
@@ -9749,6 +9804,111 @@ function setLibraryView(scope, view) {
   });
   if (scope === 'books') filterBooks();
   if (scope === 'tbr') filterTBR();
+}
+
+function nativeLibrarySheetHeader(title, backSection='') {
+  return `<div class="native-library-head">
+    ${backSection ? `<button type="button" aria-label="Back" onclick="renderNativeLibraryOptions(${jsArg(backSection)})">‹</button>` : '<span></span>'}
+    <h2 id="native-library-options-title">${esc(title)}</h2>
+    <button type="button" aria-label="Close browse options" onclick="closeNativeLibraryOptions()">×</button>
+  </div>`;
+}
+
+function openNativeLibraryOptions(section='home') {
+  if (!document.documentElement.classList.contains('native-app')) return;
+  const overlay = document.getElementById('native-library-options');
+  if (!overlay) return;
+  renderNativeLibraryOptions(section);
+  overlay.classList.add('open');
+  document.body.classList.add('native-library-options-open');
+}
+
+function closeNativeLibraryOptions(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('native-library-options')?.classList.remove('open');
+  document.body.classList.remove('native-library-options-open');
+}
+
+function renderNativeLibraryOptions(section='home') {
+  const content = document.getElementById('native-library-options-content');
+  if (!content) return;
+  const collection = collectionForBooksFilter();
+  const selectedSort = `${booksSortLevels[0]?.field || 'author'}:${booksSortLevels[0]?.direction || 'asc'}`;
+  const sortLabel = BOOKS_SORT_OPTIONS.find(([value]) => value === selectedSort)?.[1] || 'Author: A-Z';
+  const viewLabels = {cards:'Cards', 'cover-minimal':'Covers', list:'List', 'list-minimal':'Minimal List', bookcase:'Bookcase'};
+  if (section === 'home') {
+    const filterCount = booksActiveFilterCount();
+    content.innerHTML = nativeLibrarySheetHeader('Browse Library') + `<div class="native-library-menu">
+      <button type="button" onclick="renderNativeLibraryOptions('collections')"><strong>Collections</strong><small>${esc(collection?.name || 'All Books')}</small><b>›</b></button>
+      <button type="button" onclick="renderNativeLibraryOptions('filters')"><strong>Filters${filterCount ? ` (${filterCount})` : ''}</strong><small>${filterCount ? 'Refine the books shown' : 'Genre, years, ownership, format'}</small><b>›</b></button>
+      <button type="button" onclick="renderNativeLibraryOptions('sort')"><strong>Sort</strong><small>${esc(sortLabel)}</small><b>›</b></button>
+      <button type="button" onclick="renderNativeLibraryOptions('view')"><strong>View</strong><small>${esc(viewLabels[booksView] || 'Cards')}</small><b>›</b></button>
+    </div>`;
+    return;
+  }
+  if (section === 'collections') {
+    const choices = orderedBooksCollections().map(item => `<button type="button" class="native-library-choice ${item.id === collection?.id ? 'selected' : ''}" onclick="selectNativeBooksCollection(${jsArg(item.id)})">${esc(item.name)}</button>`).join('');
+    content.innerHTML = nativeLibrarySheetHeader('Collections', 'home') + `<div class="native-library-section"><p>Choose the part of your library to browse.</p>${choices}${guestMode ? '' : '<button type="button" class="native-library-choice" onclick="closeNativeLibraryOptions();openCollectionManager()">Manage Collections</button>'}</div>`;
+    return;
+  }
+  if (section === 'filters') {
+    const genres = [...new Set(allLibraryBooks().map(book => book.genre).filter(Boolean))].sort();
+    const genreOptions = ['<option value="">All Genres</option>', ...genres.map(genre => `<option value="${esc(genre)}" ${booksGenreFilter === genre ? 'selected' : ''}>${esc(genre)}</option>`)].join('');
+    const formatOptions = OWNED_FORMAT_FILTER_OPTIONS.map(([value, label]) => `<label><input type="checkbox" value="${esc(value)}" ${booksFormatFilters.has(value) ? 'checked' : ''} onchange="setNativeBooksFormat(this.value,this.checked)">${esc(label)}</label>`).join('');
+    content.innerHTML = nativeLibrarySheetHeader('Filters', 'home') + `<div class="native-library-section"><p>Use any combination of filters.</p>
+      <div class="native-library-filter">
+        <label class="library-filter-field wide">Genre<select onchange="setNativeBooksFilter('genre',this.value)">${genreOptions}</select></label>
+        <label class="library-filter-field">Reading Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksYearFilter)}" onchange="setNativeBooksFilter('reading-year',this.value)"></label>
+        <label class="library-filter-field">Publication Year<input type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" value="${esc(booksPublicationYearFilter)}" onchange="setNativeBooksFilter('publication-year',this.value)"></label>
+        <label class="library-filter-field wide">Ownership<select onchange="setNativeBooksFilter('ownership',this.value)"><option value="">All Books</option><option value="owned" ${booksOwnedFilter === 'owned' ? 'selected' : ''}>Owned</option><option value="not-owned" ${booksOwnedFilter === 'not-owned' ? 'selected' : ''}>Not Owned</option></select></label>
+        <div class="library-filter-format"><span>Format</span><div class="library-filter-format-options">${formatOptions}</div></div>
+        ${booksActiveFilterCount() ? '<button class="native-filter-clear" type="button" onclick="clearNativeBooksFilters()">Clear All Filters</button>' : ''}
+      </div>
+    </div>`;
+    return;
+  }
+  if (section === 'sort') {
+    const choices = BOOKS_SORT_OPTIONS.map(([value, label]) => `<button type="button" class="native-library-choice ${value === selectedSort ? 'selected' : ''}" onclick="selectNativeBooksSort(${jsArg(value)})">${esc(label)}</button>`).join('');
+    content.innerHTML = nativeLibrarySheetHeader('Sort Books', 'home') + `<div class="native-library-section"><p>Choose how this library is ordered.</p>${choices}</div>`;
+    return;
+  }
+  const views = [['cards','Cards'], ['cover-minimal','Covers'], ['list','List'], ['list-minimal','Minimal List'], ['bookcase','Bookcase']];
+  content.innerHTML = nativeLibrarySheetHeader('View Books', 'home') + `<div class="native-library-section"><p>Choose how books are displayed.</p>${views.map(([value, label]) => `<button type="button" class="native-library-choice ${booksView === value ? 'selected' : ''}" onclick="selectNativeBooksView(${jsArg(value)})">${label}</button>`).join('')}</div>`;
+}
+
+function selectNativeBooksCollection(collectionId) {
+  booksStatusFilter = collectionId;
+  booksPage = 1;
+  closeNativeLibraryOptions();
+  buildBooks();
+}
+
+function setNativeBooksFilter(kind, value) {
+  if (kind === 'genre') setBooksGenreFilter(value);
+  if (kind === 'reading-year') setBooksReadingYearFilter(value);
+  if (kind === 'publication-year') setBooksPublicationYearFilter(value);
+  if (kind === 'ownership') setBooksOwnershipFilter(value);
+  renderNativeLibraryOptions('filters');
+}
+
+function setNativeBooksFormat(value, selected) {
+  setBooksFormatFilter(value, selected);
+  renderNativeLibraryOptions('filters');
+}
+
+function clearNativeBooksFilters() {
+  clearBooksFilters();
+  renderNativeLibraryOptions('filters');
+}
+
+function selectNativeBooksSort(value) {
+  closeNativeLibraryOptions();
+  setBooksPrimarySort(value);
+}
+
+function selectNativeBooksView(view) {
+  setLibraryView('books', view);
+  closeNativeLibraryOptions();
 }
 
 function libraryViewSwitcher(scope, currentView) {
@@ -12521,16 +12681,19 @@ function booksSidebarSortHTML() {
   </div>`;
 }
 
-function booksCollectionMenuHTML() {
-  if (guestMode) return '';
-  const selected = normalizeBooksCollectionFilter();
+function orderedBooksCollections() {
   const priority = new Map([['all-books', 0], ['tbr', 1], ['wishlist', 2]]);
-  const orderedCollections = [...libraryCollections].sort((a, b) => {
+  return [...libraryCollections].sort((a, b) => {
     const aPriority = priority.has(a.slug) ? priority.get(a.slug) : 3;
     const bPriority = priority.has(b.slug) ? priority.get(b.slug) : 3;
     return aPriority - bPriority || String(a.name).localeCompare(String(b.name), undefined, {sensitivity:'base'});
   });
-  const choices = orderedCollections.map(collection => `
+}
+
+function booksCollectionMenuHTML() {
+  if (guestMode) return '';
+  const selected = normalizeBooksCollectionFilter();
+  const choices = orderedBooksCollections().map(collection => `
     <button type="button" class="cascade-choice ${collection.id === selected?.id ? 'selected' : ''}"
       onclick="selectBooksCollection(${jsArg(collection.id)},event)">${esc(collection.name)}</button>
   `).join('');
@@ -13136,6 +13299,9 @@ function booksToolbarHTML(genres, years) {
           ${booksFilterMenuHTML(genres)}
           ${booksSortMenuHTML()}
           ${booksViewMenuHTML()}
+        </div>
+        <div class="books-native-options">
+          <button type="button" onclick="openNativeLibraryOptions()">☰ Browse Options${booksActiveFilterCount() ? ` <strong>(${booksActiveFilterCount()})</strong>` : ''}</button>
         </div>
       </div>
     </div>
