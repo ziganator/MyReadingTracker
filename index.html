@@ -2483,6 +2483,29 @@
     border-color: var(--border);
     color: var(--deep);
   }
+  .picker-command.is-rolling {
+    pointer-events: none;
+    animation: picker-die-roll 0.62s cubic-bezier(.32,.07,.28,1) both;
+  }
+  @keyframes picker-die-roll {
+    0% { transform: rotate(0deg) scale(1); }
+    24% { transform: rotate(115deg) scale(1.12); }
+    52% { transform: rotate(310deg) scale(0.93); }
+    78% { transform: rotate(565deg) scale(1.08); }
+    100% { transform: rotate(720deg) scale(1); }
+  }
+  .picker-genre-mode {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .picker-genre-mode label {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  .picker-genre-mode select { min-width: 150px; }
   .picker-settings {
     display: none;
     background: var(--card-bg);
@@ -3067,6 +3090,35 @@
     width: 42px;
     padding: 0 !important;
     font-size: 1.15rem !important;
+  }
+  .book-detail-status-panel {
+    display: grid;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+    padding: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--aged);
+  }
+  .book-detail-status-panel label { display: grid; gap: 0.22rem; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .book-detail-status-panel select,
+  .book-detail-status-panel input[type="date"] { width: 100%; min-width: 0; box-sizing: border-box; }
+  .book-detail-status-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
+  .book-detail-status-share { display: flex !important; align-items: flex-start; gap: 0.4rem; color: var(--ink) !important; font-size: 0.76rem !important; font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
+  .book-detail-status-share input { width: auto; margin-top: 0.08rem; accent-color: #4169e1; }
+  .book-detail-status-panel .account-primary { width: 100%; }
+  .book-detail-status-message { min-height: 1em; color: var(--muted); font-size: 0.75rem; line-height: 1.3; }
+  .book-note-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+  .book-note-heading h4 { margin-bottom: 0; }
+  .book-detail-thoughts-editor textarea { box-sizing: border-box; width: 100%; min-height: 130px; margin-top: 0.5rem; resize: vertical; }
+  .book-detail-thought-actions { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; margin-top: 0.55rem; }
+  .book-detail-thought-share { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); font-size: 0.78rem; }
+  .book-detail-thought-share input { width: auto; accent-color: #4169e1; }
+  .book-detail-thought-share select { min-width: 104px; }
+  @media (max-width: 600px) {
+    .book-detail-status-dates { grid-template-columns: 1fr; }
+    .book-detail-thought-actions { align-items: stretch; }
+    .book-detail-thought-actions .account-primary { width: 100%; }
   }
   .book-detail-page .book-card {
     padding: 1.25rem;
@@ -5411,8 +5463,10 @@ let booksPage = 1;
 const BOOKS_PAGE_SIZES = [25, 50, 100, 250];
 let booksPageSize = (() => {
   try {
-    const saved = Number(localStorage.getItem('reading-tracker-books-page-size'));
-    return BOOKS_PAGE_SIZES.includes(saved) ? saved : 50;
+    const saved = localStorage.getItem('reading-tracker-books-page-size');
+    if (saved === 'all') return 'all';
+    const size = Number(saved);
+    return BOOKS_PAGE_SIZES.includes(size) ? size : 50;
   } catch (_) {
     return 50;
   }
@@ -13255,13 +13309,15 @@ function clearBooksBulkSelection() {
 }
 
 function booksPaginationHTML(total) {
-  const totalPages = Math.max(1, Math.ceil(total / booksPageSize));
-  const first = total ? ((booksPage - 1) * booksPageSize) + 1 : 0;
-  const last = Math.min(total, booksPage * booksPageSize);
+  const pageSize = booksPageSize === 'all' ? Math.max(total, 1) : booksPageSize;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const first = total ? ((booksPage - 1) * pageSize) + 1 : 0;
+  const last = Math.min(total, booksPage * pageSize);
   return `<div class="library-pagination" aria-label="Library pages">
     <label>Books per page
       <select aria-label="Books per page" onchange="setBooksPageSize(this.value)">
         ${BOOKS_PAGE_SIZES.map(size => `<option value="${size}" ${booksPageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
+        <option value="all" ${booksPageSize === 'all' ? 'selected' : ''}>All</option>
       </select>
     </label>
     ${total ? `<span>Showing ${first}-${last} of ${total}</span>` : ''}
@@ -13278,8 +13334,8 @@ function setBooksPage(page) {
 }
 
 function setBooksPageSize(value) {
-  const size = Number(value);
-  if (!BOOKS_PAGE_SIZES.includes(size)) return;
+  const size = value === 'all' ? 'all' : Number(value);
+  if (size !== 'all' && !BOOKS_PAGE_SIZES.includes(size)) return;
   booksPageSize = size;
   booksPage = 1;
   try { localStorage.setItem('reading-tracker-books-page-size', String(size)); } catch (_) {}
@@ -14214,6 +14270,197 @@ async function saveStoryForBook(bookKey='', storyId='') {
   }
 }
 
+function todayLocalISODate() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+function bookDetailStatusControlsHTML(book, source='') {
+  const currentStatus = libraryBookStatus(book) || (source === 'calendar' ? 'Read' : 'TBR');
+  const showStart = ['Currently Reading', 'Read', 'DNF', 'Paused'].includes(currentStatus);
+  const showFinish = ['Read', 'DNF'].includes(currentStatus);
+  const shareable = ['Currently Reading', 'Read'].includes(currentStatus);
+  const shareLabel = currentStatus === 'Read' ? 'Share that I finished this book on my feed' : 'Share that I started this book on my feed';
+  return `<section class="book-detail-status-panel" data-current-status="${esc(currentStatus)}">
+    <label for="book-detail-status">Reading status
+      <select id="book-detail-status" onchange="updateBookDetailStatusForm()">
+        ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status => `<option value="${status}" ${status === currentStatus ? 'selected' : ''}>${status}</option>`).join('')}
+      </select>
+    </label>
+    <div class="book-detail-status-dates">
+      <label class="book-detail-status-start" style="display:${showStart ? 'grid' : 'none'}" for="book-detail-started">Started
+        <input id="book-detail-started" type="date" value="${esc(book.start || '')}">
+      </label>
+      <label class="book-detail-status-finished" style="display:${showFinish ? 'grid' : 'none'}" for="book-detail-finished">Finished
+        <input id="book-detail-finished" type="date" value="${esc(book.end || '')}">
+      </label>
+    </div>
+    <label class="book-detail-status-share" id="book-detail-status-share" style="display:${shareable ? 'flex' : 'none'}">
+      <input id="book-detail-share-update" type="checkbox">
+      <span id="book-detail-status-share-label">${shareLabel}</span>
+    </label>
+    <label class="book-detail-status-share" id="book-detail-status-visibility-wrap" style="display:${shareable ? 'flex' : 'none'}">Share with
+      <select id="book-detail-status-visibility" aria-label="Status update visibility"><option value="Friends">Friends</option><option value="Public">Everyone</option></select>
+    </label>
+    <button class="account-primary" type="button" onclick="saveBookDetailStatus(${jsArg(bookRouteKey(book))},${jsArg(source)})">Save Status</button>
+    <div class="book-detail-status-message" id="book-detail-status-message" role="status" aria-live="polite"></div>
+  </section>`;
+}
+
+function updateBookDetailStatusForm(applyDefaults=true) {
+  const panel = document.querySelector('.book-detail-status-panel');
+  const select = document.getElementById('book-detail-status');
+  if (!panel || !select) return;
+  const previousStatus = panel.dataset.lastStatus || panel.dataset.currentStatus || '';
+  const status = select.value;
+  const start = document.getElementById('book-detail-started');
+  const finish = document.getElementById('book-detail-finished');
+  const startWrap = document.querySelector('.book-detail-status-start');
+  const finishWrap = document.querySelector('.book-detail-status-finished');
+  const shareWrap = document.getElementById('book-detail-status-share');
+  const visibilityWrap = document.getElementById('book-detail-status-visibility-wrap');
+  const shareLabel = document.getElementById('book-detail-status-share-label');
+  const showStart = ['Currently Reading', 'Read', 'DNF', 'Paused'].includes(status);
+  const showFinish = ['Read', 'DNF'].includes(status);
+  const shareable = ['Currently Reading', 'Read'].includes(status);
+  if (startWrap) startWrap.style.display = showStart ? 'grid' : 'none';
+  if (finishWrap) finishWrap.style.display = showFinish ? 'grid' : 'none';
+  if (shareWrap) shareWrap.style.display = shareable ? 'flex' : 'none';
+  if (visibilityWrap) visibilityWrap.style.display = shareable ? 'flex' : 'none';
+  if (shareLabel) shareLabel.textContent = status === 'Read'
+    ? 'Share that I finished this book on my feed'
+    : 'Share that I started this book on my feed';
+  if (!applyDefaults) return;
+  if (status === 'Currently Reading' && previousStatus === 'TBR' && start && !start.value) start.value = todayLocalISODate();
+  if (status === 'Read' && previousStatus === 'Currently Reading' && finish && !finish.value) finish.value = todayLocalISODate();
+  panel.dataset.lastStatus = status;
+}
+
+function setBookDetailMessage(id, text='') {
+  const message = document.getElementById(id);
+  if (message) message.textContent = text;
+}
+
+async function shareBookToFeed(book, thoughts, visibility='Friends') {
+  if (guestMode || !currentSocialUserId()) throw new Error('Sign in to share this on your feed.');
+  await ensureSocialProfile();
+  await supabaseTableRequest('social_posts', {
+    method: 'POST',
+    body: [{
+      user_id: currentSocialUserId(),
+      book_id: book.database_id || null,
+      book_title: book.title || null,
+      book_author: displayBookContributor(book) || null,
+      cover_url: book.cover_url || null,
+      rating: Number(book.rating) || null,
+      thoughts: String(thoughts || '').trim() || null,
+      visibility: visibility === 'Public' ? 'Public' : 'Friends'
+    }],
+    prefer: 'return=minimal'
+  });
+  if (document.getElementById('tab-social')?.classList.contains('active')) {
+    await loadSocialData();
+    buildSocialPage();
+  }
+}
+
+async function saveBookDetailStatus(bookKey='', source='') {
+  const book = findBookByRouteKey(bookKey);
+  if (!book?.database_id) return setBookDetailMessage('book-detail-status-message', 'This book needs a saved library record before its status can be changed.');
+  const status = document.getElementById('book-detail-status')?.value || libraryBookStatus(book);
+  const panel = document.querySelector('.book-detail-status-panel');
+  const previousStatus = panel?.dataset.lastStatus || panel?.dataset.currentStatus || libraryBookStatus(book);
+  let started = document.getElementById('book-detail-started')?.value || book.start || '';
+  let finished = document.getElementById('book-detail-finished')?.value || book.end || '';
+  if (status === 'Currently Reading' && previousStatus === 'TBR' && !started) started = todayLocalISODate();
+  if (status === 'Read' && previousStatus === 'Currently Reading' && !finished) finished = todayLocalISODate();
+  if (['TBR', 'Wishlist'].includes(status)) { started = ''; finished = ''; }
+  if (status === 'Currently Reading') finished = '';
+  const shareUpdate = Boolean(document.getElementById('book-detail-share-update')?.checked) && ['Currently Reading', 'Read'].includes(status);
+  const visibility = document.getElementById('book-detail-status-visibility')?.value || 'Friends';
+  setBookDetailMessage('book-detail-status-message', 'Saving status...');
+  try {
+    const nextTimesRead = defaultTimesReadForStatus(status, book.times_read);
+    await patchBookRow(book.database_id, {
+      status,
+      ...(nextTimesRead !== (book.times_read || null) ? {times_read: nextTimesRead} : {})
+    });
+    if (!['TBR', 'Wishlist'].includes(status)) {
+      const sessions = await supabaseTableRequest('reading_sessions', {
+        query: `?select=id&book_id=eq.${encodeURIComponent(book.database_id)}&order=created_at.desc&limit=1`
+      });
+      const yearRead = status === 'Paused' ? null : (finished ? Number(finished.slice(0, 4)) : (book.year_read || null));
+      const sessionBody = {
+        book_id: book.database_id,
+        started_on: started || null,
+        finished_on: finished || null,
+        month_read: status === 'Paused' ? null : monthDateForBook({start: started, end: finished, year_read: yearRead}),
+        year_read: status === 'Paused' ? null : yearRead,
+        rating: status === 'Paused' || isDNFStatusValue(status) ? null : (Number(book.rating) || null),
+        status: status === 'DNF' ? 'DNF' : status,
+        notes: book.thoughts || null
+      };
+      if (sessions.length) {
+        await saveReadingSessions({method:'PATCH', query:`?id=eq.${encodeURIComponent(sessions[0].id)}`, body:sessionBody, prefer:'return=minimal'});
+      } else {
+        await saveReadingSessions({method:'POST', body:[{user_id:supabaseSession.user.id, ...sessionBody}], prefer:'return=minimal'});
+      }
+    }
+    await syncSeriesStatusForBook(status, book.series_id, book.series);
+    const updatedBook = {...book, status, start: started, end: finished, times_read: nextTimesRead};
+    let messageText = 'Status saved.';
+    if (shareUpdate) {
+      try {
+        const updateText = status === 'Read'
+          ? `Finished reading “${book.title}”.`
+          : `Started reading “${book.title}”.`;
+        await shareBookToFeed(updatedBook, updateText, visibility);
+        messageText = 'Status saved and shared on your feed.';
+      } catch (error) {
+        messageText = `Status saved, but the feed post could not be shared: ${error.message}`;
+      }
+    }
+    await loadDatabaseBooks();
+    rebuildSeriesFromLibraryBooks();
+    buildHeaderStats();
+    buildBooks();
+    buildLogDetail();
+    buildSeries();
+    const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(book.title);
+    renderBookDetailPage(refreshed?.title || book.title, source, bookRouteKey(refreshed || updatedBook));
+    setBookDetailMessage('book-detail-status-message', messageText);
+  } catch (error) {
+    setBookDetailMessage('book-detail-status-message', bookEditorMigrationMessage(error));
+  }
+}
+
+async function saveBookDetailThoughts(bookKey='', source='') {
+  const book = findBookByRouteKey(bookKey);
+  if (!book?.database_id) return setBookDetailMessage('book-detail-thoughts-message', 'This book needs a saved library record before its thoughts can be saved.');
+  const thoughts = document.getElementById('book-detail-thoughts')?.value.trim() || '';
+  const shareThoughts = Boolean(document.getElementById('book-detail-share-thoughts')?.checked);
+  const visibility = document.getElementById('book-detail-thought-visibility')?.value || 'Friends';
+  setBookDetailMessage('book-detail-thoughts-message', 'Saving thoughts...');
+  try {
+    await patchBookRow(book.database_id, {notes: thoughts || null});
+    let messageText = 'Thoughts saved.';
+    if (shareThoughts && thoughts) {
+      try {
+        await shareBookToFeed({...book, thoughts}, thoughts, visibility);
+        messageText = 'Thoughts saved and shared on your feed.';
+      } catch (error) {
+        messageText = `Thoughts saved, but the feed post could not be shared: ${error.message}`;
+      }
+    }
+    await loadDatabaseBooks();
+    const refreshed = findBookByRouteKey(bookKey) || localBookByTitle(book.title);
+    renderBookDetailPage(refreshed?.title || book.title, source, bookRouteKey(refreshed || {...book, thoughts}));
+    setBookDetailMessage('book-detail-thoughts-message', messageText);
+  } catch (error) {
+    setBookDetailMessage('book-detail-thoughts-message', bookEditorMigrationMessage(error));
+  }
+}
+
 function renderBookDetailPage(title, source='', key='') {
   const b = findBookForDetail(title, source, key);
   const panel = document.getElementById('tab-book-detail');
@@ -14276,9 +14523,7 @@ function renderBookDetailPage(title, source='', key='') {
 
           ${coverEl}
 
-          <div style="margin-top:.75rem;font-weight:600;">
-            Status: ${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}
-          </div>
+          ${guestMode ? `<div style="margin-top:.75rem;font-weight:600;">Status: ${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}</div>` : bookDetailStatusControlsHTML(b, source)}
           ${amazonWishlistLinkHTML(b)}
 
         </div>
@@ -14339,11 +14584,18 @@ function renderBookDetailPage(title, source='', key='') {
             ${b.synopsis ? esc(b.synopsis) : '<span style="color:var(--muted);font-style:italic">No synopsis has been added yet.</span>'}
           </div>
         </section>
-        <section class="book-note-column">
-          <h4>Thoughts</h4>
-          <div style="white-space:pre-line">
-            ${b.thoughts ? esc(b.thoughts) : '<span style="color:var(--muted);font-style:italic">No thoughts have been added yet.</span>'}
-          </div>
+        <section class="book-note-column book-detail-thoughts-editor">
+          <div class="book-note-heading"><h4>Thoughts</h4>${guestMode ? '' : '<span style="color:var(--muted);font-size:0.75rem">Saved to this book</span>'}</div>
+          ${guestMode
+            ? `<div style="white-space:pre-line">${b.thoughts ? esc(b.thoughts) : '<span style="color:var(--muted);font-style:italic">No thoughts have been added yet.</span>'}</div>`
+            : `<textarea id="book-detail-thoughts" maxlength="5000" placeholder="Add your thoughts about this book…">${esc(b.thoughts || '')}</textarea>
+              <div class="book-detail-thought-actions">
+                <label class="book-detail-thought-share"><input id="book-detail-share-thoughts" type="checkbox"> Share these thoughts on my feed
+                  <select id="book-detail-thought-visibility" aria-label="Thoughts visibility"><option value="Friends">Friends</option><option value="Public">Everyone</option></select>
+                </label>
+                <button class="account-primary" type="button" onclick="saveBookDetailThoughts(${jsArg(bookRouteKey(b))},${jsArg(source)})">Save Thoughts</button>
+              </div>
+              <div class="book-detail-status-message" id="book-detail-thoughts-message" role="status" aria-live="polite"></div>`}
         </section>
       </div>
 
@@ -14351,6 +14603,7 @@ function renderBookDetailPage(title, source='', key='') {
     </div>
   `;
 
+  updateBookDetailStatusForm(false);
   showTab('book-detail', 'content');
 }
 
@@ -15336,10 +15589,11 @@ function filterBooks() {
     booksFilterSignature = signature;
     booksPage = 1;
   }
-  const totalPages = Math.max(1, Math.ceil(filtered.length / booksPageSize));
+  const pageSize = booksPageSize === 'all' ? Math.max(filtered.length, 1) : booksPageSize;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   booksPage = Math.min(booksPage, totalPages);
-  const pageStart = (booksPage - 1) * booksPageSize;
-  const pageBooks = filtered.slice(pageStart, pageStart + booksPageSize);
+  const pageStart = (booksPage - 1) * pageSize;
+  const pageBooks = filtered.slice(pageStart, pageStart + pageSize);
   booksBulkVisible = pageBooks;
   if (booksBulkMode) {
     const visibleKeys = new Set(pageBooks.map(bulkBookKey));
@@ -15348,7 +15602,7 @@ function filterBooks() {
     ));
   }
   renderLibraryCollection(pageBooks, 'books', booksView, filtered);
-  document.getElementById('book-count').textContent = filtered.length > booksPageSize
+  document.getElementById('book-count').textContent = booksPageSize !== 'all' && filtered.length > booksPageSize
     ? `${filtered.length} matching books`
     : `Showing ${filtered.length} of ${libraryBooks.length} books`;
   document.getElementById('book-count-criteria').textContent = booksCriteriaText();
@@ -15894,6 +16148,9 @@ const shuffleState = {};
 let pickerCategoryPreferences = [];
 let customCategoryDraft = null;
 let rereadManagerBooks = [];
+let pickerGenreMode = 'all';
+let pickerSelectedGenre = '';
+let pickerShuffleTimer = null;
 
 function availablePickerGenres() {
   const genres = [];
@@ -15980,6 +16237,64 @@ function activePickerCategories() {
   return normalizedPickerPreferences().filter(item => item.enabled);
 }
 
+function pickerGenreModeStorageKey() {
+  return `reading-tracker-picker-genre-mode-${supabaseSession?.user?.id || 'local'}`;
+}
+
+function restorePickerGenreMode() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(pickerGenreModeStorageKey()) || '{}');
+    pickerGenreMode = saved.mode === 'one' ? 'one' : 'all';
+    pickerSelectedGenre = availablePickerGenres().includes(saved.genre) ? saved.genre : (availablePickerGenres()[0] || '');
+  } catch (_) {
+    pickerGenreMode = 'all';
+    pickerSelectedGenre = availablePickerGenres()[0] || '';
+  }
+}
+
+function savePickerGenreMode() {
+  try {
+    localStorage.setItem(pickerGenreModeStorageKey(), JSON.stringify({mode: pickerGenreMode, genre: pickerSelectedGenre}));
+  } catch (_) {}
+}
+
+function pickerCategoriesForDisplay() {
+  const categories = activePickerCategories();
+  if (pickerGenreMode !== 'one') return categories;
+  const selectedCategory = normalizedPickerPreferences().find(category =>
+    category.type === 'genre' && category.name === pickerSelectedGenre
+  );
+  return selectedCategory ? [{...selectedCategory, enabled: true}] : [];
+}
+
+function updatePickerGenreControls() {
+  const singleGenreSelect = document.getElementById('picker-single-genre');
+  const heading = document.getElementById('picker-next-heading');
+  if (singleGenreSelect) singleGenreSelect.disabled = pickerGenreMode !== 'one';
+  if (heading) {
+    heading.textContent = pickerGenreMode === 'one' && pickerSelectedGenre
+      ? `📋 Up Next: ${pickerSelectedGenre}`
+      : '📋 Up Next by Genre';
+  }
+}
+
+function setPickerGenreMode(mode) {
+  pickerGenreMode = mode === 'one' ? 'one' : 'all';
+  if (!pickerSelectedGenre || !availablePickerGenres().includes(pickerSelectedGenre)) {
+    pickerSelectedGenre = availablePickerGenres()[0] || '';
+  }
+  savePickerGenreMode();
+  updatePickerGenreControls();
+  renderPicker(false);
+}
+
+function setPickerSelectedGenre(genre) {
+  pickerSelectedGenre = availablePickerGenres().includes(genre) ? genre : (availablePickerGenres()[0] || '');
+  savePickerGenreMode();
+  updatePickerGenreControls();
+  renderPicker(false);
+}
+
 function pickerPoolForCategory(category) {
   if (category.type === 'reread') return [...DATA.picker_rereads];
   if (category.type === 'standalone') {
@@ -16040,6 +16355,7 @@ async function loadPickerPreferences() {
     }
   }
   pickerCategoryPreferences = normalizedPickerPreferences(saved);
+  restorePickerGenreMode();
 }
 
 async function savePickerPreferences(closeSettings=false) {
@@ -16504,7 +16820,7 @@ function movePickerCategory(index, direction) {
 }
 
 function getShuffledPicks() {
-  return activePickerCategories().flatMap(category => {
+  return pickerCategoriesForDisplay().flatMap(category => {
     const pool = pickerPoolForCategory(category);
     if (!pool.length) return [];
     if (!shuffleState[category.id] || !pool.find(book => book.title === shuffleState[category.id].title)) {
@@ -16514,17 +16830,27 @@ function getShuffledPicks() {
   });
 }
 function shufflePicker() {
-  Object.keys(shuffleState).forEach(k => delete shuffleState[k]);
-  activePickerCategories().forEach(category => {
-    const pool = pickerPoolForCategory(category);
-    if (pool.length) shuffleState[category.id] = pool[Math.floor(Math.random()*pool.length)];
-  });
-  renderPicker(true);
+  if (pickerShuffleTimer) return;
+  const button = document.getElementById('picker-shuffle-label');
+  if (button) {
+    button.classList.add('is-rolling');
+    button.disabled = true;
+    button.textContent = '🎲 Rolling…';
+  }
+  pickerShuffleTimer = setTimeout(() => {
+    pickerShuffleTimer = null;
+    Object.keys(shuffleState).forEach(k => delete shuffleState[k]);
+    pickerCategoriesForDisplay().forEach(category => {
+      const pool = pickerPoolForCategory(category);
+      if (pool.length) shuffleState[category.id] = pool[Math.floor(Math.random()*pool.length)];
+    });
+    renderPicker(true);
+  }, 620);
 }
 function renderPicker(isShuffled) {
   const picks = isShuffled
     ? getShuffledPicks()
-    : activePickerCategories().flatMap(category => {
+    : pickerCategoriesForDisplay().flatMap(category => {
         const book = pickerPoolForCategory(category)[0];
         return book ? [{...book, category: category.name}] : [];
       });
@@ -16573,7 +16899,11 @@ function renderPicker(isShuffled) {
   pickerGrid?.classList.toggle('up-next-only', !rereadPool.length);
   if (rereadSection) rereadSection.style.display = rereadPool.length ? '' : 'none';
   const lbl = document.getElementById('picker-shuffle-label');
-  if (lbl) lbl.textContent = isShuffled ? '🎲 Shuffle Again' : '🎲 Shuffle';
+  if (lbl) {
+    lbl.disabled = false;
+    lbl.classList.remove('is-rolling');
+    lbl.textContent = isShuffled ? '🎲 Shuffle Again' : '🎲 Shuffle';
+  }
 }
 // ─── Book Clubs ───────────────────────────────────────────────
 const FALLBACK_TIME_ZONES = [
@@ -17498,6 +17828,16 @@ function buildPicker() {
     <div class="section-head"><h2>Book Picker</h2>
       <div class="picker-toolbar">
         <button class="picker-command secondary" type="button" onclick="togglePickerSettings()">☰ Customize</button>
+        <div class="picker-genre-mode">
+          <label for="picker-genre-mode">Genre picks</label>
+          <select id="picker-genre-mode" onchange="setPickerGenreMode(this.value)">
+            <option value="all" ${pickerGenreMode === 'all' ? 'selected' : ''}>All genres</option>
+            <option value="one" ${pickerGenreMode === 'one' ? 'selected' : ''}>One genre</option>
+          </select>
+          <select id="picker-single-genre" aria-label="Genre to pick from" onchange="setPickerSelectedGenre(this.value)" ${pickerGenreMode === 'one' ? '' : 'disabled'}>
+            ${availablePickerGenres().map(genre => `<option value="${esc(genre)}" ${genre === pickerSelectedGenre ? 'selected' : ''}>${esc(genre)}</option>`).join('')}
+          </select>
+        </div>
         <button class="picker-command" id="picker-shuffle-label" type="button" onclick="shufflePicker()">🎲 Shuffle</button>
       </div>
     </div>
@@ -17515,7 +17855,7 @@ function buildPicker() {
     </div>
     <div class="picker-grid" id="picker-grid">
       <div class="picker-section" id="picker-next-section">
-        <h3>📋 Up Next by Genre</h3>
+        <h3 id="picker-next-heading">📋 ${pickerGenreMode === 'one' && pickerSelectedGenre ? `Up Next: ${esc(pickerSelectedGenre)}` : 'Up Next by Genre'}</h3>
         <div id="picker-next-list"></div>
       </div>
       <div class="picker-section" id="picker-reread-section">
