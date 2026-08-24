@@ -3093,21 +3093,25 @@
   }
   .book-detail-status-panel {
     display: grid;
-    gap: 0.45rem;
-    margin-top: 0.75rem;
-    padding: 0.7rem;
+    grid-template-columns: minmax(155px, 1.3fr) repeat(2, minmax(128px, 0.85fr)) auto;
+    gap: 0.55rem 0.7rem;
+    margin: 1rem 0;
+    padding: 0.85rem;
     border: 1px solid var(--border);
     border-radius: 7px;
     background: var(--aged);
   }
+  .book-detail-status-panel.no-status-dates > label:first-child { grid-column: span 3; }
   .book-detail-status-panel label { display: grid; gap: 0.22rem; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
   .book-detail-status-panel select,
   .book-detail-status-panel input[type="date"] { width: 100%; min-width: 0; box-sizing: border-box; }
-  .book-detail-status-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
-  .book-detail-status-share { display: flex !important; align-items: flex-start; gap: 0.4rem; color: var(--ink) !important; font-size: 0.76rem !important; font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
+  .book-detail-status-dates { display: contents; }
+  .book-detail-status-share-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+  .book-detail-status-share { display: flex !important; align-items: center; gap: 0.4rem; color: var(--ink) !important; font-size: 0.76rem !important; font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
   .book-detail-status-share input { width: auto; margin-top: 0.08rem; accent-color: #4169e1; }
-  .book-detail-status-panel .account-primary { width: 100%; }
-  .book-detail-status-message { min-height: 1em; color: var(--muted); font-size: 0.75rem; line-height: 1.3; }
+  .book-detail-action-button { min-height: 42px; padding: 0.55rem 1rem !important; border-radius: 6px !important; font-weight: 700 !important; white-space: nowrap; }
+  .book-detail-status-save { align-self: end; width: auto !important; }
+  .book-detail-status-message { min-height: 1em; grid-column: 1 / -1; color: var(--muted); font-size: 0.75rem; line-height: 1.3; }
   .book-note-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
   .book-note-heading h4 { margin-bottom: 0; }
   .book-detail-thoughts-editor textarea { box-sizing: border-box; width: 100%; min-height: 130px; margin-top: 0.5rem; resize: vertical; }
@@ -3115,10 +3119,19 @@
   .book-detail-thought-share { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); font-size: 0.78rem; }
   .book-detail-thought-share input { width: auto; accent-color: #4169e1; }
   .book-detail-thought-share select { min-width: 104px; }
-  @media (max-width: 600px) {
-    .book-detail-status-dates { grid-template-columns: 1fr; }
+  @media (max-width: 760px) {
+    .book-detail-status-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .book-detail-status-panel.no-status-dates > label:first-child { grid-column: auto; }
+    .book-detail-status-save { grid-column: 1 / -1; width: 100% !important; }
+  }
+  @media (min-width: 481px) and (max-width: 760px) {
+    .book-detail-status-panel.no-status-dates .book-detail-status-save { grid-column: auto; }
+  }
+  @media (max-width: 480px) {
+    .book-detail-status-panel { grid-template-columns: 1fr; }
+    .book-detail-status-share-row { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .book-detail-thought-actions { align-items: stretch; }
-    .book-detail-thought-actions .account-primary { width: 100%; }
+    .book-detail-thought-actions .book-detail-action-button { width: 100%; }
   }
   .book-detail-page .book-card {
     padding: 1.25rem;
@@ -14281,7 +14294,7 @@ function bookDetailStatusControlsHTML(book, source='') {
   const showFinish = ['Read', 'DNF'].includes(currentStatus);
   const shareable = ['Currently Reading', 'Read'].includes(currentStatus);
   const shareLabel = currentStatus === 'Read' ? 'Share that I finished this book on my feed' : 'Share that I started this book on my feed';
-  return `<section class="book-detail-status-panel" data-current-status="${esc(currentStatus)}">
+  return `<section class="book-detail-status-panel ${showStart || showFinish ? '' : 'no-status-dates'}" data-current-status="${esc(currentStatus)}">
     <label for="book-detail-status">Reading status
       <select id="book-detail-status" onchange="updateBookDetailStatusForm()">
         ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status => `<option value="${status}" ${status === currentStatus ? 'selected' : ''}>${status}</option>`).join('')}
@@ -14295,14 +14308,16 @@ function bookDetailStatusControlsHTML(book, source='') {
         <input id="book-detail-finished" type="date" value="${esc(book.end || '')}">
       </label>
     </div>
-    <label class="book-detail-status-share" id="book-detail-status-share" style="display:${shareable ? 'flex' : 'none'}">
-      <input id="book-detail-share-update" type="checkbox">
-      <span id="book-detail-status-share-label">${shareLabel}</span>
-    </label>
-    <label class="book-detail-status-share" id="book-detail-status-visibility-wrap" style="display:${shareable ? 'flex' : 'none'}">Share with
-      <select id="book-detail-status-visibility" aria-label="Status update visibility"><option value="Friends">Friends</option><option value="Public">Everyone</option></select>
-    </label>
-    <button class="account-primary" type="button" onclick="saveBookDetailStatus(${jsArg(bookRouteKey(book))},${jsArg(source)})">Save Status</button>
+    <button class="account-primary book-detail-action-button book-detail-status-save" type="button" onclick="saveBookDetailStatus(${jsArg(bookRouteKey(book))},${jsArg(source)})">Save Status</button>
+    <div class="book-detail-status-share-row" id="book-detail-status-share-row" style="display:${shareable ? 'flex' : 'none'}">
+      <label class="book-detail-status-share" id="book-detail-status-share">
+        <input id="book-detail-share-update" type="checkbox">
+        <span id="book-detail-status-share-label">${shareLabel}</span>
+      </label>
+      <label class="book-detail-status-share" id="book-detail-status-visibility-wrap">Share with
+        <select id="book-detail-status-visibility" aria-label="Status update visibility"><option value="Friends">Friends</option><option value="Public">Everyone</option></select>
+      </label>
+    </div>
     <div class="book-detail-status-message" id="book-detail-status-message" role="status" aria-live="polite"></div>
   </section>`;
 }
@@ -14317,16 +14332,15 @@ function updateBookDetailStatusForm(applyDefaults=true) {
   const finish = document.getElementById('book-detail-finished');
   const startWrap = document.querySelector('.book-detail-status-start');
   const finishWrap = document.querySelector('.book-detail-status-finished');
-  const shareWrap = document.getElementById('book-detail-status-share');
-  const visibilityWrap = document.getElementById('book-detail-status-visibility-wrap');
+  const shareRow = document.getElementById('book-detail-status-share-row');
   const shareLabel = document.getElementById('book-detail-status-share-label');
   const showStart = ['Currently Reading', 'Read', 'DNF', 'Paused'].includes(status);
   const showFinish = ['Read', 'DNF'].includes(status);
   const shareable = ['Currently Reading', 'Read'].includes(status);
+  panel.classList.toggle('no-status-dates', !showStart && !showFinish);
   if (startWrap) startWrap.style.display = showStart ? 'grid' : 'none';
   if (finishWrap) finishWrap.style.display = showFinish ? 'grid' : 'none';
-  if (shareWrap) shareWrap.style.display = shareable ? 'flex' : 'none';
-  if (visibilityWrap) visibilityWrap.style.display = shareable ? 'flex' : 'none';
+  if (shareRow) shareRow.style.display = shareable ? 'flex' : 'none';
   if (shareLabel) shareLabel.textContent = status === 'Read'
     ? 'Share that I finished this book on my feed'
     : 'Share that I started this book on my feed';
@@ -14523,7 +14537,6 @@ function renderBookDetailPage(title, source='', key='') {
 
           ${coverEl}
 
-          ${guestMode ? `<div style="margin-top:.75rem;font-weight:600;">Status: ${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}</div>` : bookDetailStatusControlsHTML(b, source)}
           ${amazonWishlistLinkHTML(b)}
 
         </div>
@@ -14571,6 +14584,10 @@ function renderBookDetailPage(title, source='', key='') {
 
       </div>
 
+      ${guestMode
+        ? `<div class="book-detail-status-panel"><strong>Status:</strong> ${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}</div>`
+        : bookDetailStatusControlsHTML(b, source)}
+
       ${bookReadingSessionsHTML(b)}
 
       ${bookEditionsHTML(b)}
@@ -14593,7 +14610,7 @@ function renderBookDetailPage(title, source='', key='') {
                 <label class="book-detail-thought-share"><input id="book-detail-share-thoughts" type="checkbox"> Share these thoughts on my feed
                   <select id="book-detail-thought-visibility" aria-label="Thoughts visibility"><option value="Friends">Friends</option><option value="Public">Everyone</option></select>
                 </label>
-                <button class="account-primary" type="button" onclick="saveBookDetailThoughts(${jsArg(bookRouteKey(b))},${jsArg(source)})">Save Thoughts</button>
+                <button class="account-primary book-detail-action-button" type="button" onclick="saveBookDetailThoughts(${jsArg(bookRouteKey(b))},${jsArg(source)})">Save Thoughts</button>
               </div>
               <div class="book-detail-status-message" id="book-detail-thoughts-message" role="status" aria-live="polite"></div>`}
         </section>
