@@ -2488,28 +2488,45 @@
     align-items: center;
     gap: 0.48rem;
   }
-  .picker-die {
+  .picker-die-scene {
     position: relative;
     display: inline-block;
-    width: 1.15rem;
-    height: 1.15rem;
-    flex: 0 0 1.15rem;
+    width: 1.24rem;
+    height: 1.24rem;
+    flex: 0 0 1.24rem;
+    perspective: 5rem;
+  }
+  .picker-die-cube {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.2s ease-out;
+  }
+  .picker-die-cube[data-face="1"] { transform: rotateX(-16deg) rotateY(18deg); }
+  .picker-die-cube[data-face="2"] { transform: rotateX(-16deg) rotateY(-72deg); }
+  .picker-die-cube[data-face="3"] { transform: rotateX(-16deg) rotateY(-162deg); }
+  .picker-die-cube[data-face="4"] { transform: rotateX(-16deg) rotateY(108deg); }
+  .picker-die-cube[data-face="5"] { transform: rotateX(-106deg) rotateY(18deg); }
+  .picker-die-cube[data-face="6"] { transform: rotateX(74deg) rotateY(18deg); }
+  .picker-die-face {
+    position: absolute;
+    inset: 0;
     border: 1px solid rgba(20,44,94,0.7);
     border-radius: 0.22rem;
-    background:
-      radial-gradient(circle at 28% 28%, #1d356d 0 0.12rem, transparent 0.14rem),
-      radial-gradient(circle at 72% 28%, #1d356d 0 0.12rem, transparent 0.14rem),
-      radial-gradient(circle at 50% 50%, #1d356d 0 0.12rem, transparent 0.14rem),
-      radial-gradient(circle at 28% 72%, #1d356d 0 0.12rem, transparent 0.14rem),
-      radial-gradient(circle at 72% 72%, #1d356d 0 0.12rem, transparent 0.14rem),
-      #fff;
-    box-shadow: 0.12rem 0.12rem 0 rgba(14,48,112,0.42), inset 0 0 0.14rem rgba(255,122,0,0.25);
-    transform-style: preserve-3d;
+    background-color: #fff;
+    box-shadow: inset 0 0 0.14rem rgba(255,122,0,0.25);
+    backface-visibility: hidden;
   }
+  .picker-die-face.one { background-image: radial-gradient(circle at 50% 50%, #1d356d 0 0.12rem, transparent 0.14rem); transform: translateZ(0.62rem); }
+  .picker-die-face.two { background-image: radial-gradient(circle at 28% 28%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 72%, #1d356d 0 0.12rem, transparent 0.14rem); transform: rotateY(90deg) translateZ(0.62rem); }
+  .picker-die-face.three { background-image: radial-gradient(circle at 28% 28%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 50% 50%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 72%, #1d356d 0 0.12rem, transparent 0.14rem); transform: rotateY(180deg) translateZ(0.62rem); }
+  .picker-die-face.four { background-image: radial-gradient(circle at 28% 28%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 28%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 28% 72%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 72%, #1d356d 0 0.12rem, transparent 0.14rem); transform: rotateY(-90deg) translateZ(0.62rem); }
+  .picker-die-face.five { background-image: radial-gradient(circle at 28% 28%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 28%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 50% 50%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 28% 72%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 72%, #1d356d 0 0.12rem, transparent 0.14rem); transform: rotateX(90deg) translateZ(0.62rem); }
+  .picker-die-face.six { background-image: radial-gradient(circle at 28% 25%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 25%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 28% 50%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 50%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 28% 75%, #1d356d 0 0.12rem, transparent 0.14rem), radial-gradient(circle at 72% 75%, #1d356d 0 0.12rem, transparent 0.14rem); transform: rotateX(-90deg) translateZ(0.62rem); }
   .picker-command.is-rolling {
     pointer-events: none;
   }
-  .picker-command.is-rolling .picker-die { animation: picker-die-roll 0.78s cubic-bezier(.28,.08,.18,1) both; }
+  .picker-command.is-rolling .picker-die-cube { animation: picker-die-roll 0.78s cubic-bezier(.28,.08,.18,1) both; }
   @keyframes picker-die-roll {
     0% { transform: translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
     25% { transform: translateY(-0.28rem) rotateX(230deg) rotateY(160deg) rotateZ(95deg); }
@@ -2541,7 +2558,7 @@
   }
   .picker-genre-mode select { min-width: 150px; min-height: 40px; }
   @media (prefers-reduced-motion: reduce) {
-    .picker-command.is-rolling .picker-die { animation-duration: 0.01ms; }
+    .picker-command.is-rolling .picker-die-cube { animation-duration: 0.01ms; }
   }
   .picker-settings {
     display: none;
@@ -16206,6 +16223,7 @@ let rereadManagerBooks = [];
 let pickerGenreMode = 'all';
 let pickerSelectedGenre = '';
 let pickerShuffleTimer = null;
+let pickerDieFace = 1;
 
 function availablePickerGenres() {
   const genres = [];
@@ -16345,6 +16363,12 @@ function chooseRandomPickerGenre() {
     DATA.tbr.some(book => (book.genre || 'Uncategorized') === genre)
   );
   return eligibleGenres.length ? eligibleGenres[Math.floor(Math.random() * eligibleGenres.length)] : '';
+}
+
+function setPickerDieFace(face) {
+  pickerDieFace = Math.min(6, Math.max(1, Number(face) || 1));
+  const cube = document.getElementById('picker-die-cube');
+  if (cube) cube.dataset.face = String(pickerDieFace);
 }
 
 function pickerPoolForCategory(category) {
@@ -16892,6 +16916,7 @@ function shufflePicker() {
   if (label) label.textContent = 'Rolling…';
   pickerShuffleTimer = setTimeout(() => {
     pickerShuffleTimer = null;
+    setPickerDieFace(1 + Math.floor(Math.random() * 6));
     if (pickerGenreMode === 'one') {
       pickerSelectedGenre = chooseRandomPickerGenre();
       savePickerGenreMode();
@@ -17896,7 +17921,10 @@ function buildPicker() {
             <option value="one" ${pickerGenreMode === 'one' ? 'selected' : ''}>One genre</option>
           </select>
         </div>
-        <button class="picker-command picker-shuffle-button" id="picker-shuffle-button" type="button" onclick="shufflePicker()"><span class="picker-die" aria-hidden="true"></span><span id="picker-shuffle-label">Shuffle</span></button>
+        <button class="picker-command picker-shuffle-button" id="picker-shuffle-button" type="button" onclick="shufflePicker()">
+          <span class="picker-die-scene" aria-hidden="true"><span class="picker-die-cube" id="picker-die-cube" data-face="${pickerDieFace}"><span class="picker-die-face one"></span><span class="picker-die-face two"></span><span class="picker-die-face three"></span><span class="picker-die-face four"></span><span class="picker-die-face five"></span><span class="picker-die-face six"></span></span></span>
+          <span id="picker-shuffle-label">Shuffle</span>
+        </button>
       </div>
     </div>
     <div class="picker-settings" id="picker-settings">
