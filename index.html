@@ -2486,6 +2486,8 @@
   .picker-shuffle-button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 9.2rem;
     gap: 0.48rem;
   }
   .picker-die-scene {
@@ -16989,7 +16991,7 @@ function renderPicker(isShuffled) {
     button.disabled = false;
     button.classList.remove('is-rolling');
   }
-  if (label) label.textContent = isShuffled ? 'Shuffle Again' : 'Shuffle';
+  if (label) label.textContent = 'Shuffle';
 }
 // ─── Book Clubs ───────────────────────────────────────────────
 const FALLBACK_TIME_ZONES = [
