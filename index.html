@@ -2506,17 +2506,6 @@
     box-shadow: 0.12rem 0.12rem 0 rgba(14,48,112,0.42), inset 0 0 0.14rem rgba(255,122,0,0.25);
     transform-style: preserve-3d;
   }
-  .picker-die::after {
-    content: '';
-    position: absolute;
-    inset: 0.13rem -0.16rem -0.16rem 0.13rem;
-    z-index: -1;
-    border: 1px solid rgba(20,44,94,0.6);
-    border-radius: 0.18rem;
-    background: #88a1dc;
-    transform: skewY(-34deg);
-    transform-origin: top left;
-  }
   .picker-command.is-rolling {
     pointer-events: none;
   }
@@ -2551,18 +2540,6 @@
     padding: 0.5rem 0.6rem;
   }
   .picker-genre-mode select { min-width: 150px; min-height: 40px; }
-  .picker-random-genre {
-    min-height: 40px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: #fff;
-    color: var(--deep);
-    font-size: 0.82rem;
-    font-weight: 700;
-  }
   @media (prefers-reduced-motion: reduce) {
     .picker-command.is-rolling .picker-die { animation-duration: 0.01ms; }
   }
@@ -16347,14 +16324,7 @@ function pickerCategoriesForDisplay() {
 }
 
 function updatePickerGenreControls() {
-  const randomGenre = document.getElementById('picker-single-genre');
   const heading = document.getElementById('picker-next-heading');
-  if (randomGenre) {
-    randomGenre.style.display = pickerGenreMode === 'one' ? 'inline-flex' : 'none';
-    randomGenre.textContent = pickerSelectedGenre
-      ? `Random genre: ${pickerSelectedGenre}`
-      : 'Shuffle chooses the genre';
-  }
   if (heading) {
     heading.textContent = pickerGenreMode === 'one'
       ? (pickerSelectedGenre ? `📋 Up Next: ${pickerSelectedGenre}` : '📋 Shuffle for a Random Genre')
@@ -17925,7 +17895,6 @@ function buildPicker() {
             <option value="all" ${pickerGenreMode === 'all' ? 'selected' : ''}>All genres</option>
             <option value="one" ${pickerGenreMode === 'one' ? 'selected' : ''}>One genre</option>
           </select>
-          <span class="picker-random-genre" id="picker-single-genre" ${pickerGenreMode === 'one' ? '' : 'style="display:none"'}>${pickerSelectedGenre ? `Random genre: ${esc(pickerSelectedGenre)}` : 'Shuffle chooses the genre'}</span>
         </div>
         <button class="picker-command picker-shuffle-button" id="picker-shuffle-button" type="button" onclick="shufflePicker()"><span class="picker-die" aria-hidden="true"></span><span id="picker-shuffle-label">Shuffle</span></button>
       </div>
