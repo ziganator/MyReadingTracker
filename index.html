@@ -2502,12 +2502,12 @@
     transform-style: preserve-3d;
     transition: transform 0.2s ease-out;
   }
-  .picker-die-cube[data-face="1"] { transform: rotateX(-16deg) rotateY(18deg); }
-  .picker-die-cube[data-face="2"] { transform: rotateX(-16deg) rotateY(-72deg); }
-  .picker-die-cube[data-face="3"] { transform: rotateX(-16deg) rotateY(-162deg); }
-  .picker-die-cube[data-face="4"] { transform: rotateX(-16deg) rotateY(108deg); }
-  .picker-die-cube[data-face="5"] { transform: rotateX(-106deg) rotateY(18deg); }
-  .picker-die-cube[data-face="6"] { transform: rotateX(74deg) rotateY(18deg); }
+  .picker-die-cube[data-face="1"] { transform: rotateX(0deg) rotateY(0deg); }
+  .picker-die-cube[data-face="2"] { transform: rotateY(-90deg); }
+  .picker-die-cube[data-face="3"] { transform: rotateY(-180deg); }
+  .picker-die-cube[data-face="4"] { transform: rotateY(90deg); }
+  .picker-die-cube[data-face="5"] { transform: rotateX(-90deg); }
+  .picker-die-cube[data-face="6"] { transform: rotateX(90deg); }
   .picker-die-face {
     position: absolute;
     inset: 0;
@@ -2526,7 +2526,7 @@
   .picker-command.is-rolling {
     pointer-events: none;
   }
-  .picker-command.is-rolling .picker-die-cube { animation: picker-die-roll 0.78s cubic-bezier(.28,.08,.18,1) both; }
+  .picker-command.is-rolling .picker-die-cube { animation: picker-die-roll 0.46s cubic-bezier(.28,.08,.18,1) both; }
   @keyframes picker-die-roll {
     0% { transform: translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
     25% { transform: translateY(-0.28rem) rotateX(230deg) rotateY(160deg) rotateZ(95deg); }
@@ -16928,7 +16928,7 @@ function shufflePicker() {
       if (pool.length) shuffleState[category.id] = pool[Math.floor(Math.random()*pool.length)];
     });
     renderPicker(true);
-  }, 780);
+  }, 460);
 }
 function renderPicker(isShuffled) {
   const picks = isShuffled
