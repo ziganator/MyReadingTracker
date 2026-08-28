@@ -2551,6 +2551,7 @@
   .picker-genre-mode select,
   .book-detail-status-panel select,
   .book-detail-status-panel input[type="date"],
+  .book-detail-status-panel input[type="number"],
   .book-detail-thoughts-editor textarea {
     background: #fff;
     border: 1px solid var(--border);
@@ -3150,7 +3151,7 @@
   }
   .book-detail-status-panel {
     display: grid;
-    grid-template-columns: minmax(155px, 1.3fr) repeat(2, minmax(128px, 0.85fr)) auto;
+    grid-template-columns: minmax(155px, 1.2fr) repeat(3, minmax(112px, 0.78fr)) auto;
     gap: 0.35rem 0.55rem;
     margin: 1rem 0;
     padding: 0.3rem 0.75rem;
@@ -3158,10 +3159,11 @@
     border-radius: 7px;
     background: var(--aged);
   }
-  .book-detail-status-panel.no-status-dates > label:first-child { grid-column: span 3; }
+  .book-detail-status-panel.no-status-dates > label:first-child { grid-column: span 4; }
   .book-detail-status-panel label { display: grid; gap: 0.12rem; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
   .book-detail-status-panel select,
-  .book-detail-status-panel input[type="date"] { width: 100%; min-width: 0; min-height: 40px; box-sizing: border-box; }
+  .book-detail-status-panel input[type="date"],
+  .book-detail-status-panel input[type="number"] { width: 100%; min-width: 0; min-height: 40px; box-sizing: border-box; }
   .book-detail-status-dates { display: contents; }
   .book-detail-status-share-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
   .book-detail-status-share { display: flex !important; align-items: center; gap: 0.4rem; color: var(--ink) !important; font-size: 0.76rem !important; font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important; }
@@ -14350,6 +14352,7 @@ function bookDetailStatusControlsHTML(book, source='') {
   const currentStatus = libraryBookStatus(book) || (source === 'calendar' ? 'Read' : 'TBR');
   const showStart = ['Currently Reading', 'Read', 'DNF', 'Paused'].includes(currentStatus);
   const showFinish = ['Read', 'DNF'].includes(currentStatus);
+  const showRating = currentStatus === 'Read';
   const shareable = ['Currently Reading', 'Read'].includes(currentStatus);
   const shareLabel = currentStatus === 'Read' ? 'Share that I finished this book on my feed' : 'Share that I started this book on my feed';
   return `<section class="book-detail-status-panel ${showStart || showFinish ? '' : 'no-status-dates'}" data-current-status="${esc(currentStatus)}">
@@ -14364,6 +14367,9 @@ function bookDetailStatusControlsHTML(book, source='') {
       </label>
       <label class="book-detail-status-finished" style="display:${showFinish ? 'grid' : 'none'}" for="book-detail-finished">Finished
         <input id="book-detail-finished" type="date" value="${esc(book.end || '')}">
+      </label>
+      <label class="book-detail-status-rating" style="display:${showRating ? 'grid' : 'none'}" for="book-detail-rating">Rating / ${userRatingScale}
+        <input id="book-detail-rating" type="number" min="0" max="${userRatingScale}" step="0.01" value="${esc(ratingInputValue(book.rating))}" placeholder="Optional">
       </label>
     </div>
     <button class="account-primary book-detail-action-button book-detail-status-save" type="button" onclick="saveBookDetailStatus(${jsArg(bookRouteKey(book))},${jsArg(source)})">Save Status</button>
@@ -14390,14 +14396,17 @@ function updateBookDetailStatusForm(applyDefaults=true) {
   const finish = document.getElementById('book-detail-finished');
   const startWrap = document.querySelector('.book-detail-status-start');
   const finishWrap = document.querySelector('.book-detail-status-finished');
+  const ratingWrap = document.querySelector('.book-detail-status-rating');
   const shareRow = document.getElementById('book-detail-status-share-row');
   const shareLabel = document.getElementById('book-detail-status-share-label');
   const showStart = ['Currently Reading', 'Read', 'DNF', 'Paused'].includes(status);
   const showFinish = ['Read', 'DNF'].includes(status);
+  const showRating = status === 'Read';
   const shareable = ['Currently Reading', 'Read'].includes(status);
   panel.classList.toggle('no-status-dates', !showStart && !showFinish);
   if (startWrap) startWrap.style.display = showStart ? 'grid' : 'none';
   if (finishWrap) finishWrap.style.display = showFinish ? 'grid' : 'none';
+  if (ratingWrap) ratingWrap.style.display = showRating ? 'grid' : 'none';
   if (shareRow) shareRow.style.display = shareable ? 'flex' : 'none';
   if (shareLabel) shareLabel.textContent = status === 'Read'
     ? 'Share that I finished this book on my feed'
@@ -14444,6 +14453,9 @@ async function saveBookDetailStatus(bookKey='', source='') {
   const previousStatus = panel?.dataset.lastStatus || panel?.dataset.currentStatus || libraryBookStatus(book);
   let started = document.getElementById('book-detail-started')?.value || book.start || '';
   let finished = document.getElementById('book-detail-finished')?.value || book.end || '';
+  const rating = status === 'Read'
+    ? storedRatingFromInput(document.getElementById('book-detail-rating')?.value)
+    : book.rating ?? null;
   if (status === 'Currently Reading' && previousStatus === 'TBR' && !started) started = todayLocalISODate();
   if (status === 'Read' && previousStatus === 'Currently Reading' && !finished) finished = todayLocalISODate();
   if (['TBR', 'Wishlist'].includes(status)) { started = ''; finished = ''; }
@@ -14455,6 +14467,7 @@ async function saveBookDetailStatus(bookKey='', source='') {
     const nextTimesRead = defaultTimesReadForStatus(status, book.times_read);
     await patchBookRow(book.database_id, {
       status,
+      ...(status === 'Read' ? {rating} : {}),
       ...(nextTimesRead !== (book.times_read || null) ? {times_read: nextTimesRead} : {})
     });
     if (!['TBR', 'Wishlist'].includes(status)) {
@@ -14468,7 +14481,7 @@ async function saveBookDetailStatus(bookKey='', source='') {
         finished_on: finished || null,
         month_read: status === 'Paused' ? null : monthDateForBook({start: started, end: finished, year_read: yearRead}),
         year_read: status === 'Paused' ? null : yearRead,
-        rating: status === 'Paused' || isDNFStatusValue(status) ? null : (Number(book.rating) || null),
+        rating: status === 'Paused' || isDNFStatusValue(status) ? null : (status === 'Read' ? rating : (Number(book.rating) || null)),
         status: status === 'DNF' ? 'DNF' : status,
         notes: book.thoughts || null
       };
@@ -14479,7 +14492,7 @@ async function saveBookDetailStatus(bookKey='', source='') {
       }
     }
     await syncSeriesStatusForBook(status, book.series_id, book.series);
-    const updatedBook = {...book, status, start: started, end: finished, times_read: nextTimesRead};
+    const updatedBook = {...book, status, start: started, end: finished, rating, times_read: nextTimesRead};
     let messageText = 'Status saved.';
     if (shareUpdate) {
       try {
