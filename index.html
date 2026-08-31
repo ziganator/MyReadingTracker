@@ -2415,6 +2415,23 @@
 }
 .add-book-field { min-width: 0; }
 .add-book-field.full { grid-column: 2 / -1; }
+.add-book-basic-grid {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 112px repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+.add-book-basic-grid .add-book-owned-check {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  margin: 0;
+}
+.add-book-basic-grid .add-book-genre-field { grid-column: 2; grid-row: 1; }
+.add-book-basic-grid .add-book-isbn-field { grid-column: 3; grid-row: 1; }
+.add-book-basic-grid .add-book-status-field { grid-column: 2; grid-row: 2; }
+.add-book-basic-grid .add-book-format-field { grid-column: 3; grid-row: 2; }
 .add-book-field.series-name,
 .book-editor-field.series-name { grid-column: span 1; }
 .add-book-field.series-position,
@@ -2457,6 +2474,21 @@
   .add-book-cover img, .add-book-cover span { height: 120px; min-height: 120px; }
   .add-book-field { grid-column: 2; }
   .add-book-field.full { grid-column: 1 / -1; }
+  .add-book-basic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .add-book-basic-grid .add-book-owned-check {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    align-self: auto;
+  }
+  .add-book-basic-grid .add-book-genre-field,
+  .add-book-basic-grid .add-book-isbn-field,
+  .add-book-basic-grid .add-book-status-field,
+  .add-book-basic-grid .add-book-format-field {
+    grid-column: auto;
+    grid-row: auto;
+  }
   .add-book-field.series-position,
   .book-editor-field.series-position { width: 5.75rem; }
   .series-field-pair {
@@ -11451,25 +11483,27 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field"><label for="add-book-series">Series</label><input id="add-book-series" type="text"></div>
         <div class="add-book-field series-position"><label for="add-book-series-position">Book #</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
       </div>
-      <div class="add-book-field editor-optional"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
-      <div class="add-book-field full"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
-      <div class="add-book-field"><label for="add-book-status">Status</label>
-        <select id="add-book-status" onchange="updatePausedPageControls()">
-          <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
-          <option value="Wishlist" ${defaultStatus==='Wishlist'?'selected':''}>Wishlist</option>
-          <option value="Currently Reading" ${defaultStatus==='Currently Reading'?'selected':''}>Currently Reading</option>
-          <option value="Read" ${defaultStatus==='Read'?'selected':''}>Read</option>
-          <option value="DNF" ${defaultStatus==='DNF'?'selected':''}>DNF</option>
-          <option value="Paused" ${libraryBookStatus({status:defaultStatus})==='Paused'?'selected':''}>Paused</option>
-        </select>
+      <div class="add-book-basic-grid">
+        <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+        <div class="add-book-field add-book-genre-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
+        <div class="add-book-field add-book-isbn-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
+        <div class="add-book-field add-book-status-field"><label for="add-book-status">Status</label>
+          <select id="add-book-status" onchange="updatePausedPageControls()">
+            <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
+            <option value="Wishlist" ${defaultStatus==='Wishlist'?'selected':''}>Wishlist</option>
+            <option value="Currently Reading" ${defaultStatus==='Currently Reading'?'selected':''}>Currently Reading</option>
+            <option value="Read" ${defaultStatus==='Read'?'selected':''}>Read</option>
+            <option value="DNF" ${defaultStatus==='DNF'?'selected':''}>DNF</option>
+            <option value="Paused" ${libraryBookStatus({status:defaultStatus})==='Paused'?'selected':''}>Paused</option>
+          </select>
+        </div>
+        <div class="add-book-field add-book-format-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
       </div>
-      <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+      <div class="add-book-field editor-optional"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
       <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field" id="add-book-paused-on-wrap" style="display:none"><label for="add-book-paused-on">Paused On</label><input id="add-book-paused-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field" id="add-book-resumed-on-wrap" style="display:none"><label for="add-book-resumed-on">Resumed On</label><input id="add-book-resumed-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field editor-optional"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
-      <div class="add-book-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
-      <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
       <div class="add-book-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       <div class="add-book-field editor-optional"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
       <div class="add-book-field"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
