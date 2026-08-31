@@ -12972,7 +12972,7 @@ function renderLibraryCollection(books, scope, view, navigationBooks=books) {
           <div class="library-list-author">${authorProfileButton(book)}</div>
           <div class="library-list-detail library-list-genre">${esc(book.genre || '—')}</div>
           <div class="library-list-detail library-list-pages" title="Page count">${pageCountForBook(book) ? `${pageMetric(pageCountForBook(book))} pages` : '—'}</div>
-          <div class="library-list-detail library-list-owned" title="Ownership">${book.owned ? 'Owned' : 'Not Owned'}</div>
+          <div class="library-list-detail library-list-owned" title="Ownership">${ownedValue(book.own) ? 'Owned' : 'Not Owned'}</div>
           <div class="library-list-detail library-list-status">${libraryRatingOrStatus(book)}</div>
         </div>`;
     }).join('')}</div>`;
