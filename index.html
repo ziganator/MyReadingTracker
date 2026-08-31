@@ -11448,7 +11448,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field series-position"><label for="add-book-series-position">Book #</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
       </div>
       <div class="add-book-field editor-optional"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
-      <div class="add-book-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text"></div>
+      <div class="add-book-field full"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
       <div class="add-book-field"><label for="add-book-status">Status</label>
         <select id="add-book-status" onchange="updatePausedPageControls()">
           <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
