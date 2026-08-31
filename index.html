@@ -2435,6 +2435,12 @@
 .add-book-basic-grid .add-book-status-field { grid-column: 2; grid-row: 2; }
 .add-book-basic-grid .add-book-format-field { grid-column: 3; grid-row: 2; }
 .add-book-basic-grid .add-book-pages-field { grid-column: 4; grid-row: 2; }
+.audiobook-duration-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.45rem;
+}
+.audiobook-duration-inputs input { min-width: 0; }
 .add-book-field.series-name,
 .book-editor-field.series-name { grid-column: span 1; }
 .add-book-field.series-position,
@@ -8214,6 +8220,21 @@ function updateShortStoryFullBookControls() {
   const editorFormat = document.getElementById('book-editor-format')?.value;
   const editorWrap = document.getElementById('book-editor-full-book-wrap');
   if (editorWrap) editorWrap.style.display = isShortStoryCollection(editorFormat) ? '' : 'none';
+
+  updateAudiobookLengthControls();
+}
+
+function updateAudiobookLengthControls() {
+  [
+    {format: 'add-book-format', pages: 'add-book-pages-wrap', duration: 'add-book-duration-wrap'},
+    {format: 'book-editor-format', pages: 'book-editor-pages-wrap', duration: 'book-editor-duration-wrap'}
+  ].forEach(control => {
+    const isAudiobook = isAudiobookFormat(document.getElementById(control.format)?.value);
+    const pages = document.getElementById(control.pages);
+    const duration = document.getElementById(control.duration);
+    if (pages) pages.style.display = isAudiobook ? 'none' : '';
+    if (duration) duration.style.display = isAudiobook ? '' : 'none';
+  });
 }
 
 function updatePausedPageControls() {
@@ -9705,6 +9726,36 @@ function pageCountForBook(book) {
   return 0;
 }
 
+function audiobookDurationMinutesForBook(book) {
+  const candidates = [
+    book?.duration_minutes,
+    book?.durationMinutes,
+    book?.runtime_minutes,
+    book?.runtimeMinutes
+  ];
+  for (const candidate of candidates) {
+    const minutes = Number.parseInt(candidate, 10);
+    if (Number.isFinite(minutes) && minutes > 0) return minutes;
+  }
+  return 0;
+}
+
+function audiobookDurationLabel(book) {
+  const minutes = audiobookDurationMinutesForBook(book);
+  if (!minutes) return '';
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${remainder} min`;
+  return `${hours} hr${remainder ? ` ${remainder} min` : ''}`;
+}
+
+function audiobookDurationMinutesFromInputs(hoursId, minutesId) {
+  const hours = Math.max(0, Number.parseInt(document.getElementById(hoursId)?.value, 10) || 0);
+  const minutes = Math.min(59, Math.max(0, Number.parseInt(document.getElementById(minutesId)?.value, 10) || 0));
+  const total = (hours * 60) + minutes;
+  return total || null;
+}
+
 function pagesReadStats(books) {
   const list = Array.isArray(books) ? books : [];
   const pages = list.reduce((sum, book) => sum + pageCountForBook(book), 0);
@@ -10545,6 +10596,7 @@ function databaseBookToLocal(book) {
     format: book.format || edition?.binding || '',
     publisher: book.publisher || edition?.publisher || '',
     page_count: book.page_count || edition?.page_count || null,
+    duration_minutes: safeInt(book.duration_minutes),
     full_book_read: Boolean(book.full_book_read),
     language: normalizeBookLanguage(book.language || edition?.language),
     publication_date: publicationDate,
@@ -11504,7 +11556,14 @@ function openAddBookDialog(defaultStatus='TBR') {
           </select>
         </div>
         <div class="add-book-field add-book-format-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
-        <div class="add-book-field add-book-pages-field"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
+        <div class="add-book-field add-book-pages-field" id="add-book-pages-wrap"><label for="add-book-page-count">Pages</label><input id="add-book-page-count" type="number" min="1"></div>
+        <div class="add-book-field add-book-pages-field" id="add-book-duration-wrap" style="display:none">
+          <label>Duration</label>
+          <div class="audiobook-duration-inputs">
+            <input id="add-book-duration-hours" type="number" min="0" step="1" placeholder="Hours" aria-label="Hours">
+            <input id="add-book-duration-minutes" type="number" min="0" max="59" step="1" placeholder="Minutes" aria-label="Minutes">
+          </div>
+        </div>
       </div>
       <div class="add-book-field editor-optional"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
       <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
@@ -12764,6 +12823,9 @@ async function saveAddedBook(scanNext=false) {
     const seriesName = document.getElementById('add-book-series')?.value.trim();
     const seriesId = await findOrCreateLibraryRelation('series', seriesName, {author_id: authorId});
     const format = document.getElementById('add-book-format')?.value.trim() || 'Book';
+    const audiobookMinutes = isAudiobookFormat(format)
+      ? audiobookDurationMinutesFromInputs('add-book-duration-hours', 'add-book-duration-minutes')
+      : null;
     const finished = status === 'Paused' ? '' : (document.getElementById('add-book-finished')?.value || '');
     const yearRead = status === 'Paused' ? null : (safeInt(document.getElementById('add-book-year-read')?.value) ||
       (finished ? Number(finished.slice(0, 4)) : null));
@@ -12774,7 +12836,7 @@ async function saveAddedBook(scanNext=false) {
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
       binding: format,
-      page_count: document.getElementById('add-book-page-count')?.value,
+      page_count: isAudiobookFormat(format) ? null : document.getElementById('add-book-page-count')?.value,
       language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
       publication_date: document.getElementById('add-book-publication-date')?.value
         || (document.getElementById('add-book-year')?.value
@@ -12797,6 +12859,7 @@ async function saveAddedBook(scanNext=false) {
       resumed_on: resumedOn || null,
       times_read: defaultTimesReadForStatus(status, null),
       owned: Boolean(document.getElementById('add-book-owned')?.checked),
+      ...(audiobookMinutes ? {duration_minutes: audiobookMinutes} : {}),
       full_book_read: isShortStoryCollection(format) && Boolean(document.getElementById('add-book-full-book-read')?.checked),
       synopsis: document.getElementById('add-book-synopsis')?.value.trim() || null,
       received_date_text: document.getElementById('add-book-received')?.value.trim() || null,
@@ -12811,7 +12874,7 @@ async function saveAddedBook(scanNext=false) {
       isbn: document.getElementById('add-book-isbn')?.value.trim(),
       publisher: document.getElementById('add-book-publisher')?.value.trim(),
       binding: format,
-      page_count: document.getElementById('add-book-page-count')?.value,
+      page_count: isAudiobookFormat(format) ? null : document.getElementById('add-book-page-count')?.value,
       language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
       publication_date: document.getElementById('add-book-publication-date')?.value,
       cover_url: addBookCoverUrl
@@ -12880,6 +12943,8 @@ async function saveAddedBook(scanNext=false) {
     const errorMessage = String(error.message);
     message.textContent = databaseSaveComplete
       ? `The book was saved to Supabase, but the page could not refresh: ${errorMessage}. Refresh the page to reload it.`
+      : errorMessage.includes('duration_minutes')
+      ? 'Audiobook duration storage is not enabled yet. Run supabase_audiobook_duration.sql in Supabase, then save again.'
       : errorMessage.includes('paused_on') || errorMessage.includes('resumed_on')
       ? 'Paused/resumed dates are not enabled yet. Run supabase_paused_dates.sql in Supabase, then save again.'
       : errorMessage.includes('paused_page')
@@ -14549,11 +14614,12 @@ function replaceBookEditionsList(book, mode='editor') {
 }
 
 function currentBookEditorEditionPayload() {
+  const format = bookEditorValue('book-editor-format');
   return editionPayloadFromValues({
     isbn: bookEditorValue('book-editor-isbn'),
     publisher: bookEditorValue('book-editor-publisher'),
-    binding: bookEditorValue('book-editor-format'),
-    page_count: bookEditorValue('book-editor-page-count'),
+    binding: format,
+    page_count: isAudiobookFormat(format) ? null : bookEditorValue('book-editor-page-count'),
     language: normalizeBookLanguage(bookEditorValue('book-editor-language')),
     publication_date: bookEditorValue('book-editor-publication-date'),
     cover_url: bookEditorValue('book-editor-cover')
@@ -15039,7 +15105,9 @@ function renderBookDetailPage(title, source='', key='') {
             <div class="book-card-detail-column">
               ${field('Publisher', b.publisher)}
               ${field('Publication Date', publicationDate)}
-              ${field('Pages', pageCountForBook(b) || '')}
+              ${isAudiobookFormat(b.format)
+                ? field('Duration', audiobookDurationLabel(b))
+                : field('Pages', pageCountForBook(b) || '')}
               ${field('Language', b.language)}
               ${field('ISBN', b.isbn || b.isbn_13 || b.isbn_10 || b.edition?.isbn_13 || b.edition?.isbn_10)}
               ${field('Signed', b.signed)}
@@ -15160,6 +15228,7 @@ async function createDatabaseBookForEdit(original, updated, authorId, seriesId) 
     publisher: updated.publisher || null,
     publication_date: updated.publication_date || null,
     page_count: updated.page_count || null,
+    duration_minutes: updated.duration_minutes || null,
     full_book_read: Boolean(updated.full_book_read),
     language: updated.language || null
   };
@@ -15479,7 +15548,14 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field editor-optional"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" placeholder="YYYY" title="Summary year" value="${esc(readYearForBook(book) || '')}"><small class="book-editor-hint">Summary year</small></div>
       </div>
       <div class="book-editor-row reading-row">
-        <div class="book-editor-field"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
+        <div class="book-editor-field" id="book-editor-pages-wrap"><label for="book-editor-page-count">Pages</label><input id="book-editor-page-count" type="number" min="1" value="${esc(book.page_count || '')}"></div>
+        <div class="book-editor-field" id="book-editor-duration-wrap" style="display:none">
+          <label>Duration</label>
+          <div class="audiobook-duration-inputs">
+            <input id="book-editor-duration-hours" type="number" min="0" step="1" placeholder="Hours" aria-label="Hours" value="${esc(Math.floor(audiobookDurationMinutesForBook(book) / 60) || '')}">
+            <input id="book-editor-duration-minutes" type="number" min="0" max="59" step="1" placeholder="Minutes" aria-label="Minutes" value="${esc(audiobookDurationMinutesForBook(book) % 60 || '')}">
+          </div>
+        </div>
         <div class="book-editor-field editor-optional"><label for="book-editor-publisher">Publisher</label><input id="book-editor-publisher" value="${esc(book.publisher || '')}"></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-publication-date">Edition Publication Date</label><input id="book-editor-publication-date" type="date" value="${esc(book.publication_date || '')}"></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-signed">Signed</label><select id="book-editor-signed">${signedOptionsHTML(book.signed || '')}</select></div>
@@ -15555,6 +15631,9 @@ function updateLocalEditedBook(original, updated) {
 
 function bookEditorMigrationMessage(error) {
   const message = String(error?.message || '');
+  if (message.includes('duration_minutes')) {
+    return 'Audiobook duration storage is not enabled yet. Run supabase_audiobook_duration.sql in Supabase, refresh, then save again.';
+  }
   if (message.includes('duplicate key') || message.includes('unique constraint')) {
     return 'That change conflicts with an existing saved record. Check whether this title, author, series, collection, or edition is already in your account.';
   }
@@ -15643,6 +15722,10 @@ async function saveBookEditor(originalTitle, source='', key='') {
     const number = Number(value);
     return Number.isNaN(number) ? (fallback ?? null) : number;
   };
+  const updatedFormat = bookEditorValue('book-editor-format') || original.format || 'Book';
+  const audiobookMinutes = isAudiobookFormat(updatedFormat)
+    ? audiobookDurationMinutesFromInputs('book-editor-duration-hours', 'book-editor-duration-minutes')
+    : null;
   const duplicate = allLibraryBooks().find(book =>
     !sameSavedBook(book, original) &&
     normalizedKey(book.title) === normalizedKey(editedTitle) &&
@@ -15675,12 +15758,13 @@ async function saveBookEditor(originalTitle, source='', key='') {
     paused_on: pausedOn || null,
     resumed_on: resumedOn || null,
     own: document.getElementById('book-editor-owned')?.checked ? 'Yes' : '',
-    format: bookEditorValue('book-editor-format') || original.format || 'Book',
-    full_book_read: isShortStoryCollection(bookEditorValue('book-editor-format') || original.format || 'Book') &&
+    format: updatedFormat,
+    full_book_read: isShortStoryCollection(updatedFormat) &&
       Boolean(document.getElementById('book-editor-full-book-read')?.checked),
     publisher: keepText('book-editor-publisher', original.publisher),
     publication_date: keepText('book-editor-publication-date', original.publication_date),
-    page_count: keepNumber('book-editor-page-count', original.page_count),
+    page_count: isAudiobookFormat(updatedFormat) ? null : keepNumber('book-editor-page-count', original.page_count),
+    duration_minutes: audiobookMinutes,
     language: normalizeBookLanguage(bookEditorValue('book-editor-language') || original.language),
     synopsis: bookEditorValue('book-editor-synopsis'),
     thoughts: bookEditorValue('book-editor-thoughts'),
@@ -15730,6 +15814,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     if (changedText(updated.publisher, comparisonBook.publisher)) bookPatch.publisher = updated.publisher || null;
     if (changedText(updated.publication_date, comparisonBook.publication_date)) bookPatch.publication_date = updated.publication_date || null;
     if (changedValue(updated.page_count, comparisonBook.page_count)) bookPatch.page_count = updated.page_count || null;
+    if (changedValue(updated.duration_minutes, comparisonBook.duration_minutes)) bookPatch.duration_minutes = updated.duration_minutes || null;
     if (changedText(updated.language, comparisonBook.language)) bookPatch.language = updated.language || null;
     if (changedText(statusValue, comparisonBook.status)) bookPatch.status = statusValue;
     if (changedValue(updated.paused_page, comparisonBook.paused_page)) bookPatch.paused_page = updated.paused_page;
