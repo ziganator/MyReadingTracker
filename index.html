@@ -2380,6 +2380,12 @@
   font: 0.95rem 'Crimson Pro', serif;
   padding: 0.48rem 0.55rem;
 }
+.isbn-lookup-row input {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: clamp(0.82rem, 2.4vw, 0.95rem);
+  letter-spacing: 0;
+}
 .add-book-fields {
   display: grid;
   grid-template-columns: 112px repeat(2, minmax(0, 1fr));
@@ -11457,9 +11463,6 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field" id="add-book-paused-on-wrap" style="display:none"><label for="add-book-paused-on">Paused On</label><input id="add-book-paused-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field" id="add-book-resumed-on-wrap" style="display:none"><label for="add-book-resumed-on">Resumed On</label><input id="add-book-resumed-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field editor-optional"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
-      <div class="add-book-field"><label for="add-book-started">Started</label><input id="add-book-started" type="date"></div>
-      <div class="add-book-field"><label for="add-book-finished">Finished</label><input id="add-book-finished" type="date"></div>
-      <div class="add-book-field"><label for="add-book-rating">Rating / ${userRatingScale}</label><input id="add-book-rating" type="number" min="0" max="${userRatingScale}" step="0.01"></div>
       <div class="add-book-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
       <div class="add-book-field"><label for="add-book-format">Format</label><select id="add-book-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML('Book')}</select></div>
       <div class="add-book-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
@@ -11531,11 +11534,13 @@ function saveQuickAddedBook() {
   document.getElementById('add-book-title').value = title;
   document.getElementById('add-book-author').value = author;
   document.getElementById('add-book-status').value = status;
-  if (status === 'Currently Reading' && !document.getElementById('add-book-started').value) {
-    document.getElementById('add-book-started').value = todayLocalISODate();
+  const startedInput = document.getElementById('add-book-started');
+  const finishedInput = document.getElementById('add-book-finished');
+  if (status === 'Currently Reading' && startedInput && !startedInput.value) {
+    startedInput.value = todayLocalISODate();
   }
-  if (status === 'Read' && !document.getElementById('add-book-finished').value) {
-    document.getElementById('add-book-finished').value = todayLocalISODate();
+  if (status === 'Read' && finishedInput && !finishedInput.value) {
+    finishedInput.value = todayLocalISODate();
   }
   saveAddedBook();
 }
