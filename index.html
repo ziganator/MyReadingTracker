@@ -2013,7 +2013,7 @@
   max-height: 280px;
   object-fit: cover;
 }
-.barcode-scanner-preview::after {
+.barcode-scanner-preview.is-scanning::after {
   content: '';
   position: absolute;
   left: 12%; right: 12%; top: 42%; height: 18%;
@@ -2024,18 +2024,42 @@
 }
 .barcode-scanner-placeholder {
   display: grid;
+  gap: 0.45rem;
   min-height: 180px;
   place-items: center;
   padding: 1rem;
   color: #fff;
   text-align: center;
 }
+.barcode-scanner-placeholder strong {
+  color: var(--gold-light);
+  font-family: 'Playfair Display', serif;
+  font-size: 1.08rem;
+}
+.barcode-scanner-placeholder span {
+  max-width: 360px;
+  line-height: 1.45;
+}
 .barcode-scanner-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
 }
-.barcode-scanner-actions button { min-height: 40px; }
+.barcode-scanner-actions button {
+  min-height: 44px;
+  padding: 0.55rem 0.85rem;
+  font: 700 0.95rem 'Crimson Pro', serif;
+}
+.barcode-scanner-actions .account-primary {
+  background: linear-gradient(110deg, var(--burnt), #bd8279, var(--royal));
+  border-color: transparent;
+  color: #fff;
+}
+.barcode-scanner-actions .account-secondary {
+  background: #fff;
+  border-color: var(--royal);
+  color: var(--royal);
+}
   .isbn-lookup-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -2342,6 +2366,7 @@
 @media (max-width: 560px) {
   .add-book-quick { grid-template-columns: 1fr; }
   .add-book-quick button { width: 100%; }
+  .barcode-scanner-actions { grid-template-columns: 1fr; }
 }
 .isbn-lookup-row input,
 .add-book-fields input,
@@ -11390,7 +11415,7 @@ function openAddBookDialog(defaultStatus='TBR') {
     </div>
     <div class="barcode-scanner-panel" id="add-book-scan-row" style="display:none">
       <div class="barcode-scanner-preview" id="add-book-scan-preview">
-        <div class="barcode-scanner-placeholder">Tap Start Camera, then hold the ISBN barcode inside the highlighted area.</div>
+        <div class="barcode-scanner-placeholder"><strong>ISBN Barcode Scanner</strong><span>Tap Start Camera, then hold the ISBN barcode inside the highlighted area.</span></div>
       </div>
       <div class="barcode-scanner-actions">
         <button class="account-primary" type="button" onclick="startAddBookBarcodeScanner()">Start Camera</button>
@@ -11542,6 +11567,10 @@ function barcodeScannerMessage(message) {
   if (target) target.textContent = message;
 }
 
+function barcodeScannerPlaceholderHTML() {
+  return '<div class="barcode-scanner-placeholder"><strong>ISBN Barcode Scanner</strong><span>Tap Start Camera, then hold the ISBN barcode inside the highlighted area.</span></div>';
+}
+
 function stopAddBookBarcodeScanner(showPlaceholder=false) {
   if (addBookBarcodeTimer) {
     clearInterval(addBookBarcodeTimer);
@@ -11552,8 +11581,9 @@ function stopAddBookBarcodeScanner(showPlaceholder=false) {
     addBookBarcodeStream = null;
   }
   const preview = document.getElementById('add-book-scan-preview');
+  preview?.classList.remove('is-scanning');
   if (preview && showPlaceholder) {
-    preview.innerHTML = '<div class="barcode-scanner-placeholder">Tap Start Camera, then hold the ISBN barcode inside the highlighted area.</div>';
+    preview.innerHTML = barcodeScannerPlaceholderHTML();
   }
 }
 
@@ -11583,6 +11613,7 @@ async function startAddBookBarcodeScanner() {
     if (preview) {
       preview.innerHTML = '';
       preview.appendChild(video);
+      preview.classList.add('is-scanning');
     }
     await video.play();
     const detector = new window.BarcodeDetector({formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e']});
