@@ -11028,6 +11028,8 @@ let addBookEditionCandidates = [];
 let selectedAddBookEdition = null;
 let addBookBarcodeStream = null;
 let addBookBarcodeTimer = null;
+let addBookZXingControls = null;
+let addBookZXingReader = null;
 let addBookShelfScanMode = false;
 let searchPageQuery = '';
 let searchPageResults = [];
@@ -11623,11 +11625,61 @@ function stopAddBookBarcodeScanner(showPlaceholder=false) {
     addBookBarcodeStream.getTracks().forEach(track => track.stop());
     addBookBarcodeStream = null;
   }
+  if (addBookZXingControls) {
+    try { addBookZXingControls.stop(); } catch (_) {}
+    addBookZXingControls = null;
+  }
+  addBookZXingReader = null;
   const preview = document.getElementById('add-book-scan-preview');
   preview?.classList.remove('is-scanning');
   if (preview && showPlaceholder) {
     preview.innerHTML = barcodeScannerPlaceholderHTML();
   }
+}
+
+function loadZXingBarcodeDecoder() {
+  if (window.ZXingBrowser?.BrowserMultiFormatReader) return Promise.resolve(window.ZXingBrowser);
+  const existing = document.querySelector('script[data-reading-tracker-zxing]');
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener('load', () => resolve(window.ZXingBrowser), {once: true});
+      existing.addEventListener('error', () => reject(new Error('The barcode scanner could not be loaded.')), {once: true});
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js';
+    script.async = true;
+    script.dataset.readingTrackerZxing = 'true';
+    script.onload = () => window.ZXingBrowser?.BrowserMultiFormatReader
+      ? resolve(window.ZXingBrowser)
+      : reject(new Error('The barcode scanner loaded without its decoder.'));
+    script.onerror = () => reject(new Error('The barcode scanner could not be loaded. Check your internet connection and try again.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function startAddBookZXingScanner(preview) {
+  const ZXingBrowser = await loadZXingBarcodeDecoder();
+  if (addBookMode !== 'scan') return;
+  const video = document.createElement('video');
+  video.setAttribute('playsinline', '');
+  video.muted = true;
+  if (preview) {
+    preview.innerHTML = '';
+    preview.appendChild(video);
+    preview.classList.add('is-scanning');
+  }
+  addBookZXingReader = new ZXingBrowser.BrowserMultiFormatReader();
+  barcodeScannerMessage('Point the camera at the ISBN barcode.');
+  addBookZXingControls = await addBookZXingReader.decodeFromConstraints(
+    {video: {facingMode: {ideal: 'environment'}}, audio: false},
+    video,
+    result => {
+      const isbn = barcodeISBNValue(result?.getText?.() || '');
+      if (isbn) setAddBookScannedISBN(isbn);
+    }
+  );
 }
 
 async function startAddBookBarcodeScanner() {
@@ -11637,13 +11689,18 @@ async function startAddBookBarcodeScanner() {
     window.webkit.messageHandlers.barcodeScanner.postMessage({action: 'scan'});
     return;
   }
-  if (!navigator.mediaDevices?.getUserMedia || !window.BarcodeDetector) {
-    barcodeScannerMessage('This browser cannot scan barcodes here. Use Look Up ISBN to type or paste the number.');
+  if (!navigator.mediaDevices?.getUserMedia) {
+    barcodeScannerMessage('This browser cannot access the camera here. Use Look Up ISBN to type or paste the number.');
     return;
   }
   const preview = document.getElementById('add-book-scan-preview');
   try {
     stopAddBookBarcodeScanner();
+    if (!window.BarcodeDetector) {
+      barcodeScannerMessage('Loading the browser barcode scanner...');
+      await startAddBookZXingScanner(preview);
+      return;
+    }
     barcodeScannerMessage('Starting camera...');
     addBookBarcodeStream = await navigator.mediaDevices.getUserMedia({
       video: {facingMode: {ideal: 'environment'}},
@@ -11671,7 +11728,7 @@ async function startAddBookBarcodeScanner() {
     }, 120);
   } catch (error) {
     stopAddBookBarcodeScanner(true);
-    barcodeScannerMessage('Camera access was unavailable. Check the camera permission, or type the ISBN instead.');
+    barcodeScannerMessage(error?.message || 'Camera access was unavailable. Check the camera permission, or type the ISBN instead.');
   }
 }
 
