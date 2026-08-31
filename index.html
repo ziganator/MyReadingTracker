@@ -3331,23 +3331,7 @@
     background: var(--aged);
   }
   .book-detail-status-panel label { display: grid; gap: 0.12rem; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-  .book-detail-status-summary {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(155px, 1.2fr);
-    gap: 0.55rem;
-    align-items: end;
-  }
-  .book-detail-status-summary > div {
-    display: grid;
-    gap: 0.12rem;
-    color: var(--muted);
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .book-detail-status-summary > div span { color: var(--ink); font: 600 0.94rem 'Crimson Pro', serif; letter-spacing: 0; text-transform: none; }
+  .book-detail-status-panel.no-status-dates > label:first-child { grid-column: span 4; }
   .book-detail-status-panel select,
   .book-detail-status-panel input[type="date"],
   .book-detail-status-panel input[type="number"] { width: 100%; min-width: 0; min-height: 40px; box-sizing: border-box; }
@@ -3368,8 +3352,7 @@
   .book-detail-thought-share select { min-width: 104px; }
   @media (max-width: 760px) {
     .book-detail-status-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .book-detail-status-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .book-detail-status-summary label { grid-column: 1 / -1; }
+    .book-detail-status-panel.no-status-dates > label:first-child { grid-column: auto; }
     .book-detail-status-save { grid-column: 1 / -1; width: 100% !important; }
   }
   @media (min-width: 481px) and (max-width: 760px) {
@@ -3377,8 +3360,6 @@
   }
   @media (max-width: 480px) {
     .book-detail-status-panel { grid-template-columns: 1fr; }
-    .book-detail-status-summary { grid-template-columns: 1fr; }
-    .book-detail-status-summary label { grid-column: auto; }
     .book-detail-status-share-row { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .book-detail-thought-actions { align-items: stretch; }
     .book-detail-thought-actions .book-detail-action-button { width: 100%; }
@@ -14899,15 +14880,11 @@ function bookDetailStatusControlsHTML(book, source='') {
   const shareable = ['Currently Reading', 'Read'].includes(currentStatus);
   const shareLabel = currentStatus === 'Read' ? 'Share that I finished this book on my feed' : 'Share that I started this book on my feed';
   return `<section class="book-detail-status-panel ${showStart || showFinish ? '' : 'no-status-dates'}" data-current-status="${esc(currentStatus)}">
-    <div class="book-detail-status-summary">
-      <div><strong>Type</strong><span>${esc(bookWorkTypeForBook(book) || '—')}</span></div>
-      <div><strong>Format</strong><span>${esc(canonicalBookFormat(book.format))}</span></div>
-      <label for="book-detail-status">Reading Status
-        <select id="book-detail-status" onchange="updateBookDetailStatusForm()">
-          ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status => `<option value="${status}" ${status === currentStatus ? 'selected' : ''}>${status}</option>`).join('')}
-        </select>
-      </label>
-    </div>
+    <label for="book-detail-status">Reading status
+      <select id="book-detail-status" onchange="updateBookDetailStatusForm()">
+        ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status => `<option value="${status}" ${status === currentStatus ? 'selected' : ''}>${status}</option>`).join('')}
+      </select>
+    </label>
     <div class="book-detail-status-dates">
       <label class="book-detail-status-start" style="display:${showStart ? 'grid' : 'none'}" for="book-detail-started">Started
         <input id="book-detail-started" type="date" value="${esc(book.start || '')}">
@@ -15178,6 +15155,8 @@ function renderBookDetailPage(title, source='', key='') {
               ${field('Resumed On', b.resumed_on)}
               ${field('Times Read', b.times_read)}
               ${field('Owned', b.own)}
+              ${field('Format', b.format)}
+              ${field('Type', bookWorkTypeForBook(b))}
               ${isShortStoryCollection(b) ? field('Full Book', usesFullBookPageCount(b) ? 'Yes' : 'No') : ''}
             </div>
             <div class="book-card-detail-column">
@@ -15204,11 +15183,7 @@ function renderBookDetailPage(title, source='', key='') {
       </div>
 
       ${guestMode
-        ? `<div class="book-detail-status-panel"><div class="book-detail-status-summary">
-            <div><strong>Type</strong><span>${esc(bookWorkTypeForBook(b) || '—')}</span></div>
-            <div><strong>Format</strong><span>${esc(canonicalBookFormat(b.format))}</span></div>
-            <div><strong>Status</strong><span>${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}</span></div>
-          </div></div>`
+        ? `<div class="book-detail-status-panel"><strong>Status:</strong> ${esc(b.status ? libraryBookStatus(b) : (source === 'calendar' ? 'Read' : '—'))}</div>`
         : bookDetailStatusControlsHTML(b, source)}
 
       ${bookReadingSessionsHTML(b)}
@@ -15614,12 +15589,12 @@ function openBookEditor(title, source='', key='') {
       <div class="book-editor-row core-row">
         <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-type">Type</label><select id="book-editor-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML(bookWorkTypeForBook(book) || 'Novel')}</select></div>
+        <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
         <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status" onchange="updatePausedPageControls()">
           ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status =>
             `<option value="${status}" ${readStatus===status?'selected':''}>${status}</option>`
           ).join('')}
         </select></div>
-        <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
       </div>
       <div class="book-editor-row publish-row">
         <div class="book-editor-field editor-optional"><label for="book-editor-times-read">Times Read</label><input id="book-editor-times-read" type="number" min="0" value="${esc(book.times_read || '')}"></div>
