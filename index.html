@@ -11459,6 +11459,7 @@ function openAddBookDialog(defaultStatus='TBR') {
           <option value="Paused" ${libraryBookStatus({status:defaultStatus})==='Paused'?'selected':''}>Paused</option>
         </select>
       </div>
+      <label class="add-book-check"><input id="add-book-owned" type="checkbox"> Owned</label>
       <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field" id="add-book-paused-on-wrap" style="display:none"><label for="add-book-paused-on">Paused On</label><input id="add-book-paused-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field" id="add-book-resumed-on-wrap" style="display:none"><label for="add-book-resumed-on">Resumed On</label><input id="add-book-resumed-on" type="date" onchange="updatePausedPageControls()"></div>
@@ -11471,7 +11472,6 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field editor-optional"><label for="add-book-language">Language</label><input id="add-book-language" type="text" value="${esc(DEFAULT_BOOK_LANGUAGE)}"></div>
       <div class="add-book-field editor-optional"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
       <div class="add-book-field editor-optional"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
-      <label class="add-book-check editor-optional"><input id="add-book-owned" type="checkbox"> Owned</label>
       <label class="add-book-check" id="add-book-full-book-wrap" style="display:none"><input id="add-book-full-book-read" type="checkbox"> Full Book</label>
       <div class="add-book-field full editor-optional"><label for="add-book-synopsis">Synopsis</label><textarea id="add-book-synopsis" rows="5" placeholder="ISBN lookup will fill this when Open Library has a description."></textarea></div>
       <div class="add-book-field full editor-optional"><label for="add-book-notes">Notes</label><textarea id="add-book-notes" rows="3"></textarea></div>
