@@ -2447,6 +2447,10 @@
   min-height: 38px;
 }
 .add-book-check input { width: auto; }
+.add-book-owned-check {
+  align-self: end;
+  margin-bottom: 0.12rem;
+}
 @media (max-width: 600px) {
   .add-book-fields { grid-template-columns: 82px minmax(0, 1fr); }
   .add-book-cover { width: 82px; min-height: 120px; grid-row: span 3; }
@@ -11459,7 +11463,7 @@ function openAddBookDialog(defaultStatus='TBR') {
           <option value="Paused" ${libraryBookStatus({status:defaultStatus})==='Paused'?'selected':''}>Paused</option>
         </select>
       </div>
-      <label class="add-book-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+      <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
       <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field" id="add-book-paused-on-wrap" style="display:none"><label for="add-book-paused-on">Paused On</label><input id="add-book-paused-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field" id="add-book-resumed-on-wrap" style="display:none"><label for="add-book-resumed-on">Resumed On</label><input id="add-book-resumed-on" type="date" onchange="updatePausedPageControls()"></div>
