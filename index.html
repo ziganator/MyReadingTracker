@@ -2432,6 +2432,7 @@
 }
 .add-book-basic-grid .add-book-genre-field { grid-column: 2; grid-row: 1; }
 .add-book-basic-grid .add-book-isbn-field { grid-column: 3; grid-row: 1; }
+.add-book-basic-grid .add-book-type-field { grid-column: 4; grid-row: 1; }
 .add-book-basic-grid .add-book-status-field { grid-column: 2; grid-row: 2; }
 .add-book-basic-grid .add-book-format-field { grid-column: 3; grid-row: 2; }
 .add-book-basic-grid .add-book-pages-field { grid-column: 4; grid-row: 2; }
@@ -2493,6 +2494,7 @@
   }
   .add-book-basic-grid .add-book-genre-field,
   .add-book-basic-grid .add-book-isbn-field,
+  .add-book-basic-grid .add-book-type-field,
   .add-book-basic-grid .add-book-status-field,
   .add-book-basic-grid .add-book-format-field,
   .add-book-basic-grid .add-book-pages-field {
@@ -3539,7 +3541,7 @@
     grid-template-columns: minmax(280px, 1fr) 6.25rem;
   }
   .book-editor-row.core-row {
-    grid-template-columns: minmax(200px, 1.2fr) minmax(178px, 1fr) minmax(206px, 1.12fr);
+    grid-template-columns: minmax(160px, 1.1fr) minmax(145px, 0.9fr) minmax(150px, 0.95fr) minmax(158px, 1fr);
   }
   .book-editor-row.publish-row {
     grid-template-columns: minmax(132px, 0.72fr) minmax(118px, 0.66fr) minmax(168px, 0.95fr) minmax(168px, 0.95fr) minmax(126px, 0.72fr);
@@ -6933,7 +6935,7 @@ function monthDateForBook(book) {
 
 const LIBRARY_CSV_COLUMNS = [
   'Title', 'Author', 'Series', 'Series Position', 'Publication Year', 'Genre',
-  'ISBN', 'Cover URL', 'Status', 'Paused Page', 'Paused On', 'Resumed On', 'Owned', 'Format', 'Synopsis', 'Reread',
+  'ISBN', 'Cover URL', 'Status', 'Paused Page', 'Paused On', 'Resumed On', 'Owned', 'Format', 'Type', 'Synopsis', 'Reread',
   'Year Read', 'Started', 'Finished', 'Rating', 'Times Read', 'Signed', 'Received', 'Event', 'Thoughts'
 ];
 
@@ -6983,7 +6985,7 @@ function downloadLibraryCSVTemplate() {
   downloadCSV('reading-tracker-template.csv', [
     LIBRARY_CSV_COLUMNS,
     ['Pride and Prejudice', 'Jane Austen', '', '', '1813', 'Classic Romance',
-      spreadsheetText('9780141439518'), '', 'Read', '', '', '', 'Yes', 'Paperback', '', '', '2026', '', '', userRatingScale === 5 ? '4.25' : '8.5', '1', '', 'June 2026', '', '']
+      spreadsheetText('9780141439518'), '', 'Read', '', '', '', 'Yes', 'Book', 'Novel', '', '', '2026', '', '', userRatingScale === 5 ? '4.25' : '8.5', '1', '', 'June 2026', '', '']
   ]);
   setAccountStatus('CSV template downloaded.');
 }
@@ -6997,7 +6999,7 @@ function exportLibraryCSV() {
       book.title, book.author_full || book.author || book.author_short, book.series, book.series_position,
       book.year_pub, book.genre, exportISBN(book.isbn || book.isbn_13 || book.isbn_10), book.cover_url,
       libraryBookStatus(book), book.paused_page || '', book.paused_on || '', book.resumed_on || '',
-      ownedValue(book.own) ? 'Yes' : '', book.format, book.synopsis,
+      ownedValue(book.own) ? 'Yes' : '', canonicalBookFormat(book.format), bookWorkTypeForBook(book), book.synopsis,
       bookBelongsToCollection(book, collectionBySlug('reread')) ? 'X' : '',
       readYearForBook(book) || '', book.start, book.end, book.rating ? formatUserRating(book.rating) : '', book.times_read, book.signed,
       book.received_date || book.year_received, book.event, book.thoughts
@@ -7158,7 +7160,8 @@ function importedBookFromCSV(row) {
     paused_on: safeDate(csvImportValue(row, 'Paused On')),
     resumed_on: safeDate(csvImportValue(row, 'Resumed On')),
     owned: ownedValue(csvImportValue(row, 'Owned')),
-    format: csvImportValue(row, 'Format'),
+    format: canonicalBookFormat(csvImportValue(row, 'Format')),
+    work_type: normalizeBookWorkType(csvImportValue(row, 'Type'), csvImportValue(row, 'Format')),
     synopsis: csvImportValue(row, 'Synopsis'),
     reread: ownedValue(csvImportValue(row, 'Reread')),
     year_read: yearRead,
@@ -7299,6 +7302,7 @@ async function importLibraryCSV(file) {
         series_position: book.series_position,
         publication_year: book.publication_year || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
         genre: normalizeBookGenre(book.genre) || null,
+        work_type: book.work_type || null,
         status: book.status,
         paused_page: book.status === 'Paused' ? (safeInt(book.paused_page) || null) : null,
         paused_on: book.paused_on || null,
@@ -8178,7 +8182,11 @@ function formatBadge(fmt) {
   return `<span style="background:${color};color:#fff;border-radius:3px;font-size:0.65rem;font-weight:700;padding:0.1rem 0.45rem;letter-spacing:0.04em;white-space:nowrap;text-transform:uppercase">${label}</span>`;
 }
 
-const BOOK_FORMAT_OPTIONS = ['Book', 'Novella', 'E-Book', 'AudioBook', 'Graphic Novel', 'Short Story Collection'];
+const BOOK_FORMAT_OPTIONS = ['Book', 'E-Book', 'Audiobook', 'Graphic Novel'];
+const BOOK_TYPE_OPTIONS = [
+  'Novel', 'Novella', 'Short Stories', 'Poetry', 'Drama',
+  'Biography', 'Memoir', 'History', 'Essays', 'Journalism', 'Reference', 'General Nonfiction', 'Other'
+];
 const OWNED_FORMAT_FILTER_OPTIONS = [
   ['book', 'Books'],
   ['ebook', 'E-Books'],
@@ -8188,11 +8196,39 @@ const OWNED_FORMAT_FILTER_OPTIONS = [
 
 function bookFormatKey(value) {
   const key = normalizedKey(value);
-  if (key === 'e-book' || key === 'ebook' || key === 'electronicbook') return 'ebook';
-  if (key === 'audio' || key === 'audiobook' || key === 'audio-book') return 'audiobook';
-  if (key === 'graphicnovel' || key === 'graphic-novel' || key === 'comic' || key === 'comics') return 'graphicnovel';
+  if (key === 'e-book' || key === 'e book' || key === 'ebook' || key === 'electronicbook') return 'ebook';
+  if (key === 'audio' || key === 'audiobook' || key === 'audio-book' || key === 'audio book') return 'audiobook';
+  if (key === 'graphicnovel' || key === 'graphic-novel' || key === 'graphic novel' || key === 'comic' || key === 'comics') return 'graphicnovel';
   if (key === 'book' || key === 'physicalbook' || key === 'hardcover' || key === 'paperback') return 'book';
   return key;
+}
+
+function legacyBookWorkType(value) {
+  const key = normalizedKey(value).replace(/[^a-z0-9]/g, '');
+  if (['novella'].includes(key)) return 'Novella';
+  if (['shortstorycollection', 'shortstories', 'shortstory'].includes(key)) return 'Short Stories';
+  if (['nonfiction'].includes(key)) return 'General Nonfiction';
+  return '';
+}
+
+function canonicalBookFormat(value) {
+  const key = bookFormatKey(value);
+  const labels = {book: 'Book', ebook: 'E-Book', audiobook: 'Audiobook', graphicnovel: 'Graphic Novel'};
+  return labels[key] || 'Book';
+}
+
+function normalizeBookWorkType(value, legacyFormat='') {
+  const requested = String(value || '').trim();
+  if (requested) {
+    const match = BOOK_TYPE_OPTIONS.find(option => normalizedKey(option) === normalizedKey(requested));
+    return match || requested;
+  }
+  return legacyBookWorkType(legacyFormat);
+}
+
+function bookWorkTypeForBook(book) {
+  if (!book || typeof book === 'string') return normalizeBookWorkType(book);
+  return normalizeBookWorkType(book.work_type || book.type, book.format);
 }
 
 function isAudiobookFormat(value) {
@@ -8200,26 +8236,31 @@ function isAudiobookFormat(value) {
 }
 
 function bookFormatOptionsHTML(selected='Book') {
-  const current = String(selected || 'Book').trim() || 'Book';
+  const current = canonicalBookFormat(selected);
   const options = [...BOOK_FORMAT_OPTIONS];
-  if (current && !BOOK_FORMAT_OPTIONS.includes(current)) options.push(current);
   return options.map(format => `<option value="${esc(format)}" ${format === current ? 'selected' : ''}>${esc(format)}</option>`).join('');
+}
+
+function bookTypeOptionsHTML(selected='Novel') {
+  const current = normalizeBookWorkType(selected) || 'Novel';
+  const options = [...BOOK_TYPE_OPTIONS];
+  if (current && !options.includes(current)) options.push(current);
+  return options.map(type => `<option value="${esc(type)}" ${type === current ? 'selected' : ''}>${esc(type)}</option>`).join('');
 }
 
 function setSupportedBookFormat(id, value) {
   const select = document.getElementById(id);
-  const format = String(value || '').trim();
-  if (select && BOOK_FORMAT_OPTIONS.includes(format)) select.value = format;
+  if (select) select.value = canonicalBookFormat(value);
 }
 
 function updateShortStoryFullBookControls() {
-  const addFormat = document.getElementById('add-book-format')?.value;
+  const addType = document.getElementById('add-book-type')?.value;
   const addWrap = document.getElementById('add-book-full-book-wrap');
-  if (addWrap) addWrap.style.display = isShortStoryCollection(addFormat) ? '' : 'none';
+  if (addWrap) addWrap.style.display = isShortStoryCollection(addType) ? '' : 'none';
 
-  const editorFormat = document.getElementById('book-editor-format')?.value;
+  const editorType = document.getElementById('book-editor-type')?.value;
   const editorWrap = document.getElementById('book-editor-full-book-wrap');
-  if (editorWrap) editorWrap.style.display = isShortStoryCollection(editorFormat) ? '' : 'none';
+  if (editorWrap) editorWrap.style.display = isShortStoryCollection(editorType) ? '' : 'none';
 
   updateAudiobookLengthControls();
 }
@@ -8305,10 +8346,10 @@ function signedOptionsHTML(selected='') {
 }
 
 function isShortStoryCollection(bookOrFormat) {
-  const format = typeof bookOrFormat === 'string'
+  const type = typeof bookOrFormat === 'string'
     ? bookOrFormat
-    : bookOrFormat?.format;
-  const key = normalizedKey(format).replace(/[^a-z0-9]/g, '');
+    : (bookOrFormat?.work_type || bookOrFormat?.type || bookOrFormat?.format);
+  const key = normalizedKey(type).replace(/[^a-z0-9]/g, '');
   return ['shortstorycollection', 'shortstories', 'shortstory'].includes(key);
 }
 
@@ -10593,7 +10634,8 @@ function databaseBookToLocal(book) {
     paused_on: safeDate(book.paused_on),
     resumed_on: safeDate(book.resumed_on),
     own: book.owned ? 'Yes' : '',
-    format: book.format || edition?.binding || '',
+    format: canonicalBookFormat(book.format || edition?.binding || ''),
+    work_type: normalizeBookWorkType(book.work_type, book.format || edition?.binding || ''),
     publisher: book.publisher || edition?.publisher || '',
     page_count: book.page_count || edition?.page_count || null,
     duration_minutes: safeInt(book.duration_minutes),
@@ -10671,6 +10713,7 @@ function mergeDatabaseBook(localBook) {
        cover_url: localBook.cover_url || existing.cover_url,
        genre: normalizeBookGenre(localBook.genre || existing.genre), series: localBook.series || existing.series,
        own: localBook.own || existing.own, format: localBook.format || existing.format,
+       work_type: localBook.work_type || existing.work_type || legacyBookWorkType(localBook.format || existing.format),
        synopsis: localBook.synopsis || existing.synopsis,
        thoughts: localBook.thoughts || existing.thoughts,
        start: localBook.start || existing.start,
@@ -11545,6 +11588,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
         <div class="add-book-field add-book-genre-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
         <div class="add-book-field add-book-isbn-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
+        <div class="add-book-field add-book-type-field"><label for="add-book-type">Type</label><select id="add-book-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML('Novel')}</select></div>
         <div class="add-book-field add-book-status-field"><label for="add-book-status">Status</label>
           <select id="add-book-status" onchange="updatePausedPageControls()">
             <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
@@ -12656,7 +12700,7 @@ function bookPatchFromEditionPayload(edition={}) {
   const isbn = edition.isbn_13 || edition.isbn_10 || '';
   if (isbn) patch.isbn = isbn;
   if (edition.cover_url || edition.cover_small_url) patch.cover_url = edition.cover_url || edition.cover_small_url;
-  if (edition.binding) patch.format = edition.binding;
+  if (edition.binding) patch.format = canonicalBookFormat(edition.binding);
   if (edition.publisher) patch.publisher = edition.publisher;
   if (edition.publication_date) {
     patch.publication_date = edition.publication_date;
@@ -12716,7 +12760,7 @@ function bookFieldsFromEditionValues(values, sourceEdition={}) {
   return {
     isbn: isbns.isbn_13 || isbns.isbn_10 || sourceEdition.isbn_13 || sourceEdition.isbn_10 || null,
     cover_url: values.cover_url || sourceEdition.cover_url || sourceEdition.cover_small_url || null,
-    format: values.binding || sourceEdition.binding || null,
+    format: canonicalBookFormat(values.binding || sourceEdition.binding || null),
     publisher: values.publisher || sourceEdition.publisher || null,
     publication_date: publicationDate,
     page_count: Number(values.page_count || sourceEdition.page_count) || null,
@@ -12823,6 +12867,7 @@ async function saveAddedBook(scanNext=false) {
     const seriesName = document.getElementById('add-book-series')?.value.trim();
     const seriesId = await findOrCreateLibraryRelation('series', seriesName, {author_id: authorId});
     const format = document.getElementById('add-book-format')?.value.trim() || 'Book';
+    const workType = normalizeBookWorkType(document.getElementById('add-book-type')?.value) || 'Novel';
     const audiobookMinutes = isAudiobookFormat(format)
       ? audiobookDurationMinutesFromInputs('add-book-duration-hours', 'add-book-duration-minutes')
       : null;
@@ -12859,8 +12904,9 @@ async function saveAddedBook(scanNext=false) {
       resumed_on: resumedOn || null,
       times_read: defaultTimesReadForStatus(status, null),
       owned: Boolean(document.getElementById('add-book-owned')?.checked),
+      work_type: workType,
       ...(audiobookMinutes ? {duration_minutes: audiobookMinutes} : {}),
-      full_book_read: isShortStoryCollection(format) && Boolean(document.getElementById('add-book-full-book-read')?.checked),
+      full_book_read: isShortStoryCollection(workType) && Boolean(document.getElementById('add-book-full-book-read')?.checked),
       synopsis: document.getElementById('add-book-synopsis')?.value.trim() || null,
       received_date_text: document.getElementById('add-book-received')?.value.trim() || null,
       event: document.getElementById('add-book-event')?.value.trim() || null,
@@ -12945,6 +12991,8 @@ async function saveAddedBook(scanNext=false) {
       ? `The book was saved to Supabase, but the page could not refresh: ${errorMessage}. Refresh the page to reload it.`
       : errorMessage.includes('duration_minutes')
       ? 'Audiobook duration storage is not enabled yet. Run supabase_audiobook_duration.sql in Supabase, then save again.'
+      : errorMessage.includes('work_type')
+      ? 'Book types are not enabled yet. Run supabase_book_types.sql in Supabase, then save again.'
       : errorMessage.includes('paused_on') || errorMessage.includes('resumed_on')
       ? 'Paused/resumed dates are not enabled yet. Run supabase_paused_dates.sql in Supabase, then save again.'
       : errorMessage.includes('paused_page')
@@ -14020,6 +14068,11 @@ function openBulkEditDialog() {
         <select id="bulk-format-value">${bookFormatOptionsHTML('Book')}</select>
       </label>
       <label class="bulk-edit-field">
+        <input id="bulk-type-enabled" type="checkbox">
+        <span>Type</span>
+        <select id="bulk-type-value">${bookTypeOptionsHTML('Novel')}</select>
+      </label>
+      <label class="bulk-edit-field">
         <input id="bulk-series-enabled" type="checkbox">
         <span>Series</span>
         <input id="bulk-series-value" type="text" placeholder="The Demon Cycle">
@@ -14050,6 +14103,9 @@ async function saveBulkBookEdits() {
   }
   if (document.getElementById('bulk-format-enabled')?.checked) {
     patch.format = document.getElementById('bulk-format-value')?.value.trim() || null;
+  }
+  if (document.getElementById('bulk-type-enabled')?.checked) {
+    patch.work_type = normalizeBookWorkType(document.getElementById('bulk-type-value')?.value) || null;
   }
   const authorEnabled = document.getElementById('bulk-author-enabled')?.checked;
   const authorName = document.getElementById('bulk-author-value')?.value.trim() || '';
@@ -15100,6 +15156,7 @@ function renderBookDetailPage(title, source='', key='') {
               ${field('Times Read', b.times_read)}
               ${field('Owned', b.own)}
               ${field('Format', b.format)}
+              ${field('Type', bookWorkTypeForBook(b))}
               ${isShortStoryCollection(b) ? field('Full Book', usesFullBookPageCount(b) ? 'Yes' : 'No') : ''}
             </div>
             <div class="book-card-detail-column">
@@ -15225,6 +15282,7 @@ async function createDatabaseBookForEdit(original, updated, authorId, seriesId) 
     isbn: updated.isbn || null,
     cover_url: updated.cover_url || null,
     format: updated.format || null,
+    work_type: updated.work_type || null,
     publisher: updated.publisher || null,
     publication_date: updated.publication_date || null,
     page_count: updated.page_count || null,
@@ -15530,6 +15588,7 @@ function openBookEditor(title, source='', key='') {
       </div>
       <div class="book-editor-row core-row">
         <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-type">Type</label><select id="book-editor-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML(bookWorkTypeForBook(book) || 'Novel')}</select></div>
         <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status" onchange="updatePausedPageControls()">
           ${['TBR','Wishlist','Currently Reading','Read','DNF','Paused'].map(status =>
             `<option value="${status}" ${readStatus===status?'selected':''}>${status}</option>`
@@ -15634,6 +15693,9 @@ function bookEditorMigrationMessage(error) {
   if (message.includes('duration_minutes')) {
     return 'Audiobook duration storage is not enabled yet. Run supabase_audiobook_duration.sql in Supabase, refresh, then save again.';
   }
+  if (message.includes('work_type')) {
+    return 'Book types are not enabled yet. Run supabase_book_types.sql in Supabase, refresh, then save again.';
+  }
   if (message.includes('duplicate key') || message.includes('unique constraint')) {
     return 'That change conflicts with an existing saved record. Check whether this title, author, series, collection, or edition is already in your account.';
   }
@@ -15723,6 +15785,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     return Number.isNaN(number) ? (fallback ?? null) : number;
   };
   const updatedFormat = bookEditorValue('book-editor-format') || original.format || 'Book';
+  const updatedWorkType = normalizeBookWorkType(bookEditorValue('book-editor-type')) || 'Novel';
   const audiobookMinutes = isAudiobookFormat(updatedFormat)
     ? audiobookDurationMinutesFromInputs('book-editor-duration-hours', 'book-editor-duration-minutes')
     : null;
@@ -15759,7 +15822,8 @@ async function saveBookEditor(originalTitle, source='', key='') {
     resumed_on: resumedOn || null,
     own: document.getElementById('book-editor-owned')?.checked ? 'Yes' : '',
     format: updatedFormat,
-    full_book_read: isShortStoryCollection(updatedFormat) &&
+    work_type: updatedWorkType,
+    full_book_read: isShortStoryCollection(updatedWorkType) &&
       Boolean(document.getElementById('book-editor-full-book-read')?.checked),
     publisher: keepText('book-editor-publisher', original.publisher),
     publication_date: keepText('book-editor-publication-date', original.publication_date),
@@ -15810,6 +15874,7 @@ async function saveBookEditor(originalTitle, source='', key='') {
     if (changedText(updated.isbn, comparisonBook.isbn)) bookPatch.isbn = updated.isbn || null;
     if (changedText(updated.cover_url, comparisonBook.cover_url)) bookPatch.cover_url = updated.cover_url || null;
     if (changedText(updated.format, comparisonBook.format)) bookPatch.format = updated.format || null;
+    if (changedText(updated.work_type, comparisonBook.work_type)) bookPatch.work_type = updated.work_type || null;
     if (Boolean(updated.full_book_read) !== Boolean(comparisonBook.full_book_read)) bookPatch.full_book_read = Boolean(updated.full_book_read);
     if (changedText(updated.publisher, comparisonBook.publisher)) bookPatch.publisher = updated.publisher || null;
     if (changedText(updated.publication_date, comparisonBook.publication_date)) bookPatch.publication_date = updated.publication_date || null;
