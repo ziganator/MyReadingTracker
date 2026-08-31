@@ -11486,10 +11486,12 @@ function setAddBookMode(mode) {
 }
 
 function updateAddBookSaveButton() {
-  const button = document.getElementById('add-book-save');
-  if (!button) return;
-  button.textContent = addBookShelfScanMode ? 'Save & Scan Next' : 'Save Book';
-  button.setAttribute('onclick', addBookShelfScanMode ? 'saveAddedBook(true)' : 'saveAddedBook()');
+  const actions = document.getElementById('modal-header-actions');
+  if (!actions) return;
+  actions.innerHTML = addBookShelfScanMode
+    ? `<button class="account-secondary" id="add-book-save" type="button" onclick="saveAddedBook()">Save Book</button>
+       <button class="account-primary" id="add-book-save-next" type="button" onclick="saveAddedBook(true)">Save & Scan Next</button>`
+    : '<button class="account-primary" id="add-book-save" type="button" onclick="saveAddedBook()">Save Book</button>';
 }
 
 function saveQuickAddedBook() {
@@ -12600,7 +12602,7 @@ async function patchBookRow(bookId, patch) {
 
 async function saveAddedBook(scanNext=false) {
   const message = document.getElementById('add-book-status-message');
-  const saveButton = document.getElementById('add-book-save');
+  const saveButtons = [...document.querySelectorAll('#add-book-save, #add-book-save-next')];
   const title = document.getElementById('add-book-title')?.value.trim();
   const author = document.getElementById('add-book-author')?.value.trim();
   const status = libraryBookStatus({status: document.getElementById('add-book-status')?.value});
@@ -12619,7 +12621,7 @@ async function saveAddedBook(scanNext=false) {
   );
   if (duplicate) return message.textContent = 'That title and author are already in your library.';
   message.textContent = 'Saving book...';
-  if (saveButton) saveButton.disabled = true;
+  saveButtons.forEach(button => button.disabled = true);
   let insertedBookId = null;
   let databaseSaveComplete = false;
   try {
@@ -12754,7 +12756,7 @@ async function saveAddedBook(scanNext=false) {
       : errorMessage.includes('received_date_text') || errorMessage.includes('collections')
         ? 'Run the collections and received-date migration, then save again.'
         : error.message;
-    if (saveButton) saveButton.disabled = false;
+    saveButtons.forEach(button => button.disabled = false);
   }
 }
 
