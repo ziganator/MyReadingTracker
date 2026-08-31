@@ -1937,24 +1937,105 @@
   overflow-y: auto;
 }
 .add-book-mode {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 1rem;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 5px;
 }
 .add-book-mode button {
-  flex: 1 1 0;
   min-height: 42px;
   border: 0;
   border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   background: var(--aged);
   color: var(--deep);
   cursor: pointer;
   font: 700 0.9rem 'Crimson Pro', serif;
 }
-.add-book-mode button:last-child { border-right: 0; }
+.add-book-mode button:nth-child(even) { border-right: 0; }
+.add-book-mode button:nth-last-child(-n+2) { border-bottom: 0; }
 .add-book-mode button.active { background: var(--burnt); color: #fff; }
+.add-book-quick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+  margin-bottom: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--aged);
+}
+.add-book-quick label,
+.barcode-scanner-panel label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.add-book-quick input,
+.add-book-quick select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--deep);
+  font: 0.95rem 'Crimson Pro', serif;
+  padding: 0.45rem 0.55rem;
+}
+.add-book-quick button { min-height: 40px; }
+.barcode-scanner-panel {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--aged);
+}
+.barcode-scanner-preview {
+  position: relative;
+  min-height: 180px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--deep);
+}
+.barcode-scanner-preview video {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  max-height: 280px;
+  object-fit: cover;
+}
+.barcode-scanner-preview::after {
+  content: '';
+  position: absolute;
+  left: 12%; right: 12%; top: 42%; height: 18%;
+  border: 2px solid var(--gold-light);
+  border-radius: 4px;
+  box-shadow: 0 0 0 999px rgba(7, 27, 70, 0.2);
+  pointer-events: none;
+}
+.barcode-scanner-placeholder {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  padding: 1rem;
+  color: #fff;
+  text-align: center;
+}
+.barcode-scanner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.barcode-scanner-actions button { min-height: 40px; }
   .isbn-lookup-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -2250,6 +2331,17 @@
   min-height: 40px;
   font: 600 0.9rem 'Crimson Pro', serif;
   padding: 0.45rem 0.8rem;
+}
+@media (min-width: 620px) {
+  .add-book-mode { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .add-book-mode button,
+  .add-book-mode button:nth-last-child(-n+2) { border-bottom: 0; }
+  .add-book-mode button:nth-child(even) { border-right: 1px solid var(--border); }
+  .add-book-mode button:last-child { border-right: 0; }
+}
+@media (max-width: 560px) {
+  .add-book-quick { grid-template-columns: 1fr; }
+  .add-book-quick button { width: 100%; }
 }
 .isbn-lookup-row input,
 .add-book-fields input,
@@ -10867,6 +10959,9 @@ let addBookMode = 'manual';
 let addBookCoverUrl = '';
 let addBookEditionCandidates = [];
 let selectedAddBookEdition = null;
+let addBookBarcodeStream = null;
+let addBookBarcodeTimer = null;
+let addBookShelfScanMode = false;
 let searchPageQuery = '';
 let searchPageResults = [];
 let searchPageTimer = null;
@@ -11246,18 +11341,40 @@ async function deleteLibraryCollection(id, name) {
 }
 
 function openAddBookDialog(defaultStatus='TBR') {
-  addBookMode = 'manual';
+  stopAddBookBarcodeScanner();
+  addBookMode = 'search';
+  addBookShelfScanMode = false;
   addBookCoverUrl = '';
   addBookEditionCandidates = [];
   selectedAddBookEdition = null;
   document.getElementById('modal-series-name').textContent = 'Add a Book';
-  document.getElementById('modal-series-sub').textContent = 'Enter the details, look up an ISBN, or search by title and author.';
+  document.getElementById('modal-series-sub').textContent = 'Search by title and author, scan an ISBN, or add only the essentials.';
   document.getElementById('modal-series-body').innerHTML = `
     ${bookEditorViewToggleHTML()}
     <div class="add-book-mode">
-      <button id="add-mode-manual" class="active" type="button" onclick="setAddBookMode('manual')">Enter Manually</button>
-      <button id="add-mode-isbn" type="button" onclick="setAddBookMode('isbn')">Look Up ISBN</button>
-      <button id="add-mode-search" type="button" onclick="setAddBookMode('search')">Search Title / Author</button>
+      <button id="add-mode-search" class="active" type="button" onclick="setAddBookMode('search')">Search Title / Author</button>
+      <button id="add-mode-scan" type="button" onclick="setAddBookMode('scan')">Scan ISBN</button>
+      <button id="add-mode-quick" type="button" onclick="setAddBookMode('quick')">Quick Add</button>
+      <button id="add-mode-manual" type="button" onclick="setAddBookMode('manual')">Enter Manually</button>
+    </div>
+    <div class="add-book-quick" id="add-book-quick" style="display:none">
+      <label for="add-book-quick-title">Title
+        <input id="add-book-quick-title" type="text" placeholder="Book title" autocomplete="off"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();saveQuickAddedBook()}">
+      </label>
+      <label for="add-book-quick-author">Author
+        <input id="add-book-quick-author" type="text" placeholder="Author" autocomplete="off"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();saveQuickAddedBook()}">
+      </label>
+      <label for="add-book-quick-status">Status
+        <select id="add-book-quick-status">
+          <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
+          <option value="Wishlist" ${defaultStatus==='Wishlist'?'selected':''}>Wishlist</option>
+          <option value="Currently Reading" ${defaultStatus==='Currently Reading'?'selected':''}>Currently Reading</option>
+          <option value="Read" ${defaultStatus==='Read'?'selected':''}>Read</option>
+        </select>
+      </label>
+      <button class="account-primary" type="button" onclick="saveQuickAddedBook()">Save Quick Add</button>
     </div>
     <div class="isbn-lookup-row" id="isbn-lookup-row" style="display:none">
       <input id="add-book-isbn-lookup" type="text" inputmode="numeric" placeholder="ISBN-10 or ISBN-13"
@@ -11270,6 +11387,16 @@ function openAddBookDialog(defaultStatus='TBR') {
       <input id="add-book-search-author" type="search" placeholder="Author (optional)" autocomplete="off"
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByTitleAuthor()}">
       <button class="account-primary" type="button" onclick="lookupBookByTitleAuthor()">Search</button>
+    </div>
+    <div class="barcode-scanner-panel" id="add-book-scan-row" style="display:none">
+      <div class="barcode-scanner-preview" id="add-book-scan-preview">
+        <div class="barcode-scanner-placeholder">Tap Start Camera, then hold the ISBN barcode inside the highlighted area.</div>
+      </div>
+      <div class="barcode-scanner-actions">
+        <button class="account-primary" type="button" onclick="startAddBookBarcodeScanner()">Start Camera</button>
+        <button class="account-secondary" type="button" onclick="stopAddBookBarcodeScanner(true)">Stop Camera</button>
+      </div>
+      <div class="picker-field-help">A Bluetooth barcode scanner also works: scan into the ISBN field, then choose Look Up ISBN.</div>
     </div>
     <div class="picker-settings-status add-book-status-message" id="add-book-status-message"
       role="status" aria-live="polite"></div>
@@ -11329,20 +11456,151 @@ function openAddBookDialog(defaultStatus='TBR') {
   applyBookEditorViewMode();
   updateShortStoryFullBookControls();
   updatePausedPageControls();
+  setAddBookMode('search');
 }
 
 function setAddBookMode(mode) {
+  stopAddBookBarcodeScanner();
   addBookMode = mode;
   document.getElementById('add-mode-manual')?.classList.toggle('active', mode === 'manual');
   document.getElementById('add-mode-isbn')?.classList.toggle('active', mode === 'isbn');
   document.getElementById('add-mode-search')?.classList.toggle('active', mode === 'search');
+  document.getElementById('add-mode-scan')?.classList.toggle('active', mode === 'scan');
+  document.getElementById('add-mode-quick')?.classList.toggle('active', mode === 'quick');
   const isbnRow = document.getElementById('isbn-lookup-row');
   const searchRow = document.getElementById('add-book-search-row');
-  if (isbnRow) isbnRow.style.display = mode === 'isbn' ? 'grid' : 'none';
+  const quickRow = document.getElementById('add-book-quick');
+  const scanRow = document.getElementById('add-book-scan-row');
+  const fields = document.querySelector('.add-book-fields');
+  if (isbnRow) isbnRow.style.display = ['isbn', 'scan'].includes(mode) ? 'grid' : 'none';
   if (searchRow) searchRow.style.display = mode === 'search' ? 'grid' : 'none';
+  if (quickRow) quickRow.style.display = mode === 'quick' ? 'grid' : 'none';
+  if (scanRow) scanRow.style.display = mode === 'scan' ? 'grid' : 'none';
+  if (fields) fields.style.display = mode === 'quick' ? 'none' : 'grid';
+  if (mode !== 'scan') addBookShelfScanMode = false;
+  updateAddBookSaveButton();
   if (mode === 'isbn') document.getElementById('add-book-isbn-lookup')?.focus();
   if (mode === 'search') document.getElementById('add-book-search-title')?.focus();
+  if (mode === 'quick') document.getElementById('add-book-quick-title')?.focus();
+  if (mode === 'scan') startAddBookBarcodeScanner();
 }
+
+function updateAddBookSaveButton() {
+  const button = document.getElementById('add-book-save');
+  if (!button) return;
+  button.textContent = addBookShelfScanMode ? 'Save & Scan Next' : 'Save Book';
+  button.setAttribute('onclick', addBookShelfScanMode ? 'saveAddedBook(true)' : 'saveAddedBook()');
+}
+
+function saveQuickAddedBook() {
+  const title = document.getElementById('add-book-quick-title')?.value.trim() || '';
+  const author = document.getElementById('add-book-quick-author')?.value.trim() || '';
+  const status = document.getElementById('add-book-quick-status')?.value || 'TBR';
+  const message = document.getElementById('add-book-status-message');
+  if (!title || !author) {
+    if (message) message.textContent = 'Title and author are required.';
+    return;
+  }
+  document.getElementById('add-book-title').value = title;
+  document.getElementById('add-book-author').value = author;
+  document.getElementById('add-book-status').value = status;
+  if (status === 'Currently Reading' && !document.getElementById('add-book-started').value) {
+    document.getElementById('add-book-started').value = todayLocalISODate();
+  }
+  if (status === 'Read' && !document.getElementById('add-book-finished').value) {
+    document.getElementById('add-book-finished').value = todayLocalISODate();
+  }
+  saveAddedBook();
+}
+
+function barcodeISBNValue(value) {
+  const isbn = cleanISBN(value);
+  if ([10, 13].includes(isbn.length)) return isbn;
+  return '';
+}
+
+function setAddBookScannedISBN(value) {
+  const isbn = barcodeISBNValue(value);
+  const message = document.getElementById('add-book-status-message');
+  if (!isbn) {
+    if (message) message.textContent = 'That barcode was not an ISBN. Try again or enter the ISBN manually.';
+    return;
+  }
+  stopAddBookBarcodeScanner();
+  addBookShelfScanMode = true;
+  updateAddBookSaveButton();
+  const input = document.getElementById('add-book-isbn-lookup');
+  if (input) input.value = isbn;
+  if (message) message.textContent = `ISBN ${isbn} scanned. Looking it up...`;
+  lookupBookByISBN();
+}
+
+function barcodeScannerMessage(message) {
+  const target = document.getElementById('add-book-status-message');
+  if (target) target.textContent = message;
+}
+
+function stopAddBookBarcodeScanner(showPlaceholder=false) {
+  if (addBookBarcodeTimer) {
+    clearInterval(addBookBarcodeTimer);
+    addBookBarcodeTimer = null;
+  }
+  if (addBookBarcodeStream) {
+    addBookBarcodeStream.getTracks().forEach(track => track.stop());
+    addBookBarcodeStream = null;
+  }
+  const preview = document.getElementById('add-book-scan-preview');
+  if (preview && showPlaceholder) {
+    preview.innerHTML = '<div class="barcode-scanner-placeholder">Tap Start Camera, then hold the ISBN barcode inside the highlighted area.</div>';
+  }
+}
+
+async function startAddBookBarcodeScanner() {
+  if (addBookMode !== 'scan') return;
+  if (window.webkit?.messageHandlers?.barcodeScanner) {
+    barcodeScannerMessage('Opening barcode scanner...');
+    window.webkit.messageHandlers.barcodeScanner.postMessage({action: 'scan'});
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || !window.BarcodeDetector) {
+    barcodeScannerMessage('This browser cannot scan barcodes here. Use Look Up ISBN to type or paste the number.');
+    return;
+  }
+  const preview = document.getElementById('add-book-scan-preview');
+  try {
+    stopAddBookBarcodeScanner();
+    barcodeScannerMessage('Starting camera...');
+    addBookBarcodeStream = await navigator.mediaDevices.getUserMedia({
+      video: {facingMode: {ideal: 'environment'}},
+      audio: false
+    });
+    const video = document.createElement('video');
+    video.setAttribute('playsinline', '');
+    video.muted = true;
+    video.srcObject = addBookBarcodeStream;
+    if (preview) {
+      preview.innerHTML = '';
+      preview.appendChild(video);
+    }
+    await video.play();
+    const detector = new window.BarcodeDetector({formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e']});
+    barcodeScannerMessage('Point the camera at the book barcode.');
+    addBookBarcodeTimer = setInterval(async () => {
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+      try {
+        const codes = await detector.detect(video);
+        const isbn = barcodeISBNValue(codes[0]?.rawValue);
+        if (isbn) setAddBookScannedISBN(isbn);
+      } catch (_) {}
+    }, 120);
+  } catch (error) {
+    stopAddBookBarcodeScanner(true);
+    barcodeScannerMessage('Camera access was unavailable. Check the camera permission, or type the ISBN instead.');
+  }
+}
+
+window.readingTrackerBarcodeScanned = setAddBookScannedISBN;
+window.readingTrackerBarcodeScanFailed = message => barcodeScannerMessage(message || 'The barcode scanner could not be opened. Enter the ISBN instead.');
 
 function renderAddBookCover() {
   const button = document.getElementById('add-book-cover');
@@ -12340,7 +12598,7 @@ async function patchBookRow(bookId, patch) {
   }
 }
 
-async function saveAddedBook() {
+async function saveAddedBook(scanNext=false) {
   const message = document.getElementById('add-book-status-message');
   const saveButton = document.getElementById('add-book-save');
   const title = document.getElementById('add-book-title')?.value.trim();
@@ -12465,8 +12723,13 @@ async function saveAddedBook() {
     buildTBR();
     await loadPickerPreferences();
     buildPicker();
-    clearTrackedModalState();
-    applyHashRoute();
+    if (scanNext) {
+      openAddBookDialog('TBR');
+      setAddBookMode('scan');
+    } else {
+      clearTrackedModalState();
+      applyHashRoute();
+    }
   } catch (error) {
     if (insertedBookId && !databaseSaveComplete) {
       try {
@@ -17993,10 +18256,12 @@ function restoreTrackedModal(snapshot) {
 }
 
 function closeTrackedModal() {
+  stopAddBookBarcodeScanner();
   clearTrackedModalState();
 }
 
 function clearTrackedModalState() {
+  stopAddBookBarcodeScanner();
   if (history.state?.readingTrackerModal) {
     const nextState = {...history.state};
     delete nextState.readingTrackerModal;
