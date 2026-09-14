@@ -10385,6 +10385,14 @@ function monthlyCoverSummaryBooks(yearMonth, finishedBooks=[]) {
   return [...unique.values()].sort(compareMonthReadOrder);
 }
 
+function shortStoriesReadInMonth(book, yearMonth) {
+  if (!isShortStoryCollection(book) || !/^\d{4}-\d{2}$/.test(String(yearMonth || ''))) return 0;
+  return (Array.isArray(book?.short_stories) ? book.short_stories : []).filter(story => {
+    const completed = safeDate(story?.finished_on || story?.read_on);
+    return completed?.startsWith(yearMonth);
+  }).length;
+}
+
 function showYear(year) {
   const showAllYears = String(year).toLowerCase() === 'all';
   readingLogYear = showAllYears ? 'all' : Number(year);
@@ -18932,7 +18940,11 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     `${orderedBooks.length} book${orderedBooks.length !== 1 ? 's' : ''}`;
   const coverTiles = orderedBooks.map(book => {
     const dates = book.start ? book.start + (book.end && book.end !== book.start ? ' → ' + book.end : '') : '';
-    const ratingOrStatus = libraryRatingOrStatus(book);
+    const pausedStoryCollection = libraryBookStatus(book) === 'Paused' && isShortStoryCollection(book);
+    const storiesRead = pausedStoryCollection ? shortStoriesReadInMonth(book, key) : 0;
+    const ratingOrStatus = pausedStoryCollection
+      ? `<span class="library-status-pill paused">${storiesRead} ${storiesRead === 1 ? 'Story' : 'Stories'} Read</span>`
+      : libraryRatingOrStatus(book);
     return `<div class="monthly-cover-tile" role="button" tabindex="0" ${bookClickAttributes(book, 'calendar')} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBookDetail(this,event)}">
       ${coverImageHTML(book, 'gallery-cover', 'gallery-cover')}
       <div class="monthly-cover-title">${esc(book.title || 'Untitled')}</div>
