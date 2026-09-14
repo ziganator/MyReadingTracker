@@ -15295,7 +15295,6 @@ async function saveBookDetailStatus(bookKey='', source='') {
     const nextTimesRead = defaultTimesReadForStatus(status, book.times_read);
     await patchBookRow(book.database_id, {
       status,
-      ...(status === 'Read' ? {rating} : {}),
       ...(nextTimesRead !== (book.times_read || null) ? {times_read: nextTimesRead} : {})
     });
     if (!['TBR', 'Wishlist'].includes(status)) {
