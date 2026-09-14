@@ -8567,6 +8567,7 @@ function updateShortStoryFullBookControls() {
   if (editorWrap) editorWrap.style.display = isShortStoryCollection(editorType) ? '' : 'none';
 
   updateAudiobookLengthControls();
+  updatePausedPageControls();
 }
 
 function updateAudiobookLengthControls() {
@@ -8586,12 +8587,14 @@ function updatePausedPageControls() {
   [
     {
       status: 'add-book-status', pageWrap: 'add-book-paused-page-wrap', page: 'add-book-paused-page',
+      type: 'add-book-type',
       pausedOnWrap: 'add-book-paused-on-wrap', pausedOn: 'add-book-paused-on',
       resumedOnWrap: 'add-book-resumed-on-wrap', resumedOn: 'add-book-resumed-on',
       disabled: ['add-book-finished', 'add-book-year-read', 'add-book-rating']
     },
     {
       status: 'book-editor-status', pageWrap: 'book-editor-paused-page-wrap', page: 'book-editor-paused-page',
+      type: 'book-editor-type',
       pausedOnWrap: 'book-editor-paused-on-wrap', pausedOn: 'book-editor-paused-on',
       resumedOnWrap: 'book-editor-resumed-on-wrap', resumedOn: 'book-editor-resumed-on',
       disabled: ['book-editor-finished', 'book-editor-year-read', 'book-editor-rating']
@@ -8608,6 +8611,9 @@ function updatePausedPageControls() {
     const page = document.getElementById(control.page);
     const pausedOn = document.getElementById(control.pausedOn);
     const resumedOn = document.getElementById(control.resumedOn);
+    const shortStoryCollection = control.type
+      ? isShortStoryCollection(document.getElementById(control.type)?.value)
+      : isShortStoryCollection(findBookByRouteKey(document.getElementById('reading-session-book-key')?.value || ''));
     const showPauseHistory = paused || Boolean(pausedOn?.value || resumedOn?.value);
     if (pageWrap) pageWrap.style.display = paused ? '' : 'none';
     [control.pausedOnWrap, control.resumedOnWrap].forEach(id => {
@@ -8615,7 +8621,7 @@ function updatePausedPageControls() {
       if (wrap) wrap.style.display = showPauseHistory ? '' : 'none';
     });
     if (control.status === 'book-editor-status') pageWrap?.closest('.publish-row')?.classList.toggle('paused-layout', showPauseHistory);
-    if (page) page.required = paused;
+    if (page) page.required = paused && !shortStoryCollection;
     if (pausedOn) pausedOn.required = paused;
     control.disabled.forEach(id => {
       const input = document.getElementById(id);
@@ -13152,8 +13158,9 @@ async function saveAddedBook(scanNext=false) {
   const pausedOn = safeDate(document.getElementById('add-book-paused-on')?.value);
   const resumedOn = safeDate(document.getElementById('add-book-resumed-on')?.value);
   const started = document.getElementById('add-book-started')?.value || '';
+  const shortStoryCollection = isShortStoryCollection(document.getElementById('add-book-type')?.value);
   if (!title || !author) return message.textContent = 'Title and author are required.';
-  if (status === 'Paused' && !pausedPage) return message.textContent = 'Enter the page where you paused.';
+  if (status === 'Paused' && !pausedPage && !shortStoryCollection) return message.textContent = 'Enter the page where you paused.';
   if (status === 'Paused' && !pausedOn) return message.textContent = 'Enter the date when you paused.';
   const pauseDateError = pauseDateValidationMessage(started, pausedOn, resumedOn);
   if (pauseDateError) return message.textContent = pauseDateError;
@@ -14736,7 +14743,7 @@ async function saveReadingSessionEditor() {
   const pausedPage = statusValue === 'Paused' ? safeInt(document.getElementById('reading-session-paused-page')?.value) : null;
   const pausedOn = safeDate(document.getElementById('reading-session-paused-on')?.value);
   const resumedOn = safeDate(document.getElementById('reading-session-resumed-on')?.value);
-  if (statusValue === 'Paused' && !pausedPage) {
+  if (statusValue === 'Paused' && !pausedPage && !isShortStoryCollection(book)) {
     if (status) status.textContent = 'Enter the page where you paused.';
     return;
   }
@@ -16050,7 +16057,8 @@ async function saveBookEditor(originalTitle, source='', key='') {
   const pausedOn = safeDate(bookEditorValue('book-editor-paused-on'));
   const resumedOn = safeDate(bookEditorValue('book-editor-resumed-on'));
   const started = bookEditorValue('book-editor-start');
-  if (statusValue === 'Paused' && !pausedPage) {
+  const shortStoryCollection = isShortStoryCollection(bookEditorValue('book-editor-type'));
+  if (statusValue === 'Paused' && !pausedPage && !shortStoryCollection) {
     if (message) message.textContent = '';
     showEditError('Enter the page where you paused.');
     return;
@@ -19167,19 +19175,29 @@ function showMonthSummary(yearMonth, updateRoute=true) {
   const calendarMonthStart = new Date(year, mon-1, 1);
   const calendarMonthEnd = new Date(year, mon-1, daysInMonth);
   const calendarDateKey = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-  let laneCounter = 0;
+  const laneReservations = [];
   calendarBooks.forEach((b, bookIndex) => {
     const gc = genreColor(b.genre);
-    calendarActivitySpans(b).forEach((span, spanIndex) => {
+    const visibleSpans = calendarActivitySpans(b).map((span, spanIndex) => {
       const rawStart = localDate(span.start);
       const rawEnd = localDate(span.end);
-      if (!rawStart || !rawEnd || rawStart > calendarMonthEnd || rawEnd < calendarMonthStart) return;
+      if (!rawStart || !rawEnd || rawStart > calendarMonthEnd || rawEnd < calendarMonthStart) return null;
       const clampStart = rawStart < calendarMonthStart ? calendarMonthStart : rawStart;
       const clampEnd = rawEnd > calendarMonthEnd ? calendarMonthEnd : rawEnd;
+      return {span, spanIndex, clampStart, clampEnd};
+    }).filter(Boolean);
+    if (!visibleSpans.length) return;
+    const laneKey = `${b._reading_session_id || b.database_id || bookIdentity(b)}|${bookIndex}`;
+    let lane = 0;
+    while (visibleSpans.some(candidate => (laneReservations[lane] || []).some(reservation =>
+      candidate.clampStart <= reservation.end && candidate.clampEnd >= reservation.start
+    ))) lane += 1;
+    bookLane[laneKey] = lane;
+    if (!laneReservations[lane]) laneReservations[lane] = [];
+    visibleSpans.forEach(candidate => laneReservations[lane].push({start:candidate.clampStart, end:candidate.clampEnd}));
+    visibleSpans.forEach(({span, spanIndex, clampStart, clampEnd}) => {
       const sd = clampStart.getDate();
       const ed = clampEnd.getDate();
-      const laneKey = `${b._reading_session_id || b.database_id || bookIdentity(b)}|${bookIndex}`;
-      if (!(laneKey in bookLane)) bookLane[laneKey] = laneCounter++ % 4;
       mobileTimelineEntries.push({
         book: b,
         color: gc,
@@ -19200,6 +19218,7 @@ function showMonthSummary(yearMonth, updateRoute=true) {
       }
     });
   });
+  const calendarLaneCount = laneReservations.length;
 
   const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const todayStr = localDateKey();
@@ -19218,10 +19237,10 @@ function showMonthSummary(yearMonth, updateRoute=true) {
 
     const booksToday = isValid ? (dayBooks[day] || []) : [];
 
-    // Sort by lane for consistent ordering
-    booksToday.sort((a,b) => (bookLane[a.laneKey]||0) - (bookLane[b.laneKey]||0));
-
-    const bookBars = booksToday.map(entry => {
+    const entriesByLane = new Map(booksToday.map(entry => [bookLane[entry.laneKey] || 0, entry]));
+    const bookBars = Array.from({length: calendarLaneCount}, (_, lane) => {
+      const entry = entriesByLane.get(lane);
+      if (!entry) return '<div aria-hidden="true" style="height:20px;margin:1px 0"></div>';
       const b = entry.book;
       const status = libraryBookStatus(b);
       const isCurrentlyReading = status === 'Currently Reading';
