@@ -2451,8 +2451,8 @@
   gap: 0.75rem;
   align-items: start;
 }
+.add-book-cover-column { grid-column: 1; grid-row: 1 / span 3; }
 .add-book-cover {
-  grid-row: span 4;
   width: 112px;
   min-height: 164px;
   border: 2px dashed var(--border);
@@ -2474,25 +2474,29 @@
 }
 .add-book-field { min-width: 0; }
 .add-book-field.full { grid-column: 2 / -1; }
+.add-book-fields > .series-field-pair { grid-column: 1 / -1; }
 .add-book-basic-grid {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: 112px repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   align-items: start;
 }
-.add-book-basic-grid .add-book-owned-check {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  align-self: start;
-  margin: 0;
-}
-.add-book-basic-grid .add-book-genre-field { grid-column: 2; grid-row: 1; }
-.add-book-basic-grid .add-book-isbn-field { grid-column: 3; grid-row: 1; }
+.add-book-basic-grid .add-book-genre-field { grid-column: 1; grid-row: 1; }
+.add-book-basic-grid .add-book-isbn-field { grid-column: 2 / span 2; grid-row: 1; }
 .add-book-basic-grid .add-book-type-field { grid-column: 4; grid-row: 1; }
-.add-book-basic-grid .add-book-status-field { grid-column: 2; grid-row: 2; }
-.add-book-basic-grid .add-book-format-field { grid-column: 3; grid-row: 2; }
-.add-book-basic-grid .add-book-pages-field { grid-column: 4; grid-row: 2; }
+.add-book-basic-grid .add-book-status-field { grid-column: 1; grid-row: 2; }
+.add-book-basic-grid .add-book-format-field { grid-column: 2; grid-row: 2; }
+.add-book-basic-grid .add-book-pages-field { grid-column: 3; grid-row: 2; }
+.add-book-basic-grid .add-book-publisher-field { grid-column: 4; grid-row: 2; }
+.add-book-publication-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 8rem minmax(13rem, 17rem) 7rem;
+  gap: 0.75rem;
+  align-items: start;
+}
+.add-book-publication-row > .add-book-field { grid-column: auto; }
 .audiobook-duration-inputs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2532,25 +2536,19 @@
 }
 .add-book-check input { width: auto; }
 .add-book-owned-check {
-  align-self: end;
-  margin-bottom: 0.12rem;
+  margin-top: 0.35rem;
 }
 @media (max-width: 600px) {
   .add-book-fields { grid-template-columns: 82px minmax(0, 1fr); }
-  .add-book-cover { width: 82px; min-height: 120px; grid-row: span 3; }
+  .add-book-cover { width: 82px; min-height: 120px; }
   .add-book-cover img, .add-book-cover span { height: 120px; min-height: 120px; }
   .add-book-field { grid-column: 2; }
   .add-book-field.full { grid-column: 1 / -1; }
+  .add-book-fields > .add-book-top-field { grid-column: 2 / -1; }
   .add-book-basic-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .add-book-basic-grid .add-book-owned-check {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    align-self: auto;
-  }
   .add-book-basic-grid .add-book-genre-field,
-  .add-book-basic-grid .add-book-isbn-field,
   .add-book-basic-grid .add-book-type-field,
   .add-book-basic-grid .add-book-status-field,
   .add-book-basic-grid .add-book-format-field,
@@ -2558,6 +2556,10 @@
     grid-column: auto;
     grid-row: auto;
   }
+  .add-book-basic-grid .add-book-isbn-field,
+  .add-book-basic-grid .add-book-publisher-field { grid-column: 1 / -1; grid-row: auto; }
+  .add-book-publication-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); }
+  .add-book-publication-row .add-book-year-read-field { grid-column: 1; }
   .add-book-field.series-position,
   .book-editor-field.series-position { width: 5.75rem; }
   .series-field-pair {
@@ -6048,7 +6050,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.09.21.4';
+const SITE_VERSION = '2026.09.21.5';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -11978,13 +11980,16 @@ function openAddBookDialog(defaultStatus='TBR') {
       <section class="selected-edition-panel" id="add-book-edition-preview" aria-live="polite"></section>
     </div>
     <div class="add-book-fields book-editor-mode-scope" id="add-book-fields">
-      <button class="add-book-cover" id="add-book-cover" type="button"
-        onclick="document.getElementById('add-book-cover-url')?.focus()">
-        <span>Add a cover-image link below</span>
-      </button>
-      <div class="add-book-field full"><label for="add-book-title">Title</label><input id="add-book-title" type="text"></div>
-      <div class="add-book-field full"><label for="add-book-author">Author</label><input id="add-book-author" type="text"></div>
-      <div class="add-book-field full"><label for="add-book-cover-url">Cover image link</label>
+      <div class="add-book-cover-column">
+        <button class="add-book-cover" id="add-book-cover" type="button"
+          onclick="document.getElementById('add-book-cover-url')?.focus()">
+          <span>Add a cover-image link below</span>
+        </button>
+        <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+      </div>
+      <div class="add-book-field full add-book-top-field"><label for="add-book-title">Title</label><input id="add-book-title" type="text"></div>
+      <div class="add-book-field full add-book-top-field"><label for="add-book-author">Author</label><input id="add-book-author" type="text"></div>
+      <div class="add-book-field full add-book-top-field"><label for="add-book-cover-url">Cover image link</label>
         <input id="add-book-cover-url" type="url" placeholder="https://..."
           oninput="setAddBookCoverUrl(this.value)">
       </div>
@@ -11993,7 +11998,6 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field series-position"><label for="add-book-series-position">Book #</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
       </div>
       <div class="add-book-basic-grid">
-        <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
         <div class="add-book-field add-book-genre-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
         <div class="add-book-field add-book-isbn-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
         <div class="add-book-field add-book-type-field"><label for="add-book-type">Type</label><select id="add-book-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML('Novel')}</select></div>
@@ -12016,14 +12020,16 @@ function openAddBookDialog(defaultStatus='TBR') {
             <input id="add-book-duration-minutes" type="number" min="0" max="59" step="1" placeholder="Minutes" aria-label="Minutes">
           </div>
         </div>
+        <div class="add-book-field add-book-publisher-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       </div>
-      <div class="add-book-field editor-optional"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
+      <div class="add-book-publication-row editor-optional">
+        <div class="add-book-field"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
+        <div class="add-book-field"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
+        <div class="add-book-field add-book-year-read-field"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
+      </div>
       <div class="add-book-field" id="add-book-paused-page-wrap" style="display:none"><label for="add-book-paused-page">Paused at</label><input id="add-book-paused-page" type="number" min="1" step="1"></div>
       <div class="add-book-field" id="add-book-paused-on-wrap" style="display:none"><label for="add-book-paused-on">Paused On</label><input id="add-book-paused-on" type="date" onchange="updatePausedPageControls()"></div>
       <div class="add-book-field" id="add-book-resumed-on-wrap" style="display:none"><label for="add-book-resumed-on">Resumed On</label><input id="add-book-resumed-on" type="date" onchange="updatePausedPageControls()"></div>
-      <div class="add-book-field editor-optional"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
-      <div class="add-book-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
-      <div class="add-book-field editor-optional"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
       <div class="add-book-field editor-optional"><label for="add-book-language">Language</label><input id="add-book-language" type="text" value="${esc(DEFAULT_BOOK_LANGUAGE)}"></div>
       <div class="add-book-field editor-optional"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
       <div class="add-book-field editor-optional"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
