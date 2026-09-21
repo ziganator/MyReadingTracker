@@ -391,6 +391,30 @@
     color: var(--burnt);
     font-size: 0.88rem;
   }
+  .account-version {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: -0.35rem 0 0.8rem;
+    font-size: 0.78rem;
+  }
+  .account-role-badge {
+    background: var(--gold);
+    border-radius: 999px;
+    color: var(--deep);
+    display: inline-flex;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    padding: 0.12rem 0.55rem;
+    text-transform: uppercase;
+  }
+  .account-version code {
+    color: var(--burnt);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 800;
+  }
   .account-status.busy::before {
     content: '';
     display: inline-block;
@@ -1926,8 +1950,8 @@
   max-height: calc(100vh - 3rem);
 }
 .modal-box.add-book-modal {
-  width: min(680px, calc(100% - 2rem));
-  height: min(700px, calc(100vh - 2rem));
+  width: min(940px, calc(100% - 2rem));
+  height: min(760px, calc(100vh - 2rem));
 }
 .modal-box.book-editor-modal {
   width: min(860px, calc(100% - 2rem));
@@ -2242,6 +2266,24 @@
   margin: 0 0 0.9rem;
 }
 .edition-picker:empty { display: none; }
+.add-edition-results { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 0.85fr); gap: 0.9rem; align-items: start; margin-bottom: 1rem; }
+.add-edition-results[hidden] { display: none; }
+.edition-results-list, .selected-edition-panel { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; background: var(--card-bg); }
+.edition-results-list h4, .selected-edition-panel h4 { margin: 0 0 0.55rem; color: var(--burnt); }
+.edition-results-list .edition-picker { max-height: 330px; overflow-y: auto; margin: 0; }
+.selected-edition-panel { position: sticky; top: 0; }
+.selected-edition-card { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 0.8rem; }
+.selected-edition-card img, .selected-edition-cover { width: 84px; height: 126px; object-fit: cover; border-radius: 4px; background: var(--aged); }
+.selected-edition-cover { display: grid; place-items: center; text-align: center; color: var(--muted); }
+.selected-edition-title { font-weight: 800; color: var(--deep); }
+.selected-edition-author { color: var(--burnt); margin-top: 0.2rem; }
+.selected-edition-meta, .selected-edition-note { color: var(--muted); font-size: 0.86rem; margin-top: 0.45rem; }
+.selected-edition-panel .account-secondary { margin-top: 0.75rem; }
+@media (max-width: 600px) {
+  .add-edition-results { grid-template-columns: 1fr; }
+  .selected-edition-panel { position: static; }
+  .edition-results-list .edition-picker { max-height: 260px; }
+}
 .edition-option {
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr);
@@ -5816,6 +5858,10 @@
     <div id="account-signed-in" style="display:none">
       <h2>Settings</h2>
       <p>Signed in as <span class="account-user" id="account-user-email"></span></p>
+      <div class="account-version">
+        <span>Site version <code data-site-version></code></span>
+        <span id="account-role-badge" class="account-role-badge" style="display:none">Admin</span>
+      </div>
       <div class="account-settings-grid">
         <section class="account-settings-section">
           <strong>Account</strong>
@@ -5983,6 +6029,8 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
+const SITE_VERSION = '2026.09.21.3';
+const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
 const DEFAULT_BOOK_LANGUAGE = 'English';
@@ -6491,6 +6539,7 @@ async function resetGenreColorSettings() {
 
 function openAccountPanel() {
   document.getElementById('account-panel')?.classList.add('open');
+  updateSiteVersionUI();
   renderRatingScaleSetting();
   renderGenreColorSettings();
   renderSocialProfileSettings();
@@ -6512,6 +6561,24 @@ function accountDisplayName() {
   return String(metadata.display_name || metadata.full_name || metadata.name || '').trim();
 }
 
+function isSiteAdmin() {
+  const email = String(supabaseSession?.user?.email || '').trim().toLowerCase();
+  return SITE_ADMIN_EMAILS.includes(email);
+}
+
+function updateSiteVersionUI() {
+  document.querySelectorAll('[data-site-version]').forEach(element => {
+    element.textContent = SITE_VERSION;
+  });
+  const roleBadge = document.getElementById('account-role-badge');
+  if (roleBadge) {
+    const admin = isSiteAdmin();
+    roleBadge.textContent = admin ? 'Admin' : 'Reader';
+    roleBadge.style.display = supabaseSession?.user ? 'inline-flex' : 'none';
+    roleBadge.style.opacity = admin ? '1' : '0.72';
+  }
+}
+
 function updateSiteTitle() {
   const firstName = accountDisplayName().split(/\s+/)[0] || '';
   const title = firstName ? `${firstName}’s Reading Tracker` : 'My Reading Tracker';
@@ -6521,6 +6588,7 @@ function updateSiteTitle() {
 }
 
 function updateAccountUI() {
+  updateSiteVersionUI();
   const signedIn = Boolean(supabaseSession?.access_token && supabaseSession?.user);
   const signedOutView = document.getElementById('account-signed-out');
   const signedInView = document.getElementById('account-signed-in');
@@ -11886,8 +11954,11 @@ function openAddBookDialog(defaultStatus='TBR') {
     </div>
     <div class="picker-settings-status add-book-status-message" id="add-book-status-message"
       role="status" aria-live="polite"></div>
-    <div class="edition-picker" id="add-book-edition-picker"></div>
-    <div class="add-book-fields book-editor-mode-scope">
+    <div class="add-edition-results" id="add-book-edition-results" hidden>
+      <div class="edition-results-list"><h4>Matching editions</h4><div class="edition-picker" id="add-book-edition-picker"></div></div>
+      <section class="selected-edition-panel" id="add-book-edition-preview" aria-live="polite"></section>
+    </div>
+    <div class="add-book-fields book-editor-mode-scope" id="add-book-fields">
       <button class="add-book-cover" id="add-book-cover" type="button"
         onclick="document.getElementById('add-book-cover-url')?.focus()">
         <span>Add a cover-image link below</span>
@@ -12459,8 +12530,34 @@ function renderEditionPicker(targetId, editions, selected, selectFunction) {
   `).join('');
 }
 
+function renderSelectedEditionPreview(edition) {
+  const target = document.getElementById('add-book-edition-preview');
+  if (!target) return;
+  if (!edition) {
+    target.innerHTML = '<h4>Selected edition</h4><p class="selected-edition-note">Choose an edition to see what will be added.</p>';
+    return;
+  }
+  const cover = edition.cover_small_url || edition.cover_url;
+  target.innerHTML = `
+    <h4>Selected edition</h4>
+    <div class="selected-edition-card">
+      ${cover ? `<img src="${esc(cover)}" alt="">` : '<div class="selected-edition-cover">No cover</div>'}
+      <div><div class="selected-edition-title">${esc(edition.title || 'Untitled edition')}</div>
+        <div class="selected-edition-author">${esc((edition.authors || []).join(', ') || 'Unknown author')}</div>
+        <div class="selected-edition-meta">${esc(editionDisplayMeta(edition) || 'Edition details unavailable')}</div></div>
+    </div>
+    <p class="selected-edition-note">Added to the editable book details below.</p>
+    <button class="account-secondary" type="button" onclick="scrollAddBookDetails()">Review/Edit Details</button>`;
+}
+
+function scrollAddBookDetails() {
+  document.getElementById('add-book-fields')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  document.getElementById('add-book-title')?.focus({preventScroll: true});
+}
+
 async function populateAddBookFromEdition(edition) {
   selectedAddBookEdition = edition;
+  document.getElementById('add-book-edition-results').hidden = false;
   document.getElementById('add-book-title').value = edition.title || '';
   document.getElementById('add-book-author').value = (edition.authors || []).join(', ');
   document.getElementById('add-book-isbn').value = edition.isbn_13 || edition.isbn_10 || '';
@@ -12478,6 +12575,7 @@ async function populateAddBookFromEdition(edition) {
   if (synopsisInput && edition.synopsis) synopsisInput.value = edition.synopsis;
   updateShortStoryFullBookControls();
   renderEditionPicker('add-book-edition-picker', addBookEditionCandidates, edition, 'selectAddBookEdition');
+  renderSelectedEditionPreview(edition);
 }
 
 function selectAddBookEdition(index) {
@@ -12838,16 +12936,16 @@ async function lookupBookByISBN() {
   const message = document.getElementById('add-book-status-message');
   const isbn = cleanISBN(input?.value);
   if (![10, 13].includes(isbn.length)) return message.textContent = 'Enter a valid ISBN-10 or ISBN-13.';
-  message.textContent = 'Looking up this ISBN...';
+  message.textContent = `ISBN captured: ${isbn}. Looking up matching editions...`;
   try {
     addBookEditionCandidates = await fetchEditionCandidatesByISBN(isbn);
     if (!addBookEditionCandidates.length) {
-      return message.textContent = 'No matching edition was found. You can still enter it manually.';
+      return message.textContent = `ISBN captured: ${isbn}. No matching edition was found. You can still enter it manually.`;
     }
     await populateAddBookFromEdition(addBookEditionCandidates[0]);
-    message.textContent = `${addBookEditionCandidates.length} edition record${addBookEditionCandidates.length === 1 ? '' : 's'} found. Select one, review the details, then save it.`;
+    message.textContent = `ISBN captured: ${isbn}. ${addBookEditionCandidates.length} edition record${addBookEditionCandidates.length === 1 ? '' : 's'} found. Select one, review the details, then save it.`;
   } catch (error) {
-    message.textContent = `${error.message} You can enter the book manually.`;
+    message.textContent = `ISBN captured: ${isbn}. ${error.message} You can enter the book manually.`;
   }
 }
 
@@ -12877,9 +12975,12 @@ async function lookupBookByTitleAuthor() {
     if (!addBookEditionCandidates.length) {
       if (message) message.textContent = 'No close matches were found. You can still enter the book manually.';
       document.getElementById('add-book-edition-picker').innerHTML = '';
+      document.getElementById('add-book-edition-results').hidden = true;
       return;
     }
+    document.getElementById('add-book-edition-results').hidden = false;
     renderEditionPicker('add-book-edition-picker', addBookEditionCandidates, null, 'selectAddBookEdition');
+    renderSelectedEditionPreview(null);
     if (message) message.textContent = `${addBookEditionCandidates.length} match${addBookEditionCandidates.length === 1 ? '' : 'es'} found. Choose the edition that matches your book.`;
   } catch (error) {
     if (message) message.textContent = `${error.message} You can still enter the book manually.`;
