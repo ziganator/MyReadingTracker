@@ -274,6 +274,21 @@
     font: 600 0.9rem 'Crimson Pro', serif;
     padding: 0.5rem 0.8rem;
   }
+  .account-settings-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    position: sticky;
+    top: -1.25rem;
+    z-index: 2;
+    background: var(--card-bg);
+    padding: 1.25rem 0 0.7rem;
+    margin-top: -1.25rem;
+  }
+  .account-settings-toolbar h2 { margin: 0; }
+  .account-settings-toolbar .account-actions { margin: 0; }
   .account-primary { background: var(--burnt); border-color: var(--burnt) !important; color: #fff; }
   .account-secondary { background: var(--aged); color: var(--deep); }
   .account-settings-grid {
@@ -5856,7 +5871,13 @@
       </div>
     </form>
     <div id="account-signed-in" style="display:none">
-      <h2>Settings</h2>
+      <div class="account-settings-toolbar">
+        <h2>Settings</h2>
+        <div class="account-actions">
+          <button class="account-primary" type="button" onclick="saveAccountProfile()">Save Account</button>
+          <button class="account-secondary" type="button" onclick="hideAccountPanel()">Close</button>
+        </div>
+      </div>
       <p>Signed in as <span class="account-user" id="account-user-email"></span></p>
       <div class="account-version">
         <span>Site version <code data-site-version></code></span>
@@ -5877,9 +5898,8 @@
             </div>
           </div>
           <div class="account-actions" style="margin-top:0.65rem">
-            <button class="account-primary" type="button" onclick="saveAccountProfile()">Save Account</button>
+            <button class="account-secondary" type="button" onclick="togglePasswordChange()">Change Password</button>
           </div>
-          <button class="account-secondary" type="button" onclick="togglePasswordChange()">Change Password</button>
           <div class="account-password-fields" id="account-password-fields">
             <div>
               <label for="account-new-password">New password</label>
@@ -5955,7 +5975,6 @@
         </section>
         <div class="account-actions">
           <button class="account-secondary" type="button" onclick="signOutAccount()">Sign Out</button>
-          <button class="account-secondary" type="button" onclick="hideAccountPanel()">Close</button>
         </div>
       </div>
     </div>
@@ -6029,7 +6048,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.09.21.3';
+const SITE_VERSION = '2026.09.21.4';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
