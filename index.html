@@ -2474,6 +2474,7 @@
 }
 .add-book-field { min-width: 0; }
 .add-book-field.full { grid-column: 2 / -1; }
+.add-book-fields > .add-book-full-width { grid-column: 1 / -1; }
 .add-book-fields > .series-field-pair { grid-column: 1 / -1; }
 .add-book-basic-grid {
   display: grid;
@@ -6050,7 +6051,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.09.21.5';
+const SITE_VERSION = '2026.09.21.6';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -12034,8 +12035,8 @@ function openAddBookDialog(defaultStatus='TBR') {
       <div class="add-book-field editor-optional"><label for="add-book-received">Received</label><input id="add-book-received" type="text" placeholder="June 2026, 2026, or 6/14/2026"></div>
       <div class="add-book-field editor-optional"><label for="add-book-event">Event</label><input id="add-book-event" type="text"></div>
       <label class="add-book-check" id="add-book-full-book-wrap" style="display:none"><input id="add-book-full-book-read" type="checkbox"> Full Book</label>
-      <div class="add-book-field full editor-optional"><label for="add-book-synopsis">Synopsis</label><textarea id="add-book-synopsis" rows="5" placeholder="ISBN lookup will fill this when Open Library has a description."></textarea></div>
-      <div class="add-book-field full editor-optional"><label for="add-book-notes">Notes</label><textarea id="add-book-notes" rows="3"></textarea></div>
+      <div class="add-book-field full add-book-full-width editor-optional"><label for="add-book-synopsis">Synopsis</label><textarea id="add-book-synopsis" rows="5" placeholder="ISBN lookup will fill this when Open Library has a description."></textarea></div>
+      <div class="add-book-field full add-book-full-width editor-optional"><label for="add-book-notes">Notes</label><textarea id="add-book-notes" rows="3"></textarea></div>
     </div>
     <div class="account-actions">
       <button class="account-secondary" type="button" onclick="closeTrackedModal()">Cancel</button>
