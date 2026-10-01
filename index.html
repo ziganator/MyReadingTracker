@@ -3220,8 +3220,24 @@
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .monthly-cover-share-actions { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--border); }
-  .monthly-cover-share-actions button { min-height:40px; }
+  .monthly-cover-share-toolbar { position:sticky; top:-1.1rem; z-index:8; display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin:-.2rem -.2rem 1rem; padding:.72rem; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.96); box-shadow:0 7px 20px rgba(23,45,95,.1); backdrop-filter:blur(12px); }
+  .monthly-cover-share-toolbar > button,
+  .monthly-cover-share-menu > summary { min-height:40px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:8px; padding:.52rem .8rem; font:700 .86rem 'Crimson Pro',serif; cursor:pointer; }
+  .monthly-cover-share-menu { position:relative; }
+  .monthly-cover-share-menu > summary { min-width:126px; border:1px solid var(--deep); background:var(--deep); color:#fff; list-style:none; box-shadow:0 4px 10px rgba(23,45,95,.14); }
+  .monthly-cover-share-menu > summary::-webkit-details-marker { display:none; }
+  .monthly-cover-share-menu > summary::after { content:'▾'; margin-left:.55rem; font-size:.72rem; }
+  .monthly-cover-share-menu[open] > summary::after { transform:rotate(180deg); }
+  .monthly-cover-share-dropdown { position:absolute; top:calc(100% + .4rem); left:0; z-index:20; display:grid; width:190px; gap:.35rem; padding:.45rem; border:1px solid var(--border); border-radius:10px; background:#fff; box-shadow:0 14px 34px rgba(23,45,95,.18); }
+  .monthly-cover-share-dropdown button { width:100%; min-height:40px; border:0; border-radius:7px; background:transparent; color:var(--deep); padding:.55rem .65rem; font:700 .86rem 'Crimson Pro',serif; text-align:left; cursor:pointer; }
+  .monthly-cover-share-dropdown button:hover { background:var(--aged); }
+  @media (max-width:560px) {
+    .monthly-cover-share-toolbar { display:grid; grid-template-columns:1fr 1fr; top:-1.1rem; }
+    .monthly-cover-share-menu { grid-column:1 / -1; }
+    .monthly-cover-share-menu > summary { width:100%; }
+    .monthly-cover-share-dropdown { width:100%; box-sizing:border-box; }
+    .monthly-cover-share-toolbar > button { width:100%; min-width:0; padding:.5rem .55rem; }
+  }
   .social-monthly-summary { margin:.85rem 0; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:linear-gradient(145deg,#f7f8ff,#fff7f0); }
   .social-monthly-summary-head { padding:.8rem .9rem; background:var(--deep); color:#fff; }
   .social-monthly-summary-head strong { display:block; font:700 1.08rem 'Playfair Display',serif; }
@@ -19313,16 +19329,21 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     </div>`;
   }).join('');
   document.getElementById('modal-series-body').innerHTML = `
+    <div class="monthly-cover-share-toolbar">
+      <details class="monthly-cover-share-menu">
+        <summary>Image Options</summary>
+        <div class="monthly-cover-share-dropdown">
+          <button type="button" onclick="shareMonthlyCoverImage('share',this)">Share Image</button>
+          <button type="button" onclick="shareMonthlyCoverImage('copy',this)">Copy Image</button>
+          <button type="button" onclick="shareMonthlyCoverImage('download',this)">Download Image</button>
+        </div>
+      </details>
+      <button class="account-primary" type="button" onclick="openMonthlySocialShareComposer()">Post to Social</button>
+      <button class="account-secondary" type="button" onclick="closeTrackedModal();showMonthSummary(${jsArg(key)})">Open Month Page</button>
+    </div>
     ${coverTiles
       ? `<div class="monthly-cover-grid">${coverTiles}</div>`
       : '<p style="color:var(--muted);font-style:italic;margin:0">No covers found for this month.</p>'}
-    <div class="monthly-cover-share-actions">
-      <button class="account-primary" type="button" onclick="shareMonthlyCoverImage('share',this)">Share Image</button>
-      <button class="account-secondary" type="button" onclick="shareMonthlyCoverImage('copy',this)">Copy Image</button>
-      <button class="account-secondary" type="button" onclick="shareMonthlyCoverImage('download',this)">Download Image</button>
-      <button class="account-secondary" type="button" onclick="openMonthlySocialShareComposer()">Post to Social</button>
-      <button class="account-secondary" type="button" onclick="closeTrackedModal();showMonthSummary(${jsArg(key)})">Open Month Page</button>
-    </div>
   `;
   openModal(evt);
 }
