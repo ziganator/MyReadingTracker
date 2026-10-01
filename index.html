@@ -3247,7 +3247,8 @@
   .social-monthly-summary-book { min-width:0; text-align:center; }
   .social-monthly-summary-book img,
   .social-monthly-summary-book .generated-book-cover { width:64px!important; height:96px!important; margin:0 auto .3rem; border-radius:4px; object-fit:cover; box-shadow:0 3px 9px rgba(23,45,95,.16); }
-  .social-monthly-summary-book span { display:-webkit-box; overflow:hidden; color:var(--deep); font-size:.68rem; font-weight:700; line-height:1.18; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .social-monthly-summary-book-title { display:-webkit-box; overflow:hidden; color:var(--deep); font-size:.68rem; font-weight:700; line-height:1.18; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .social-monthly-summary-book-detail { display:block; margin-top:.2rem; color:var(--muted); font-size:.62rem; font-weight:700; line-height:1.15; overflow-wrap:anywhere; }
   .month-cover-summary-link {
     background: none;
     border: 0;
@@ -8248,7 +8249,12 @@ function socialMonthlySummaryHTML(summary) {
   return `<section class="social-monthly-summary">
     <div class="social-monthly-summary-head"><strong>${esc(summary.label || 'Monthly Reading')}</strong><span>${books.length} book${books.length === 1 ? '' : 's'}</span></div>
     ${summary.note ? `<p class="social-monthly-summary-note">${esc(summary.note)}</p>` : ''}
-    <div class="social-monthly-summary-grid">${books.map(book => `<div class="social-monthly-summary-book">${coverImageHTML(book,'social-monthly-cover','social-monthly-cover')}<span>${esc(book.title || 'Untitled')}</span></div>`).join('')}</div>
+    <div class="social-monthly-summary-grid">${books.map(book => {
+      const detail=book.stories_read != null
+        ? `${book.stories_read} ${book.stories_read === 1 ? 'Story' : 'Stories'} Read`
+        : (Number(book.rating) > 0 ? `${formatUserRating(book.rating,2)}/${userRatingScale}` : '');
+      return `<div class="social-monthly-summary-book">${coverImageHTML(book,'social-monthly-cover','social-monthly-cover')}<span class="social-monthly-summary-book-title">${esc(book.title || 'Untitled')}</span>${detail ? `<small class="social-monthly-summary-book-detail">${esc(detail)}</small>` : ''}</div>`;
+    }).join('')}</div>
   </section>`;
 }
 
@@ -19112,12 +19118,23 @@ function toggleMonth(key, monthLabel, books, evt) {
 let activeMonthlyCoverShare=null;
 
 function monthlyCoverShareBooks(books) {
-  return [...(Array.isArray(books) ? books : [])].map(book => ({
-    title:book.title || 'Untitled',
-    author_full:displayBookContributor(book) || '',
-    cover_url:book.cover_url || book.cover_small_url || book.edition?.cover_url || book.edition?.cover_small_url || '',
-    genre:book.genre || ''
-  }));
+  return [...(Array.isArray(books) ? books : [])].map(book => {
+    const savedStoryCount=book.stories_read != null && Number.isFinite(Number(book.stories_read))
+      ? Number(book.stories_read)
+      : null;
+    return {
+      title:book.title || 'Untitled',
+      author_full:displayBookContributor(book) || book.author_full || '',
+      cover_url:book.cover_url || book.cover_small_url || book.edition?.cover_url || book.edition?.cover_small_url || '',
+      genre:book.genre || '',
+      rating:Number(book.rating) > 0 ? Number(book.rating) : null,
+      stories_read:savedStoryCount !== null
+        ? savedStoryCount
+        : (libraryBookStatus(book) === 'Paused' && isShortStoryCollection(book)
+            ? shortStoriesReadInMonth(book,activeMonthlyCoverShare?.key)
+            : null)
+    };
+  });
 }
 
 async function monthlyCoverCanvasImage(url) {
@@ -19206,7 +19223,8 @@ async function createMonthlyCoverShareBlob(summary=activeMonthlyCoverShare) {
   const gridBottom=1270;
   const cellWidth=(1080-(side*2)-(gap*(columns-1)))/columns;
   const cellHeight=(gridBottom-gridTop-(gap*(rows-1)))/rows;
-  const coverHeight=Math.max(76,Math.min(cellHeight-58,cellWidth*1.5,270));
+  const hasBookDetails=books.some(book=>Number(book.rating)>0 || book.stories_read != null);
+  const coverHeight=Math.max(64,Math.min(cellHeight-(hasBookDetails?68:52),cellWidth*1.5,270));
   const coverWidth=coverHeight*(2/3);
   const loaded=await Promise.all(books.map(book=>monthlyCoverCanvasImage(book.cover_url)));
   books.forEach((book,index) => {
@@ -19225,10 +19243,22 @@ async function createMonthlyCoverShareBlob(summary=activeMonthlyCoverShare) {
     if (loaded[index]?.image) drawMonthlyCoverImage(ctx,loaded[index].image,coverX,cellY,coverWidth,coverHeight);
     else drawMonthlyCoverPlaceholder(ctx,book,coverX,cellY,coverWidth,coverHeight);
     ctx.fillStyle='#17213d';
-    ctx.font=`700 ${columns >= 5 ? 20 : 23}px Arial`;
+    ctx.font=`700 ${columns >= 5 ? 15 : (columns >= 4 ? 19 : 23)}px Arial`;
     ctx.textAlign='center';
     ctx.textBaseline='top';
-    drawMonthlyShareTitle(ctx,book.title,cellX+(cellWidth/2),cellY+coverHeight+12,cellWidth,columns >= 5 ? 23 : 27,2);
+    const titleLineHeight=columns >= 5 ? 17 : (columns >= 4 ? 22 : 27);
+    const titleTop=cellY+coverHeight+7;
+    drawMonthlyShareTitle(ctx,book.title,cellX+(cellWidth/2),titleTop,cellWidth,titleLineHeight,2);
+    const titleLines=Math.min(2,Math.max(1,Math.ceil(ctx.measureText(book.title || 'Untitled').width/cellWidth)));
+    const detail=book.stories_read != null
+      ? `${book.stories_read} ${book.stories_read === 1 ? 'Story' : 'Stories'} Read`
+      : (Number(book.rating)>0 ? `${formatUserRating(book.rating,2)}/${userRatingScale}` : '');
+    if (detail) {
+      ctx.fillStyle='#4169e1';
+      ctx.font=`700 ${columns >= 5 ? 13 : (columns >= 4 ? 17 : 21)}px Arial`;
+      ctx.textAlign='center';
+      ctx.fillText(detail,cellX+(cellWidth/2),titleTop+(titleLines*titleLineHeight)+2,cellWidth);
+    }
   });
   loaded.forEach(item=>{ if(item?.objectUrl) URL.revokeObjectURL(item.objectUrl); });
   ctx.fillStyle='#64708f';
@@ -19293,7 +19323,8 @@ async function postMonthlyCoverSummary(button) {
   if (!activeMonthlyCoverShare?.books?.length) return;
   const note=document.getElementById('monthly-social-note')?.value.trim() || '';
   const visibility=document.getElementById('monthly-social-visibility')?.value === 'Public' ? 'Public' : 'Friends';
-  const summary={version:1,key:activeMonthlyCoverShare.key,label:activeMonthlyCoverShare.label,note,books:monthlyCoverShareBooks(activeMonthlyCoverShare.books)};
+  const summaryBooks=monthlyCoverShareBooks(activeMonthlyCoverShare.books);
+  const summary={version:1,key:activeMonthlyCoverShare.key,label:activeMonthlyCoverShare.label,note,books:summaryBooks};
   if (button) { button.disabled=true; button.textContent='Sharing…'; }
   try {
     await supabaseTableRequest('social_posts',{method:'POST',body:[{user_id:currentSocialUserId(),thoughts:`${MONTHLY_SOCIAL_POST_PREFIX}${JSON.stringify(summary)}`,visibility}],prefer:'return=minimal'});
