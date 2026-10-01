@@ -3220,6 +3220,18 @@
     white-space: normal;
     overflow-wrap: anywhere;
   }
+  .monthly-cover-share-actions { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--border); }
+  .monthly-cover-share-actions button { min-height:40px; }
+  .social-monthly-summary { margin:.85rem 0; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:linear-gradient(145deg,#f7f8ff,#fff7f0); }
+  .social-monthly-summary-head { padding:.8rem .9rem; background:var(--deep); color:#fff; }
+  .social-monthly-summary-head strong { display:block; font:700 1.08rem 'Playfair Display',serif; }
+  .social-monthly-summary-head span { display:block; margin-top:.12rem; color:#dfe6ff; font-size:.76rem; }
+  .social-monthly-summary-note { margin:0; padding:.75rem .9rem 0; line-height:1.45; }
+  .social-monthly-summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(72px,1fr)); gap:.55rem; padding:.8rem .9rem .9rem; }
+  .social-monthly-summary-book { min-width:0; text-align:center; }
+  .social-monthly-summary-book img,
+  .social-monthly-summary-book .generated-book-cover { width:64px!important; height:96px!important; margin:0 auto .3rem; border-radius:4px; object-fit:cover; box-shadow:0 3px 9px rgba(23,45,95,.16); }
+  .social-monthly-summary-book span { display:-webkit-box; overflow:hidden; color:var(--deep); font-size:.68rem; font-weight:700; line-height:1.18; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
   .month-cover-summary-link {
     background: none;
     border: 0;
@@ -8204,19 +8216,40 @@ function socialBookCardHTML(post) {
   </div>`;
 }
 
+const MONTHLY_SOCIAL_POST_PREFIX='[[MRT_MONTHLY_SUMMARY]]';
+
+function monthlySocialPostData(post) {
+  const thoughts=String(post?.thoughts || '');
+  if (!thoughts.startsWith(MONTHLY_SOCIAL_POST_PREFIX)) return null;
+  try {
+    const data=JSON.parse(thoughts.slice(MONTHLY_SOCIAL_POST_PREFIX.length));
+    return data && Array.isArray(data.books) ? data : null;
+  } catch (_) { return null; }
+}
+
+function socialMonthlySummaryHTML(summary) {
+  const books=summary.books || [];
+  return `<section class="social-monthly-summary">
+    <div class="social-monthly-summary-head"><strong>${esc(summary.label || 'Monthly Reading')}</strong><span>${books.length} book${books.length === 1 ? '' : 's'}</span></div>
+    ${summary.note ? `<p class="social-monthly-summary-note">${esc(summary.note)}</p>` : ''}
+    <div class="social-monthly-summary-grid">${books.map(book => `<div class="social-monthly-summary-book">${coverImageHTML(book,'social-monthly-cover','social-monthly-cover')}<span>${esc(book.title || 'Untitled')}</span></div>`).join('')}</div>
+  </section>`;
+}
+
 function socialPostHTML(post) {
   const profile=socialProfileFor(post.user_id);
   const name=socialDisplayName(post.user_id);
   const likes=socialPostLikes.filter(like => like.post_id === post.id);
   const liked=likes.some(like => like.user_id === currentSocialUserId());
   const own=post.user_id === currentSocialUserId();
+  const monthlySummary=monthlySocialPostData(post);
   return `<article class="social-post">
     <div class="social-post-head">${socialAvatarHTML(profile,name)}
       <div class="social-post-byline"><strong>${esc(name)}</strong><span class="social-post-meta">${esc(socialPostDate(post.created_at))} · ${post.visibility === 'Public' ? 'Everyone' : 'Friends'}</span></div>
       ${own ? `<button class="social-link-button danger" type="button" onclick="confirmDeleteSocialPost(${jsArg(post.id)})">Delete</button>` : ''}
     </div>
-    ${post.thoughts ? `<div class="social-post-thoughts">${esc(post.thoughts)}</div>` : ''}
-    ${socialBookCardHTML(post)}
+    ${monthlySummary ? socialMonthlySummaryHTML(monthlySummary) : (post.thoughts ? `<div class="social-post-thoughts">${esc(post.thoughts)}</div>` : '')}
+    ${monthlySummary ? '' : socialBookCardHTML(post)}
     <div class="social-post-footer"><button class="social-link-button ${liked ? 'liked' : ''}" type="button" onclick="toggleSocialPostLike(${jsArg(post.id)},${liked})">${liked ? '♥ Liked' : '♡ Like'}</button><span class="social-post-meta">${likes.length} ${likes.length === 1 ? 'like' : 'likes'}</span></div>
   </article>`;
 }
@@ -19060,8 +19093,207 @@ function toggleMonth(key, monthLabel, books, evt) {
   openModal(evt);
 }
 
+let activeMonthlyCoverShare=null;
+
+function monthlyCoverShareBooks(books) {
+  return [...(Array.isArray(books) ? books : [])].map(book => ({
+    title:book.title || 'Untitled',
+    author_full:displayBookContributor(book) || '',
+    cover_url:book.cover_url || book.cover_small_url || book.edition?.cover_url || book.edition?.cover_small_url || '',
+    genre:book.genre || ''
+  }));
+}
+
+async function monthlyCoverCanvasImage(url) {
+  if (!url) return null;
+  try {
+    const response=await fetch(url,{mode:'cors'});
+    if (!response.ok) return null;
+    const objectUrl=URL.createObjectURL(await response.blob());
+    const image=await new Promise((resolve,reject) => {
+      const element=new Image();
+      element.onload=()=>resolve(element);
+      element.onerror=reject;
+      element.src=objectUrl;
+    });
+    return {image,objectUrl};
+  } catch (_) { return null; }
+}
+
+function drawMonthlyCoverPlaceholder(ctx,book,x,y,width,height) {
+  ctx.fillStyle=genreColor(book.genre || 'Unknown');
+  ctx.fillRect(x,y,width,height);
+  ctx.fillStyle=contrastingTextColor(genreColor(book.genre || 'Unknown'));
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font=`700 ${Math.max(18,Math.min(34,width*.18))}px Georgia`;
+  const initials=String(book.title || 'Book').split(/\s+/).filter(Boolean).slice(0,3).map(word=>word[0]).join('').toUpperCase();
+  ctx.fillText(initials,x+(width/2),y+(height/2));
+}
+
+function drawMonthlyCoverImage(ctx,image,x,y,width,height) {
+  const scale=Math.max(width/image.width,height/image.height);
+  const sourceWidth=width/scale;
+  const sourceHeight=height/scale;
+  ctx.drawImage(image,(image.width-sourceWidth)/2,(image.height-sourceHeight)/2,sourceWidth,sourceHeight,x,y,width,height);
+}
+
+function drawMonthlyShareTitle(ctx,text,x,y,maxWidth,lineHeight,maxLines=2) {
+  const words=String(text || '').split(/\s+/).filter(Boolean);
+  const lines=[];
+  let line='';
+  words.forEach(word => {
+    const candidate=line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(candidate).width > maxWidth) { lines.push(line); line=word; }
+    else line=candidate;
+  });
+  if (line) lines.push(line);
+  const visible=lines.slice(0,maxLines);
+  if (lines.length > maxLines && visible.length) {
+    let last=visible[visible.length-1];
+    while (last && ctx.measureText(`${last}…`).width > maxWidth) last=last.slice(0,-1);
+    visible[visible.length-1]=`${last}…`;
+  }
+  visible.forEach((value,index)=>ctx.fillText(value,x,y+(index*lineHeight)));
+}
+
+async function createMonthlyCoverShareBlob(summary=activeMonthlyCoverShare) {
+  if (!summary?.books?.length) throw new Error('There are no books to share.');
+  const books=monthlyCoverShareBooks(summary.books);
+  const canvas=document.createElement('canvas');
+  canvas.width=1080;
+  canvas.height=1350;
+  const ctx=canvas.getContext('2d');
+  const gradient=ctx.createLinearGradient(0,0,1080,1350);
+  gradient.addColorStop(0,'#f7f8ff');
+  gradient.addColorStop(.58,'#ffffff');
+  gradient.addColorStop(1,'#fff3e8');
+  ctx.fillStyle=gradient;
+  ctx.fillRect(0,0,1080,1350);
+  ctx.fillStyle='#173b8f';
+  ctx.fillRect(0,0,1080,166);
+  ctx.fillStyle='#ff7a00';
+  ctx.fillRect(0,158,1080,8);
+  ctx.textAlign='left';
+  ctx.textBaseline='alphabetic';
+  ctx.fillStyle='#ffffff';
+  ctx.font='700 58px Georgia';
+  ctx.fillText(summary.label || 'Monthly Reading',64,82);
+  ctx.fillStyle='#dfe6ff';
+  ctx.font='600 27px Arial';
+  ctx.fillText(`${books.length} book${books.length === 1 ? '' : 's'} · My Reading Tracker`,66,128);
+  const columns=books.length <= 4 ? 2 : books.length <= 9 ? 3 : books.length <= 16 ? 4 : 5;
+  const rows=Math.ceil(books.length/columns);
+  const gap=24;
+  const side=48;
+  const gridTop=205;
+  const gridBottom=1270;
+  const cellWidth=(1080-(side*2)-(gap*(columns-1)))/columns;
+  const cellHeight=(gridBottom-gridTop-(gap*(rows-1)))/rows;
+  const coverHeight=Math.max(76,Math.min(cellHeight-58,cellWidth*1.5,270));
+  const coverWidth=coverHeight*(2/3);
+  const loaded=await Promise.all(books.map(book=>monthlyCoverCanvasImage(book.cover_url)));
+  books.forEach((book,index) => {
+    const column=index%columns;
+    const row=Math.floor(index/columns);
+    const cellX=side+(column*(cellWidth+gap));
+    const cellY=gridTop+(row*(cellHeight+gap));
+    const coverX=cellX+((cellWidth-coverWidth)/2);
+    ctx.save();
+    ctx.shadowColor='rgba(23,45,95,.18)';
+    ctx.shadowBlur=16;
+    ctx.shadowOffsetY=7;
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(coverX,cellY,coverWidth,coverHeight);
+    ctx.restore();
+    if (loaded[index]?.image) drawMonthlyCoverImage(ctx,loaded[index].image,coverX,cellY,coverWidth,coverHeight);
+    else drawMonthlyCoverPlaceholder(ctx,book,coverX,cellY,coverWidth,coverHeight);
+    ctx.fillStyle='#17213d';
+    ctx.font=`700 ${columns >= 5 ? 20 : 23}px Arial`;
+    ctx.textAlign='center';
+    ctx.textBaseline='top';
+    drawMonthlyShareTitle(ctx,book.title,cellX+(cellWidth/2),cellY+coverHeight+12,cellWidth,columns >= 5 ? 23 : 27,2);
+  });
+  loaded.forEach(item=>{ if(item?.objectUrl) URL.revokeObjectURL(item.objectUrl); });
+  ctx.fillStyle='#64708f';
+  ctx.font='500 22px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('My Reading Tracker',540,1318);
+  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('The share image could not be created.')),'image/png'));
+}
+
+function downloadMonthlyCoverBlob(blob,label) {
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=`${String(label || 'monthly-reading').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'monthly-reading'}.png`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function shareMonthlyCoverImage(action,button=null) {
+  const original=button?.textContent || '';
+  if (button) { button.disabled=true; button.textContent='Preparing…'; }
+  try {
+    const blob=await createMonthlyCoverShareBlob();
+    const file=new File([blob],'monthly-reading.png',{type:'image/png'});
+    if (action === 'share' && navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))) {
+      await navigator.share({title:activeMonthlyCoverShare.label,text:`My ${activeMonthlyCoverShare.label} reading wrap-up`,files:[file]});
+    } else if (action === 'copy' && navigator.clipboard?.write && window.ClipboardItem) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+        showAppDialog('Image Copied','The monthly cover image is ready to paste into another app.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+      } catch (_) {
+        downloadMonthlyCoverBlob(blob,activeMonthlyCoverShare.label);
+        showAppDialog('Image Downloaded','This browser did not allow direct image copying, so the monthly cover image was downloaded instead.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+      }
+    } else {
+      downloadMonthlyCoverBlob(blob,activeMonthlyCoverShare.label);
+      if (action !== 'download') showAppDialog('Image Downloaded','Direct image sharing is not supported in this browser, so the monthly cover image was downloaded instead.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') showAppDialog('Share Error',error.message || 'The monthly cover image could not be prepared.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  } finally {
+    if (button) { button.disabled=false; button.textContent=original; }
+  }
+}
+
+function openMonthlySocialShareComposer() {
+  if (!activeMonthlyCoverShare?.books?.length) return;
+  if (guestMode || !currentSocialUserId()) return showAppDialog('Sign In Required','Sign in before posting a monthly summary to Social.','<button class="account-primary" type="button" onclick="closeAppDialog();openAccountPanel()">Sign In</button>');
+  if (!socialStorageAvailable) return showAppDialog('Social Is Not Ready',socialLoadMessage || 'Open Social and refresh before sharing.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  const modal=document.getElementById('social-post-modal');
+  const content=document.getElementById('social-post-modal-content');
+  if (!modal || !content) return;
+  content.innerHTML=`<section class="social-panel social-composer"><h3 id="social-post-modal-title">Share ${esc(activeMonthlyCoverShare.label)}</h3><p class="social-composer-intro">Post all ${activeMonthlyCoverShare.books.length} covers as one monthly reading summary.</p><div class="social-composer-fields"><label>Add a note <span style="color:var(--muted);font-weight:600">(optional)</span><textarea id="monthly-social-note" maxlength="1000" placeholder="A few thoughts about this reading month…"></textarea></label><div class="social-composer-footer"><label>Share with<select id="monthly-social-visibility"><option value="Friends">My Friends</option><option value="Public">Everyone</option></select></label><button class="account-primary" type="button" onclick="postMonthlyCoverSummary(this)">Post to Feed</button></div></div></section>`;
+  modal.classList.add('open');
+  document.body.classList.add('social-post-open');
+  requestAnimationFrame(()=>document.getElementById('monthly-social-note')?.focus());
+}
+
+async function postMonthlyCoverSummary(button) {
+  if (!activeMonthlyCoverShare?.books?.length) return;
+  const note=document.getElementById('monthly-social-note')?.value.trim() || '';
+  const visibility=document.getElementById('monthly-social-visibility')?.value === 'Public' ? 'Public' : 'Friends';
+  const summary={version:1,key:activeMonthlyCoverShare.key,label:activeMonthlyCoverShare.label,note,books:monthlyCoverShareBooks(activeMonthlyCoverShare.books)};
+  if (button) { button.disabled=true; button.textContent='Sharing…'; }
+  try {
+    await supabaseTableRequest('social_posts',{method:'POST',body:[{user_id:currentSocialUserId(),thoughts:`${MONTHLY_SOCIAL_POST_PREFIX}${JSON.stringify(summary)}`,visibility}],prefer:'return=minimal'});
+    await refreshSocialData();
+    closeSocialPostModal();
+    closeTrackedModal();
+    switchTab('social');
+  } catch (error) {
+    showAppDialog('Post Error',error.message || 'The monthly summary could not be posted.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    if (button) { button.disabled=false; button.textContent='Post to Feed'; }
+  }
+}
+
 function openMonthlyCoverSummary(key, monthLabel, books, evt) {
   const orderedBooks = [...(Array.isArray(books) ? books : [])].sort(compareMonthReadOrder);
+  activeMonthlyCoverShare={key,label:monthLabel,books:orderedBooks};
   document.getElementById('modal-series-name').textContent = monthLabel;
   document.getElementById('modal-series-sub').textContent =
     `${orderedBooks.length} book${orderedBooks.length !== 1 ? 's' : ''}`;
@@ -19084,7 +19316,11 @@ function openMonthlyCoverSummary(key, monthLabel, books, evt) {
     ${coverTiles
       ? `<div class="monthly-cover-grid">${coverTiles}</div>`
       : '<p style="color:var(--muted);font-style:italic;margin:0">No covers found for this month.</p>'}
-    <div class="account-actions" style="margin-top:1rem">
+    <div class="monthly-cover-share-actions">
+      <button class="account-primary" type="button" onclick="shareMonthlyCoverImage('share',this)">Share Image</button>
+      <button class="account-secondary" type="button" onclick="shareMonthlyCoverImage('copy',this)">Copy Image</button>
+      <button class="account-secondary" type="button" onclick="shareMonthlyCoverImage('download',this)">Download Image</button>
+      <button class="account-secondary" type="button" onclick="openMonthlySocialShareComposer()">Post to Social</button>
       <button class="account-secondary" type="button" onclick="closeTrackedModal();showMonthSummary(${jsArg(key)})">Open Month Page</button>
     </div>
   `;
