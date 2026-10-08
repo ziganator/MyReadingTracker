@@ -5361,6 +5361,7 @@
   .social-welcome-now strong,.social-welcome-now span { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .social-welcome-now strong { color:var(--ink); font-size:.92rem; }
   .social-welcome-now span { margin-top:.14rem; color:var(--muted); font-size:.76rem; }
+  .social-welcome-top .account-secondary { flex:0 0 auto; min-height:40px; padding:.55rem .85rem; white-space:nowrap; }
   .social-feed-heading { display:flex; align-items:end; justify-content:space-between; gap:.75rem; padding:0 .1rem; }
   .social-feed-heading h3 { margin:0; color:var(--ink); }
   .social-feed-heading span { color:var(--muted); font-size:.78rem; }
@@ -5850,6 +5851,24 @@
     .stats-chart { border-radius: 13px; }
   }
 
+  @media (min-width:701px) and (max-width:1200px) and (orientation:landscape) and (max-height:900px) {
+    header { grid-template-columns:minmax(0,1fr); justify-items:center; gap:.45rem; min-height:0; padding:2.8rem 1rem .7rem; text-align:center; }
+    .site-brand { justify-self:center; gap:.7rem; }
+    .site-logo { width:64px; max-height:60px; }
+    header h1 { font-size:clamp(1.55rem,2.7vw,2.05rem); line-height:1.02; }
+    .stats-row { width:100%; min-width:0; justify-content:flex-start; flex-wrap:nowrap; gap:.38rem; padding:0 0 .12rem; overflow-x:auto; scrollbar-width:none; }
+    .stats-row::-webkit-scrollbar { display:none; }
+    .stat-item { flex:0 0 auto; min-width:68px; padding:.38rem .5rem; }
+    .stat-num { font-size:1rem; }
+    .stat-label { font-size:.58rem; line-height:1.08; }
+    .current-reading-widget { max-width:min(330px,30vw); margin-left:.2rem !important; padding:.4rem .55rem !important; gap:.5rem !important; }
+    .stats-row > .current-reading-widget { flex:0 0 auto; }
+    .current-reading-widget > div:last-child > div:first-child { font-size:.54rem !important; }
+    .current-reading-widget > div:last-child > div:nth-child(2) { font-size:.92rem !important; }
+    .current-reading-widget > div:last-child > div:nth-child(3) { display:none; }
+    header::after { right:4%; width:34%; }
+  }
+
 </style>
 </head>
 <body>
@@ -5985,6 +6004,10 @@
               <button class="account-primary" type="button" onclick="saveRatingScaleSetting()">Save Rating Scale</button>
             </div>
           </div>
+          <label class="social-discoverable minimalist-setting" style="margin:.2rem 0 .9rem;text-transform:none">
+            <input id="account-minimalist-mode" type="checkbox" onchange="saveMinimalistModeSetting(this.checked)">
+            <span><strong style="font-family:inherit;font-size:.86rem">Minimalist Mode</strong>Hide Social, Club Hub, Statistics Lab, and Picker from navigation.</span>
+          </label>
           <div id="genre-color-settings" class="genre-color-grid"></div>
           <div class="account-actions" style="margin-top:0.7rem">
             <button class="account-primary" type="button" onclick="saveGenreColorSettings()">Save Colors</button>
@@ -6084,6 +6107,7 @@ const SITE_VERSION = '2026.09.21.6';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
+const MINIMALIST_MODE_STORAGE_KEY = 'reading-tracker-minimalist-mode';
 const DEFAULT_BOOK_LANGUAGE = 'English';
 const DEFAULT_LANGUAGE_CLEANUP_VERSION = 'english-2026-07-17';
 const PAGE_COUNT_SYNC_VERSION = 'isbn-pages-pagination-2026-07-18';
@@ -6184,6 +6208,7 @@ const DEFAULT_GENRE_COLORS = {
 };
 let customGenreColors = loadGenreColorSettings();
 let userRatingScale = loadRatingScaleSetting();
+let minimalistMode = loadMinimalistModeSetting();
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 if (window.self !== window.top) document.documentElement.classList.add('embedded-site');
@@ -6243,6 +6268,29 @@ function loadRatingScaleSetting() {
 
 function cacheRatingScaleSetting(scale) {
   try { localStorage.setItem(RATING_SCALE_STORAGE_KEY, String(normalizeRatingScale(scale))); } catch (_) {}
+}
+
+function loadMinimalistModeSetting() {
+  try { return localStorage.getItem(MINIMALIST_MODE_STORAGE_KEY) === 'true'; }
+  catch (_) { return false; }
+}
+
+function cacheMinimalistModeSetting(enabled) {
+  minimalistMode = Boolean(enabled);
+  try { localStorage.setItem(MINIMALIST_MODE_STORAGE_KEY, String(minimalistMode)); } catch (_) {}
+}
+
+function saveMinimalistModeSetting(enabled) {
+  cacheMinimalistModeSetting(enabled);
+  buildNav();
+  const currentTab = String(window.location.hash || '').replace(/^#/, '').split(/[/?]/)[0];
+  if (minimalistMode && ['social','club-hub','clubs','stats','picker'].includes(currentTab)) switchTab('books');
+  else {
+    const activeButton = document.getElementById(`nav-${currentTab}`);
+    activeButton?.classList.add('active');
+    if (activeButton && !activeButton.classList.contains('nav-mobile-primary')) document.getElementById('nav-more')?.classList.add('active');
+  }
+  setAccountStatus(minimalistMode ? 'Minimalist Mode is on for this device.' : 'Minimalist Mode is off for this device.');
 }
 
 async function loadUserSettings() {
@@ -6487,6 +6535,11 @@ function renderRatingScaleSetting() {
   if (select) select.value = String(userRatingScale);
 }
 
+function renderMinimalistModeSetting() {
+  const toggle = document.getElementById('account-minimalist-mode');
+  if (toggle) toggle.checked = minimalistMode;
+}
+
 function refreshRatingScaledViews() {
   buildHeaderStats();
   buildLogDetail();
@@ -6592,6 +6645,7 @@ function openAccountPanel() {
   document.getElementById('account-panel')?.classList.add('open');
   updateSiteVersionUI();
   renderRatingScaleSetting();
+  renderMinimalistModeSetting();
   renderGenreColorSettings();
   renderSocialProfileSettings();
   setAccountStatus('');
@@ -6666,6 +6720,7 @@ function updateAccountUI() {
   if (emailInput) emailInput.value = supabaseSession?.user?.email || '';
   updateSiteTitle();
   renderRatingScaleSetting();
+  renderMinimalistModeSetting();
   renderGenreColorSettings();
   renderSocialProfileSettings();
   if (signedIn) {
@@ -8120,8 +8175,11 @@ async function refreshSocialData(button=null) {
     button.disabled=true;
     button.textContent='Refreshing…';
   }
-  await loadSocialData();
-  buildSocialPage();
+  try {
+    await loadSocialData();
+  } finally {
+    buildSocialPage();
+  }
 }
 
 function selectSocialSection(section) {
@@ -8321,7 +8379,7 @@ function socialWelcomeHTML() {
   const readingDetail=currentBooks.length === 1 ? displayBookContributor(currentBooks[0]) : currentBooks.length ? 'Open your active reading list' : 'Your current books will appear here';
   return `<section class="social-welcome">
     <div class="social-welcome-copy">
-      <div class="social-welcome-top"><div><div class="social-welcome-kicker">Your Reading Circle</div><h2>${socialGreeting()}, ${esc(firstName)}</h2></div><button class="account-secondary" type="button" onclick="refreshSocialData(this)">↻ Refresh</button></div>
+      <div class="social-welcome-top"><div><div class="social-welcome-kicker">Your Reading Circle</div><h2>${socialGreeting()}, ${esc(firstName)}</h2></div><button class="account-secondary" type="button" onclick="refreshSocialData(this)" aria-label="Refresh Social">↻ Refresh Social</button></div>
       <p>Catch up with fellow readers, share what is on your mind, and find your next great conversation.</p>
       <div class="social-welcome-stats">
         <button class="social-welcome-stat" type="button" onclick="${readingAction}"><strong>${currentBooks.length}</strong><span>Reading now</span></button>
@@ -9034,12 +9092,14 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log-detail','Reading Log'],['stats','Statistic Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
+    ['log-detail','Reading Log'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
     ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
   const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
   const nativeLabels = {'log-detail':'Log', stats:'Stats', books:'Library', social:'Social'};
-  document.getElementById('mainNav').innerHTML = tabs.map(([id,label]) =>
+  const hiddenInMinimalistMode = new Set(['stats','social','club-hub','picker']);
+  const visibleTabs = minimalistMode ? tabs.filter(([id]) => !hiddenInMinimalistMode.has(id)) : tabs;
+  document.getElementById('mainNav').innerHTML = visibleTabs.map(([id,label]) =>
     `<button onclick="switchTab('${id}')" id="nav-${id}" class="${mobilePrimary.has(id) ? 'nav-mobile-primary' : 'nav-mobile-secondary'}" type="button" aria-label="${esc(label)}"><span class="nav-label-full">${esc(label)}</span><span class="nav-label-native">${esc(nativeLabels[id] || label)}</span></button>`
   ).join('') + `<button onclick="openMobileNavigationMenu()" id="nav-more" class="nav-mobile-more" type="button"><span class="nav-label-full">More</span><span class="nav-label-native">More</span></button>`;
 }
@@ -9047,7 +9107,7 @@ function buildNav() {
 function openMobileNavigationMenu() {
   const tabs = [
     ['search', 'Online Lookup'], ['series', 'Series'], ['club-hub', 'Club Hub'], ['picker', 'Picker']
-  ];
+  ].filter(([id]) => !(minimalistMode && ['club-hub','picker'].includes(id)));
   showAppDialog('More', 'More places in your reading tracker.', tabs.map(([id, label]) =>
     `<button class="account-secondary" type="button" onclick="closeAppDialog();switchTab(${jsArg(id)})">${esc(label)}</button>`
   ).join(''));
@@ -9060,6 +9120,7 @@ function pageContentTop(panel) {
 }
 
 function showTab(id, scrollMode='preserve') {
+  if (minimalistMode && ['stats','social','club-hub','picker','clubs'].includes(id)) id='books';
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('tab-'+id);
@@ -9185,8 +9246,10 @@ function applyHashRoute() {
   }
   const validTabs = ['log-detail','stats','social','search','books','series','clubs','club-hub','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
+  const hiddenInMinimalistMode = minimalistMode && ['stats','social','clubs','club-hub','picker'].includes(normalizedRequested);
+  if (hiddenInMinimalistMode) history.replaceState(appHistoryState(), '', '#books');
   showTab(
-    validTabs.includes(normalizedRequested) ? normalizedRequested : 'social',
+    hiddenInMinimalistMode ? 'books' : (validTabs.includes(normalizedRequested) ? normalizedRequested : 'social'),
     Number.isFinite(savedScroll) ? savedScroll : 'content'
   );
 }
