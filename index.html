@@ -7768,7 +7768,7 @@ async function importLibraryCSV(file) {
         binding: book.format,
         page_count: null,
         language: DEFAULT_BOOK_LANGUAGE,
-        publication_date: book.publication_year ? `${book.publication_year}-01-01` : '',
+        publication_date: '',
         cover_url: book.cover_url
       });
       return {
@@ -7777,7 +7777,7 @@ async function importLibraryCSV(file) {
         series_id: seriesIds.get(normalizedKey(book.series)) || null,
         title: book.title,
         series_position: book.series_position,
-        publication_year: book.publication_year || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
+        publication_year: book.publication_year || null,
         genre: normalizeBookGenre(book.genre) || null,
         work_type: book.work_type || null,
         status: book.status,
@@ -7927,7 +7927,7 @@ async function importCurrentLibrary() {
         binding: b.format,
         page_count: b.page_count,
         language: normalizeBookLanguage(b.language),
-        publication_date: b.publication_date || (b.year_pub ? `${b.year_pub}-01-01` : ''),
+        publication_date: b.publication_date || '',
         cover_url: b.cover_url
       }, b.edition || {});
       return {
@@ -7936,7 +7936,7 @@ async function importCurrentLibrary() {
         series_id: seriesIds.get(normalizedKey(b.series)) || null,
         title: b.title,
         series_position: b.series_position || null,
-        publication_year: b.year_pub || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
+        publication_year: b.year_pub || null,
         genre: normalizeBookGenre(b.genre) || null,
         status: DATA.wishlist.includes(b) ? 'Wishlist'
           : DATA.tbr.includes(b) ? 'TBR'
@@ -11118,7 +11118,7 @@ function databaseBookToLocal(book) {
   const series = databaseRelationName(book.series);
   const edition = selectedEditionFromDatabase(book);
   const editions = uniqueBookEditions(book.editions, book.selected_edition_id || edition?.id || '');
-  const publicationDate = book.publication_date || edition?.publication_date || '';
+  const publicationDate = edition?.publication_date || book.publication_date || '';
   const sessions = Array.isArray(book.reading_sessions) ? book.reading_sessions : [];
   const session = [...sessions].sort((a, b) =>
     String(b.finished_on || b.started_on || '').localeCompare(String(a.finished_on || a.started_on || ''))
@@ -11144,9 +11144,7 @@ function databaseBookToLocal(book) {
     series_id: book.series_id || null,
     book_club_id: book.book_club_id || null,
     series_position: book.series_position ?? null,
-    year_pub: publicationDate
-      ? Number(String(publicationDate).slice(0, 4))
-      : (book.publication_year || null),
+    year_pub: book.publication_year || null,
     genre: normalizeBookGenre(book.genre),
     isbn: book.isbn || edition?.isbn_13 || edition?.isbn_10 || '',
     isbn_10: cleanISBN(book.isbn).length === 10 ? cleanISBN(book.isbn) : (edition?.isbn_10 || ''),
@@ -12103,7 +12101,7 @@ function openAddBookDialog(defaultStatus='TBR') {
           onclick="document.getElementById('add-book-cover-url')?.focus()">
           <span>Add a cover-image link below</span>
         </button>
-        <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox"> Owned</label>
+        <label class="add-book-check add-book-owned-check"><input id="add-book-owned" type="checkbox" ${defaultStatus==='TBR'?'checked':''} onchange="this.dataset.userChanged='true'"> Owned</label>
       </div>
       <div class="add-book-field full add-book-top-field"><label for="add-book-title">Title</label><input id="add-book-title" type="text"></div>
       <div class="add-book-field full add-book-top-field"><label for="add-book-author">Author</label><input id="add-book-author" type="text"></div>
@@ -12120,7 +12118,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field add-book-isbn-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
         <div class="add-book-field add-book-type-field"><label for="add-book-type">Type</label><select id="add-book-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML('Novel')}</select></div>
         <div class="add-book-field add-book-status-field"><label for="add-book-status">Status</label>
-          <select id="add-book-status" onchange="updatePausedPageControls()">
+          <select id="add-book-status" onchange="updatePausedPageControls();updateAddBookOwnedDefault()">
             <option value="TBR" ${defaultStatus==='TBR'?'selected':''}>TBR</option>
             <option value="Wishlist" ${defaultStatus==='Wishlist'?'selected':''}>Wishlist</option>
             <option value="Currently Reading" ${defaultStatus==='Currently Reading'?'selected':''}>Currently Reading</option>
@@ -12141,7 +12139,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field add-book-publisher-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       </div>
       <div class="add-book-publication-row editor-optional">
-        <div class="add-book-field"><label for="add-book-year">Publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
+        <div class="add-book-field"><label for="add-book-year">First publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
         <div class="add-book-field"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
         <div class="add-book-field add-book-year-read-field"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
       </div>
@@ -12160,10 +12158,19 @@ function openAddBookDialog(defaultStatus='TBR') {
     </div>
   `;
   openModal(null, 'add-book', true, '<button class="account-primary" id="add-book-save" type="button" onclick="saveAddedBook()">Save Book</button>');
+  const ownedInput = document.getElementById('add-book-owned');
+  if (ownedInput) ownedInput.dataset.userChanged = 'false';
   applyBookEditorViewMode();
   updateShortStoryFullBookControls();
   updatePausedPageControls();
   setAddBookMode('search');
+}
+
+function updateAddBookOwnedDefault() {
+  const ownedInput = document.getElementById('add-book-owned');
+  if (ownedInput && ownedInput.dataset.userChanged !== 'true') {
+    ownedInput.checked = document.getElementById('add-book-status')?.value === 'TBR';
+  }
 }
 
 function setAddBookMode(mode) {
@@ -12213,6 +12220,7 @@ function saveQuickAddedBook() {
   document.getElementById('add-book-title').value = title;
   document.getElementById('add-book-author').value = author;
   document.getElementById('add-book-status').value = status;
+  updateAddBookOwnedDefault();
   const startedInput = document.getElementById('add-book-started');
   const finishedInput = document.getElementById('add-book-finished');
   if (status === 'Currently Reading' && startedInput && !startedInput.value) {
@@ -12465,6 +12473,7 @@ function editionDisplayMeta(edition) {
     edition.binding,
     edition.publisher,
     edition.publication_date,
+    edition.work_publication_year ? `First published ${edition.work_publication_year}` : '',
     edition.page_count ? `${edition.page_count} pages` : '',
     edition.language,
     edition.isbn_13 || edition.isbn_10,
@@ -12475,7 +12484,7 @@ function editionDisplayMeta(edition) {
 function searchResultDisplayMeta(edition) {
   return [
     displayContributorName(edition.editors || edition.authors || []),
-    String(edition.publication_date || '').slice(0, 4),
+    edition.work_publication_year || String(edition.publication_date || '').slice(0, 4),
     edition.publisher,
     edition.isbn_13 || edition.isbn_10,
     edition.sources?.join(' + ')
@@ -12559,7 +12568,8 @@ function libraryBookToSearchResult(book) {
     binding: book.format || '',
     page_count: null,
     language: '',
-    publication_date: book.year_pub ? `${Math.floor(Number(book.year_pub))}-01-01` : '',
+    publication_date: book.publication_date || '',
+    work_publication_year: Number(book.year_pub) || null,
     cover_url: book.cover_url || '',
     cover_small_url: book.cover_url || '',
     open_library_edition_id: '',
@@ -12704,7 +12714,9 @@ async function populateAddBookFromEdition(edition) {
   document.getElementById('add-book-title').value = edition.title || '';
   document.getElementById('add-book-author').value = (edition.authors || []).join(', ');
   document.getElementById('add-book-isbn').value = edition.isbn_13 || edition.isbn_10 || '';
-  document.getElementById('add-book-year').value = String(edition.publication_date || '').slice(0, 4);
+  if (edition.work_publication_year) {
+    document.getElementById('add-book-year').value = String(edition.work_publication_year);
+  }
   setSupportedBookFormat('add-book-format', edition.binding);
   document.getElementById('add-book-publisher').value = edition.publisher || '';
   document.getElementById('add-book-publication-date').value = edition.publication_date || '';
@@ -12954,7 +12966,8 @@ async function fetchOpenLibrarySearchEditions(query) {
       binding: '',
       page_count: doc.number_of_pages_median || null,
       language: doc.language?.[0] || '',
-      publication_date: doc.first_publish_year ? `${doc.first_publish_year}-01-01` : '',
+      publication_date: '',
+      work_publication_year: Number(doc.first_publish_year) || null,
       cover_url: openLibraryCoverUrl(doc.cover_i, 'L') || coverMedium,
       cover_small_url: coverMedium,
       open_library_edition_id: editionKey,
@@ -13266,8 +13279,6 @@ function bookPatchFromEditionPayload(edition={}) {
   if (edition.publisher) patch.publisher = edition.publisher;
   if (edition.publication_date) {
     patch.publication_date = edition.publication_date;
-    const year = Number(String(edition.publication_date).slice(0, 4));
-    if (year) patch.publication_year = year;
   }
   if (edition.page_count) patch.page_count = edition.page_count;
   if (edition.language) patch.language = normalizeBookLanguage(edition.language);
@@ -13446,10 +13457,7 @@ async function saveAddedBook(scanNext=false) {
       binding: format,
       page_count: isAudiobookFormat(format) ? null : document.getElementById('add-book-page-count')?.value,
       language: normalizeBookLanguage(document.getElementById('add-book-language')?.value),
-      publication_date: document.getElementById('add-book-publication-date')?.value
-        || (document.getElementById('add-book-year')?.value
-          ? `${document.getElementById('add-book-year').value}-01-01`
-          : ''),
+      publication_date: document.getElementById('add-book-publication-date')?.value,
       cover_url: addBookCoverUrl
     }, selectedAddBookEdition || {});
     const row = {
@@ -13458,8 +13466,7 @@ async function saveAddedBook(scanNext=false) {
       series_id: seriesId,
       title,
       series_position: Number.parseFloat(document.getElementById('add-book-series-position')?.value) || null,
-      publication_year: Number(document.getElementById('add-book-year')?.value)
-        || (editionFields.publication_date ? Number(String(editionFields.publication_date).slice(0, 4)) : null),
+      publication_year: Number(document.getElementById('add-book-year')?.value) || null,
       genre: normalizeBookGenre(document.getElementById('add-book-genre')?.value) || null,
       status,
       paused_page: pausedPage,
@@ -14260,9 +14267,7 @@ function publicationSortYear(book) {
 function publicationYearForBook(book) {
   const candidates = [
     book?.year_pub,
-    book?.publication_year,
-    book?.publication_date,
-    book?.edition?.publication_date
+    book?.publication_year
   ];
   for (const value of candidates) {
     if (value === null || value === undefined || value === '') continue;
@@ -15651,7 +15656,7 @@ function renderBookDetailPage(title, source='', key='') {
     .map(collection => collection.name);
 
   const readDate = monthYearLabelFromKey(monthKeyFromBook(b)) || (b.year_read || '—');
-  const publicationDate = b.publication_date || b.year_pub || '';
+  const publicationDate = b.publication_date || '';
 
   const coverEl = coverImageHTML(b, 'detail-cover', '');
 
@@ -15723,7 +15728,8 @@ function renderBookDetailPage(title, source='', key='') {
             </div>
             <div class="book-card-detail-column">
               ${field('Publisher', b.publisher)}
-              ${field('Publication Date', publicationDate)}
+              ${field('First Publication Year', b.year_pub)}
+              ${field('Edition Publication Date', publicationDate)}
               ${isAudiobookFormat(b.format)
                 ? field('Duration', audiobookDurationLabel(b))
                 : field('Pages', pageCountForBook(b) || '')}
@@ -16088,7 +16094,6 @@ function selectBookEditorEdition(index) {
   setBookEditorValue('book-editor-title', edition.title);
   setBookEditorValue('book-editor-author', edition.authors.join(', '));
   setBookEditorValue('book-editor-isbn', edition.isbn_13 || edition.isbn_10);
-  setBookEditorValue('book-editor-year', String(edition.publication_date || '').slice(0, 4));
   setBookEditorValue('book-editor-format', edition.binding);
   setBookEditorValue('book-editor-publisher', edition.publisher);
   setBookEditorValue('book-editor-publication-date', edition.publication_date);
@@ -16163,7 +16168,7 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field" id="book-editor-paused-page-wrap" style="display:none"><label for="book-editor-paused-page">Paused at</label><input id="book-editor-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
         <div class="book-editor-field" id="book-editor-paused-on-wrap" style="display:none"><label for="book-editor-paused-on">Paused On</label><input id="book-editor-paused-on" type="date" value="${esc(book.paused_on || '')}" onchange="updatePausedPageControls()"></div>
         <div class="book-editor-field" id="book-editor-resumed-on-wrap" style="display:none"><label for="book-editor-resumed-on">Resumed On</label><input id="book-editor-resumed-on" type="date" value="${esc(book.resumed_on || '')}" onchange="updatePausedPageControls()"></div>
-        <div class="book-editor-field editor-optional"><label for="book-editor-year">Pub Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-year">First Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" placeholder="YYYY" title="Summary year" value="${esc(readYearForBook(book) || '')}"><small class="book-editor-hint">Summary year</small></div>
