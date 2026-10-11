@@ -12139,7 +12139,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field add-book-publisher-field editor-optional"><label for="add-book-publisher">Publisher</label><input id="add-book-publisher" type="text"></div>
       </div>
       <div class="add-book-publication-row editor-optional">
-        <div class="add-book-field"><label for="add-book-year">First publication year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
+        <div class="add-book-field"><label for="add-book-year">Publication Year</label><input id="add-book-year" type="number" min="1000" max="9999"></div>
         <div class="add-book-field"><label for="add-book-publication-date">Edition publication date</label><input id="add-book-publication-date" type="date"></div>
         <div class="add-book-field add-book-year-read-field"><label for="add-book-year-read">Year read</label><input id="add-book-year-read" type="number" min="1000" max="9999"></div>
       </div>
@@ -16168,7 +16168,7 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field" id="book-editor-paused-page-wrap" style="display:none"><label for="book-editor-paused-page">Paused at</label><input id="book-editor-paused-page" type="number" min="1" step="1" value="${esc(book.paused_page || '')}"></div>
         <div class="book-editor-field" id="book-editor-paused-on-wrap" style="display:none"><label for="book-editor-paused-on">Paused On</label><input id="book-editor-paused-on" type="date" value="${esc(book.paused_on || '')}" onchange="updatePausedPageControls()"></div>
         <div class="book-editor-field" id="book-editor-resumed-on-wrap" style="display:none"><label for="book-editor-resumed-on">Resumed On</label><input id="book-editor-resumed-on" type="date" value="${esc(book.resumed_on || '')}" onchange="updatePausedPageControls()"></div>
-        <div class="book-editor-field editor-optional"><label for="book-editor-year">First Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
+        <div class="book-editor-field editor-optional"><label for="book-editor-year">Publication Year</label><input id="book-editor-year" type="number" min="1000" max="9999" value="${esc(book.year_pub || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-start">Started</label><input id="book-editor-start" type="date" value="${esc(book.start || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field"><label for="book-editor-finished">Finished</label><input id="book-editor-finished" type="date" value="${esc(book.end || '')}" onchange="syncBookEditorYearReadFromDates()"></div>
         <div class="book-editor-field editor-optional"><label for="book-editor-year-read">Year Read</label><input id="book-editor-year-read" type="number" min="1000" max="9999" placeholder="YYYY" title="Summary year" value="${esc(readYearForBook(book) || '')}"><small class="book-editor-hint">Summary year</small></div>
