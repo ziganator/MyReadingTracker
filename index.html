@@ -1456,6 +1456,15 @@
   .reading-goals-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
   .reading-goals-intro p { max-width:680px; color:var(--muted); margin:0.25rem 0 0; line-height:1.5; }
   .reading-goals-actions { display:flex; flex-wrap:wrap; gap:0.65rem; }
+  .reading-goals-actions button { min-height:42px; padding:.62rem 1rem; border-radius:11px; font-weight:700; letter-spacing:.01em; box-shadow:0 5px 14px rgba(23,45,95,.1); }
+  .reading-goals-actions .account-primary { background:var(--deep); border-color:var(--deep) !important; color:#fff; }
+  .reading-goals-actions .account-primary:hover { background:#274b9c; border-color:#274b9c !important; }
+  .reading-goals-actions .account-secondary { background:rgba(255,255,255,.9); border-color:rgba(65,105,225,.28) !important; color:var(--deep); }
+  .reading-goals-actions .account-secondary:hover { background:#f1f4ff; border-color:rgba(65,105,225,.48) !important; }
+  .reading-log-header-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:.55rem; margin-left:auto; }
+  .reading-log-section-head { flex-wrap:wrap; }
+  .reading-log-goals-link { display:inline-flex; align-items:center; gap:.45rem; min-height:38px; padding:.42rem .75rem; border-radius:10px; font-family:inherit; font-weight:700; white-space:nowrap; }
+  .reading-log-goals-link span { color:var(--burnt); font-size:1.1em; line-height:1; }
   .reading-goals-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:0.9rem; }
   .reading-goal-card { min-width:0; padding:1rem; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); box-shadow:0 8px 22px rgba(23,45,95,0.07); }
   .reading-goal-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.7rem; }
@@ -1482,6 +1491,7 @@
   .reading-goal-dialog-fields label:first-child { grid-column:1/-1; }
   .reading-goal-dialog-fields input,.reading-goal-dialog-fields select { width:100%; min-width:0; }
   @media(max-width:520px) { .reading-goal-dialog-fields { grid-template-columns:1fr; } .reading-goal-dialog-fields label:first-child { grid-column:auto; } }
+  @media(max-width:520px) { .reading-log-header-actions { width:100%; justify-content:space-between; margin-left:0; } .reading-log-header-actions select { flex:1; min-width:0; } }
   .library-list-title { color: var(--deep); font-weight: 700; }
   .library-list-author, .library-list-detail { color: var(--muted); font-size: 0.86rem; }
   .library-list-pages,
@@ -9125,11 +9135,11 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log-detail','Reading Log'],['goals','Reading Goals'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
+    ['log-detail','Reading Log'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
     ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
-  const mobilePrimary = new Set(['books', 'log-detail', 'goals', 'social', 'stats']);
-  const nativeLabels = {'log-detail':'Log', goals:'Goals', stats:'Stats', books:'Library', social:'Social'};
+  const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
+  const nativeLabels = {'log-detail':'Log', stats:'Stats', books:'Library', social:'Social'};
   const hiddenInMinimalistMode = new Set(['stats','social','club-hub','picker']);
   const visibleTabs = minimalistMode ? tabs.filter(([id]) => !hiddenInMinimalistMode.has(id)) : tabs;
   document.getElementById('mainNav').innerHTML = visibleTabs.map(([id,label]) =>
@@ -9165,7 +9175,7 @@ function showTab(id, scrollMode='preserve') {
   if (id === 'social') buildSocialPage();
   if (id === 'goals') loadAndBuildReadingGoals();
   panel.classList.add('active');
-  const activeButton = document.getElementById('nav-'+id);
+  const activeButton = document.getElementById('nav-'+(id === 'goals' ? 'log-detail' : id));
   activeButton?.classList.add('active');
   const moreButton = document.getElementById('nav-more');
   if (moreButton && !activeButton?.classList.contains('nav-mobile-primary')) moreButton.classList.add('active');
@@ -10933,12 +10943,15 @@ function buildLogDetail() {
     ? readingLogYear
     : 'all';
   panel.innerHTML = `
-    <div class="section-head">
+    <div class="section-head reading-log-section-head">
       <h2>Reading Log</h2>
-      <select id="reading-log-year-select" onchange="showYear(this.value)" aria-label="Reading year" style="border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--deep);font:700 0.95rem 'Crimson Pro',serif;padding:0.35rem 0.55rem">
-        <option value="all" ${selectedYear === 'all' ? 'selected' : ''}>All Years</option>
-        ${years.map(year => `<option value="${year}" ${Number(selectedYear) === year ? 'selected' : ''}>${year}</option>`).join('')}
-      </select>
+      <div class="reading-log-header-actions">
+        <button type="button" class="account-secondary reading-log-goals-link" onclick="switchTab('goals')">Reading Goals <span aria-hidden="true">→</span></button>
+        <select id="reading-log-year-select" onchange="showYear(this.value)" aria-label="Reading year" style="border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--deep);font:700 0.95rem 'Crimson Pro',serif;padding:0.35rem 0.55rem">
+          <option value="all" ${selectedYear === 'all' ? 'selected' : ''}>All Years</option>
+          ${years.map(year => `<option value="${year}" ${Number(selectedYear) === year ? 'selected' : ''}>${year}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div id="log-content"></div>
   `;
