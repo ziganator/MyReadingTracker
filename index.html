@@ -1473,6 +1473,10 @@
   .reading-goal-suggestion .account-primary { min-height:40px; padding:.55rem .85rem; border-radius:10px; font-weight:700; }
   .reading-goal-suggestion .account-primary:disabled { opacity:.65; cursor:default; box-shadow:none; }
   .reading-goal-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.7rem; }
+  .reading-goal-card-actions { display:flex; align-items:center; gap:.45rem; flex:0 0 auto; }
+  .reading-goal-card-badge-button { display:flex; flex-direction:column; align-items:center; gap:.05rem; min-width:70px; padding:.2rem .3rem; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--muted); font:inherit; cursor:pointer; }
+  .reading-goal-card-badge-button:hover,.reading-goal-card-badge-button:focus-visible { border-color:var(--border); background:var(--card-bg); color:var(--deep); }
+  .reading-goal-card-badge-button small { font-size:.68rem; line-height:1.25; white-space:nowrap; }
   .reading-goal-card h3 { margin:0; color:var(--deep); font-family:'Playfair Display',serif; font-size:1.08rem; line-height:1.3; overflow-wrap:anywhere; }
   .reading-goal-meta { margin-top:0.22rem; color:var(--muted); font-size:0.78rem; }
   .reading-goal-count { margin-top:1rem; display:flex; align-items:baseline; gap:0.3rem; color:var(--deep); }
@@ -1494,6 +1498,13 @@
   .reading-goal-history-list strong { color:var(--deep); }
   .reading-goal-history-list small { color:var(--muted); text-align:right; }
   .reading-goal-history-intro { margin:.2rem 0 .75rem; color:var(--muted); line-height:1.45; }
+  .reading-goal-winning-period + .reading-goal-winning-period { margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--border); }
+  .reading-goal-winning-period h3 { margin:0 0 .55rem; color:var(--deep); font-family:'Playfair Display',serif; font-size:1rem; }
+  .reading-goal-books-list { display:grid; gap:.45rem; margin:0; padding:0; list-style:none; }
+  .reading-goal-books-list li { display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; padding:.65rem .75rem; border:1px solid rgba(65,105,225,.12); border-radius:9px; background:rgba(255,255,255,.72); }
+  .reading-goal-book-title { color:var(--deep); font-weight:700; }
+  .reading-goal-book-byline,.reading-goal-book-contribution { display:block; margin-top:.12rem; color:var(--muted); font-size:.8rem; }
+  .reading-goal-book-contribution { flex:0 0 auto; text-align:right; }
   .reading-goal-delete { flex:0 0 auto; padding:.4rem .55rem; color:var(--muted); }
   .reading-goal-badges { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); gap:.75rem; }
   .reading-goal-earned { display:flex; align-items:center; gap:.75rem; padding:.8rem; border:1px solid rgba(196,135,29,.3); border-radius:10px; background:linear-gradient(135deg,#fffaf0,#fff); }
@@ -10426,7 +10437,7 @@ function readingGoalMetricUnit(metric, value=2) {
 
 const READING_GOAL_BADGE_DESIGNS = {
   classic:{column:0,row:0,name:'Story Star'},
-  book:{column:3,row:2,name:'Book Stack'},
+  book:{column:3,row:2,name:'Year of Stories'},
   moon:{column:1,row:0,name:'Moonlit Reader'},
   spark:{column:2,row:0,name:'Quill of Inspiration'},
   bolt:{column:3,row:0,name:'Quick Chapter'},
@@ -10472,7 +10483,7 @@ function renderReadingGoalSuggestion(suggestion, canAdd) {
   const alreadyAdded = readingChallenges.some(challenge => challenge.name === suggestion.name &&
     (suggestion.cadence !== 'annual' || Number(challenge.year) === year));
   const metric = readingGoalMetricUnit(suggestion.metric,suggestion.target);
-  const badgeStyle = chooseReadingGoalBadgeStyle(suggestion.badge_style);
+  const badgeStyle = chooseReadingGoalBadgeStyle(suggestion.metric === 'books' && suggestion.cadence === 'annual' ? 'book' : suggestion.badge_style);
   const button = canAdd
     ? `<button class="account-primary" type="button" ${alreadyAdded ? 'disabled' : ''} onclick="addSuggestedReadingChallenge(${jsArg(suggestion.id)},this)">${alreadyAdded ? 'Added This Year' : 'Add Challenge'}</button>`
     : '';
@@ -10485,15 +10496,13 @@ function renderReadingGoalCard(challenge) {
   const percent = Math.min(100, Math.round(progress.value / progress.target * 100));
   const wins = readingChallengeWins.filter(win => String(win.challenge_id) === String(challenge.id)).length;
   const cadence = readingGoalCadence(challenge);
-  const badge = wins
-    ? `<span class="reading-goal-badge">${wins} Badge Win${wins === 1 ? '' : 's'}</span>`
-    : '';
+  const badge = `<button type="button" class="reading-goal-card-badge-button" onclick="openReadingGoalChallengeBooks(${jsArg(challenge.id)})" aria-label="View books for ${esc(challenge.name)}"><span>${readingGoalBadgeIconHTML(challenge)}</span><small>${wins} Win${wins === 1 ? '' : 's'} · View Books</small></button>`;
   const remove = guestMode ? '' : `<button type="button" class="editor-button reading-goal-delete" aria-label="Delete ${esc(challenge.name)}" title="Delete Challenge" onclick="deleteReadingChallenge(${jsArg(challenge.id)})">Delete</button>`;
   return `<article class="reading-goal-card">
-    <div class="reading-goal-card-head"><div style="flex:1;min-width:0"><h3>${esc(challenge.name)}</h3><div class="reading-goal-meta">${esc(readingGoalMetricLabel(challenge.metric))} · ${esc(readingGoalCadenceLabel(cadence))}${cadence === 'annual' ? ` · ${Number(challenge.year)}` : ''}</div></div>${remove}</div>
+    <div class="reading-goal-card-head"><div style="flex:1;min-width:0"><h3>${esc(challenge.name)}</h3><div class="reading-goal-meta">${esc(readingGoalMetricLabel(challenge.metric))} · ${esc(readingGoalCadenceLabel(cadence))}${cadence === 'annual' ? ` · ${Number(challenge.year)}` : ''}</div></div><div class="reading-goal-card-actions">${badge}${remove}</div></div>
     <div class="reading-goal-count"><strong>${progress.value.toLocaleString()}</strong><span>of ${progress.target.toLocaleString()} ${progress.unit}</span></div>
     <div class="reading-goal-track" role="progressbar" aria-label="${esc(challenge.name)} progress" aria-valuenow="${Math.min(progress.value,progress.target)}" aria-valuemin="0" aria-valuemax="${progress.target}"><div class="reading-goal-fill" style="width:${percent}%"></div></div>
-    <div class="reading-goal-footer"><span>${esc(progress.period)} · ${percent}% complete</span>${badge}</div>
+    <div class="reading-goal-footer"><span>${esc(progress.period)} · ${percent}% complete</span></div>
   </article>`;
 }
 
@@ -10512,6 +10521,62 @@ function readingGoalWinPeriodLabel(challenge, win) {
   if (cadence === 'monthly') return startDate.toLocaleDateString(undefined,{month:'long',year:'numeric'});
   const endDate = end ? new Date(`${end}T12:00:00`) : null;
   return `Week of ${startDate.toLocaleDateString(undefined,{month:'short',day:'numeric'})}–${endDate && !Number.isNaN(endDate.getTime()) ? endDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : ''}`;
+}
+
+function readingGoalEntriesForWin(challenge, win) {
+  const cadence = win.cadence || readingGoalCadence(challenge);
+  if (cadence === 'annual') {
+    const winningYear = Number(String(safeDate(win.period_start) || '').slice(0,4)) || Number(challenge.year);
+    return completedReadingEntriesForYear(winningYear);
+  }
+  const periodStart = safeDate(win.period_start) || '';
+  return allCompletedReadingEntries().filter(entry => {
+    const date = readingGoalEventDate(entry,cadence);
+    return date && date >= readingGoalChallengeStart(challenge) && readingGoalPeriodForDate(date,cadence)?.key === periodStart;
+  });
+}
+
+function readingGoalBooksListHTML(challenge, entries) {
+  if (!entries.length) return '<div class="reading-goals-empty">No completed books were found for this period.</div>';
+  const rows = entries.map(entry => {
+    const date = readingGoalEventDate(entry,readingGoalCadence(challenge));
+    const byline = entry.author || entry.author_full || entry.author_short || 'Author not listed';
+    const pages = Number(pageCountForBook(entry)) || 0;
+    const contribution = challenge.metric === 'pages' && pages ? `${pages.toLocaleString()} ${readingGoalMetricUnit('pages',pages)}` : '';
+    const finished = date ? new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '';
+    return `<li><span><span class="reading-goal-book-title">${esc(entry.title || 'Untitled')}</span><small class="reading-goal-book-byline">${esc(byline)}${finished ? ` · Finished ${esc(finished)}` : ''}</small></span>${contribution ? `<small class="reading-goal-book-contribution">${contribution}</small>` : ''}</li>`;
+  }).join('');
+  return `<ul class="reading-goal-books-list">${rows}</ul>`;
+}
+
+function openReadingGoalChallengeBooks(challengeId) {
+  const challenge = readingChallenges.find(item => String(item.id) === String(challengeId));
+  if (!challenge) return;
+  const cadence = readingGoalCadence(challenge);
+  const wins = readingChallengeWins
+    .filter(win => String(win.challenge_id) === String(challenge.id))
+    .sort((a,b) => String(a.period_start || '').localeCompare(String(b.period_start || '')));
+  let sections = '';
+  let intro = '';
+  if (wins.length) {
+    intro = 'These completed books counted toward each earned badge.';
+    sections = wins.map(win => {
+      const books = readingGoalEntriesForWin(challenge,win);
+      return `<section class="reading-goal-winning-period"><h3>${esc(readingGoalWinPeriodLabel(challenge,win))} · ${books.length} Book${books.length === 1 ? '' : 's'}</h3>${readingGoalBooksListHTML(challenge,books)}</section>`;
+    }).join('');
+  } else {
+    const currentPeriod = readingGoalCurrentPeriod(challenge);
+    const entries = cadence === 'annual'
+      ? completedReadingEntriesForYear(challenge.year)
+      : allCompletedReadingEntries().filter(entry => {
+        const date = readingGoalEventDate(entry,cadence);
+        return date && date >= readingGoalChallengeStart(challenge) && readingGoalPeriodForDate(date,cadence)?.key === currentPeriod.key;
+      });
+    intro = `No badge has been earned yet. These books currently count toward the ${esc(currentPeriod.label)} target.`;
+    sections = `<section class="reading-goal-winning-period"><h3>${esc(currentPeriod.label)} · ${entries.length} Book${entries.length === 1 ? '' : 's'}</h3>${readingGoalBooksListHTML(challenge,entries)}</section>`;
+  }
+  showReadingGoalDialog(`${readingGoalBadgeDesign(challenge).name} · ${challenge.name}`,`${wins.length} badge win${wins.length === 1 ? '' : 's'} · ${readingGoalCadenceLabel(cadence)} challenge`, '<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
+  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">${intro}</div>${sections}`;
 }
 
 function openReadingGoalBadgeHistory(challengeId) {
@@ -10614,7 +10679,7 @@ async function addSuggestedReadingChallenge(id, button=null) {
   try {
     await supabaseTableRequest('reading_challenges', {
       method:'POST', query:'',
-      body:{name:suggestion.name, metric:suggestion.metric, target_value:suggestion.target, year:new Date().getFullYear(), cadence:suggestion.cadence, badge_style:chooseReadingGoalBadgeStyle(suggestion.badge_style), challenge_type:suggestion.metric === 'books' && suggestion.cadence === 'annual' ? 'annual_books' : 'custom'},
+      body:{name:suggestion.name, metric:suggestion.metric, target_value:suggestion.target, year:new Date().getFullYear(), cadence:suggestion.cadence, badge_style:chooseReadingGoalBadgeStyle(suggestion.metric === 'books' && suggestion.cadence === 'annual' ? 'book' : suggestion.badge_style), challenge_type:suggestion.metric === 'books' && suggestion.cadence === 'annual' ? 'annual_books' : 'custom'},
       prefer:'return=minimal'
     });
     await loadAndBuildReadingGoals();
@@ -10668,7 +10733,7 @@ async function saveReadingChallenge(type='custom') {
   try {
     await supabaseTableRequest('reading_challenges', {
       method:'POST', query:'',
-      body:{name, metric, target_value:target, year, cadence, badge_style:chooseReadingGoalBadgeStyle(), challenge_type:type},
+      body:{name, metric, target_value:target, year, cadence, badge_style:chooseReadingGoalBadgeStyle(type === 'annual_books' ? 'book' : ''), challenge_type:type},
       prefer:'return=minimal'
     });
     closeAppDialog();
