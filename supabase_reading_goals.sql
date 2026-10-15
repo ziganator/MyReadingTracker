@@ -9,6 +9,8 @@ create table if not exists public.reading_challenges (
   metric text not null default 'books',
   target_value integer not null,
   year integer not null,
+  cadence text not null default 'annual',
+  badge_style text not null default 'classic',
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -67,4 +69,4 @@ for each row execute function public.touch_reading_challenges_updated_at();
 grant select, insert, update, delete on public.reading_challenges to authenticated;
 
 comment on table public.reading_challenges is
-  'User-owned annual reading challenges. completed_at records when the associated achievement badge was earned.';
+  'User-owned reading challenge definitions. Badge award history is stored in reading_challenge_wins.';
