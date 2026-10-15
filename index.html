@@ -395,7 +395,7 @@
     font-size: 1.25rem;
     margin-bottom: 0.45rem;
   }
-  .app-dialog-box p {
+  .app-dialog-box #app-dialog-message {
     color: var(--ink);
     line-height: 1.45;
     white-space: pre-line;
@@ -1490,6 +1490,23 @@
   .reading-goal-dialog-fields label { display:grid; gap:.35rem; color:var(--deep); font-size:.82rem; font-weight:700; }
   .reading-goal-dialog-fields label:first-child { grid-column:1/-1; }
   .reading-goal-dialog-fields input,.reading-goal-dialog-fields select { width:100%; min-width:0; }
+  .app-dialog-box.reading-goal-dialog { width:min(540px,100%); max-height:calc(100vh - 2rem); overflow-y:auto; padding:clamp(1rem,4vw,1.5rem); border:1px solid rgba(65,105,225,.2); border-radius:20px; background:linear-gradient(145deg,#fff,#f5f7ff); box-shadow:0 24px 70px rgba(23,45,95,.25); }
+  .reading-goal-dialog h3 { margin:0 0 .45rem; color:var(--deep); font-family:'Fraunces',Georgia,serif; font-size:1.4rem; letter-spacing:-.02em; }
+  .reading-goal-dialog #app-dialog-message { margin:.25rem 0 1rem; color:var(--muted); line-height:1.5; }
+  .reading-goal-dialog .reading-goal-dialog-fields { gap:.9rem; }
+  .reading-goal-dialog .reading-goal-dialog-fields label { gap:.4rem; color:var(--deep); font-size:.8rem; font-weight:750; }
+  .reading-goal-dialog .reading-goal-dialog-fields input:not([type="hidden"]),
+  .reading-goal-dialog .reading-goal-dialog-fields select,
+  .reading-goal-dialog .reading-goal-dialog-fields label > span { min-height:44px; padding:.65rem .75rem; border:1px solid rgba(65,105,225,.22); border-radius:10px; background:#fff; color:var(--deep); font:inherit; font-size:.95rem; font-weight:500; }
+  .reading-goal-dialog .reading-goal-dialog-fields label > span { display:flex; align-items:center; background:#f2f5ff; }
+  .reading-goal-dialog .reading-goal-dialog-fields input:focus,
+  .reading-goal-dialog .reading-goal-dialog-fields select:focus { outline:3px solid rgba(65,105,225,.18); outline-offset:1px; border-color:#4169e1; }
+  .reading-goal-dialog .account-actions { justify-content:flex-end; gap:.6rem; margin-top:1.1rem; }
+  .reading-goal-dialog .account-actions button { min-height:42px; padding:.62rem 1rem; border-radius:11px; font-weight:700; box-shadow:0 5px 14px rgba(23,45,95,.1); }
+  .reading-goal-dialog .account-actions .account-primary { background:linear-gradient(135deg,#25499a,#4169e1); border-color:#4169e1 !important; color:#fff; }
+  .reading-goal-dialog .account-actions .account-secondary { background:#fff; border-color:rgba(65,105,225,.28) !important; color:var(--deep); }
+  .reading-goal-dialog .account-actions .reading-goal-destructive { background:linear-gradient(135deg,#9d3434,#bd4b4b); border-color:#9d3434 !important; }
+  @media(max-width:520px) { .reading-goal-dialog .account-actions { flex-direction:column; } .reading-goal-dialog .account-actions button { width:100%; } }
   @media(max-width:520px) { .reading-goal-dialog-fields { grid-template-columns:1fr; } .reading-goal-dialog-fields label:first-child { grid-column:auto; } }
   @media(max-width:520px) { .reading-log-header-actions { width:100%; justify-content:space-between; margin-left:0; } .reading-log-header-actions select { flex:1; min-width:0; } }
   .library-list-title { color: var(--deep); font-weight: 700; }
@@ -6119,7 +6136,7 @@
 <div class="app-dialog-overlay" id="app-dialog" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
   <div class="app-dialog-box">
     <h3 id="app-dialog-title">Something went wrong</h3>
-    <p id="app-dialog-message"></p>
+  <div id="app-dialog-message"></div>
     <div class="account-actions" id="app-dialog-actions"></div>
   </div>
 </div>
@@ -10375,13 +10392,13 @@ async function loadAndBuildReadingGoals() {
 
 function openReadingGoalCreator(type='custom') {
   if (guestMode || !supabaseSession?.user?.id) {
-    showAppDialog('Sign In Required','Sign in to create a Reading Goal and save its badge to your account.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    showReadingGoalDialog('Sign In Required','Sign in to create a Reading Goal and save its badge to your account.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
     return;
   }
   const annual = type === 'annual_books';
   const year = new Date().getFullYear();
   const defaultName = annual ? `Read 24 Books in ${year}` : 'My Reading Challenge';
-  showAppDialog(annual ? 'New Yearly Book Challenge' : 'Create Custom Challenge','Choose a target and the year you want the challenge to cover.',`
+  showReadingGoalDialog(annual ? 'New Yearly Book Challenge' : 'Create Custom Challenge','Choose a target and the year you want the challenge to cover.',`
     <button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>
     <button class="account-primary" type="button" onclick="saveReadingChallenge(${jsArg(type)})">Create Challenge</button>`);
   document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-dialog-fields">
@@ -10399,7 +10416,7 @@ async function saveReadingChallenge(type='custom') {
   const year = Number(document.getElementById('reading-goal-year')?.value);
   const metric = type === 'annual_books' ? 'books' : (document.getElementById('reading-goal-metric')?.value || 'books');
   if (!name || !Number.isInteger(target) || target < 1 || target > 1000000 || !Number.isInteger(year) || year < 1900 || year > 2200) {
-    showAppDialog('Check Your Challenge','Enter a challenge name, a whole-number target from 1 to 1,000,000, and a year from 1900 to 2200.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    showReadingGoalDialog('Check Your Challenge','Enter a challenge name, a whole-number target from 1 to 1,000,000, and a year from 1900 to 2200.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
     return;
   }
   if (button) { button.disabled = true; button.textContent = 'Saving...'; }
@@ -10416,15 +10433,15 @@ async function saveReadingChallenge(type='custom') {
     const message = /reading_challenges|schema cache|relation|does not exist/i.test(String(error.message || ''))
       ? 'Run supabase_reading_goals.sql once in the Supabase SQL Editor, then try again.'
       : error.message;
-    showAppDialog('Could Not Save Challenge',message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    showReadingGoalDialog('Could Not Save Challenge',message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
   }
 }
 
 function deleteReadingChallenge(id) {
   const challenge = readingChallenges.find(item => String(item.id) === String(id));
   if (!challenge) return;
-  showAppDialog('Delete Challenge?',`Delete “${challenge.name}”? Any badge earned for this challenge will also be removed.`,
-    `<button class="account-primary" type="button" onclick="confirmDeleteReadingChallenge(${jsArg(id)})">Delete Challenge</button><button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>`);
+  showReadingGoalDialog('Delete Challenge?',`Delete “${challenge.name}”? Any badge earned for this challenge will also be removed.`,
+    `<button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button><button class="account-primary reading-goal-destructive" type="button" onclick="confirmDeleteReadingChallenge(${jsArg(id)})">Delete Challenge</button>`);
 }
 
 async function confirmDeleteReadingChallenge(id) {
@@ -10434,7 +10451,7 @@ async function confirmDeleteReadingChallenge(id) {
     closeAppDialog();
     buildReadingGoalsPage();
   } catch (error) {
-    showAppDialog('Could Not Delete Challenge',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    showReadingGoalDialog('Could Not Delete Challenge',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
   }
 }
 
@@ -16164,13 +16181,20 @@ function bookEditorValue(id) {
 
 function closeAppDialog() {
   document.getElementById('app-dialog')?.classList.remove('open');
+  document.querySelector('#app-dialog .app-dialog-box')?.classList.remove('reading-goal-dialog');
 }
 
 function showAppDialog(title, message, actions) {
+  document.querySelector('#app-dialog .app-dialog-box')?.classList.remove('reading-goal-dialog');
   document.getElementById('app-dialog-title').textContent = title;
   document.getElementById('app-dialog-message').textContent = message;
   document.getElementById('app-dialog-actions').innerHTML = actions;
   document.getElementById('app-dialog')?.classList.add('open');
+}
+
+function showReadingGoalDialog(title, message, actions) {
+  showAppDialog(title, message, actions);
+  document.querySelector('#app-dialog .app-dialog-box')?.classList.add('reading-goal-dialog');
 }
 
 function showEditError(message) {
