@@ -1483,8 +1483,8 @@
   .reading-goal-footer { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-top:0.7rem; color:var(--muted); font-size:0.8rem; }
   .reading-goal-badge { display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.55rem; border:1px solid rgba(196,135,29,.35); border-radius:999px; background:#fff7e4; color:#80530a; font-size:0.76rem; font-weight:750; white-space:nowrap; }
   .reading-goal-badge-mark { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:linear-gradient(145deg,#ffe08b,#d99821); color:#573708; box-shadow:inset 0 0 0 2px rgba(255,255,255,.55); }
-  .reading-goal-medallion { display:inline-grid; place-items:center; flex:0 0 auto; width:40px; height:40px; border:1px solid var(--badge-accent,#4169e1); border-radius:50%; background:radial-gradient(circle at 35% 25%,#fff,var(--badge-wash,#e8edff)); color:var(--badge-accent,#24458f); font-size:1.25rem; line-height:1; box-shadow:inset 0 0 0 3px rgba(255,255,255,.65),0 3px 9px rgba(23,45,95,.12); }
-  .reading-goal-medallion.compact { width:21px; height:21px; font-size:.72rem; box-shadow:inset 0 0 0 1px rgba(255,255,255,.7); }
+  .reading-goal-medallion { display:inline-block; flex:0 0 auto; width:58px; height:58px; background-image:url('assets/reading-challenge-badges.png'); background-repeat:no-repeat; background-size:400% 300%; filter:drop-shadow(0 3px 3px rgba(23,45,95,.18)); }
+  .reading-goal-medallion.compact { width:28px; height:28px; }
   .reading-goal-earned-button { width:100%; border:1px solid rgba(65,105,225,.18); font:inherit; text-align:left; cursor:pointer; transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease; }
   .reading-goal-earned-button:hover { transform:translateY(-1px); border-color:rgba(65,105,225,.38); box-shadow:0 10px 25px rgba(23,45,95,.12); }
   .reading-goal-earned-copy { min-width:0; flex:1; }
@@ -1497,7 +1497,7 @@
   .reading-goal-delete { flex:0 0 auto; padding:.4rem .55rem; color:var(--muted); }
   .reading-goal-badges { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); gap:.75rem; }
   .reading-goal-earned { display:flex; align-items:center; gap:.75rem; padding:.8rem; border:1px solid rgba(196,135,29,.3); border-radius:10px; background:linear-gradient(135deg,#fffaf0,#fff); }
-  .reading-goal-earned .reading-goal-badge-mark { width:40px; height:40px; flex:0 0 auto; font-size:1.25rem; }
+  .reading-goal-earned .reading-goal-medallion { width:62px; height:62px; }
   .reading-goal-earned strong { display:block; color:var(--deep); }
   .reading-goal-earned small { color:var(--muted); }
   .reading-goals-empty { padding:1rem; color:var(--muted); border:1px dashed var(--border); border-radius:10px; }
@@ -10358,7 +10358,7 @@ function readingGoalValue(entries, metric) {
 }
 
 function readingGoalChallengeStart(challenge) {
-  return safeDate(challenge.created_at) || `${Number(challenge.year)}-01-01`;
+  return `${Number(challenge.year)}-01-01`;
 }
 
 function readingGoalWonPeriods(challenge) {
@@ -10425,18 +10425,18 @@ function readingGoalMetricUnit(metric, value=2) {
 }
 
 const READING_GOAL_BADGE_DESIGNS = {
-  classic:{symbol:'✦',accent:'#3156a5',wash:'#e5ecff',name:'Story Star'},
-  book:{symbol:'▤',accent:'#24458f',wash:'#e4ecff',name:'Book Stack'},
-  moon:{symbol:'☾',accent:'#7045a6',wash:'#f0e7ff',name:'Moonlit Reader'},
-  spark:{symbol:'✧',accent:'#b25b36',wash:'#fff0e7',name:'Story Spark'},
-  bolt:{symbol:'ϟ',accent:'#24788b',wash:'#e3f6f7',name:'Quick Chapter'},
-  feather:{symbol:'❧',accent:'#42754b',wash:'#e9f5e8',name:'Page Feather'},
-  mountain:{symbol:'▲',accent:'#8b5a32',wash:'#f8edde',name:'Page Summit'},
-  compass:{symbol:'✥',accent:'#3156a5',wash:'#e8f0ff',name:'Reading Compass'},
-  crown:{symbol:'♛',accent:'#a67819',wash:'#fff4d5',name:'Golden Crown'},
-  laurel:{symbol:'❧',accent:'#43754c',wash:'#e9f6eb',name:'Laurel Leaf'},
-  flame:{symbol:'♨',accent:'#b84938',wash:'#ffebe6',name:'Kindled Pages'},
-  wave:{symbol:'≋',accent:'#337e9e',wash:'#e3f5fb',name:'Story Current'}
+  classic:{column:0,row:0,name:'Story Star'},
+  book:{column:3,row:2,name:'Book Stack'},
+  moon:{column:1,row:0,name:'Moonlit Reader'},
+  spark:{column:2,row:0,name:'Quill of Inspiration'},
+  bolt:{column:3,row:0,name:'Quick Chapter'},
+  feather:{column:0,row:1,name:'Page Feather'},
+  mountain:{column:1,row:1,name:'Page Summit'},
+  compass:{column:2,row:1,name:'Reading Compass'},
+  crown:{column:3,row:1,name:'Golden Crown'},
+  laurel:{column:0,row:2,name:'Laurel Leaf'},
+  flame:{column:1,row:2,name:'Kindled Pages'},
+  wave:{column:2,row:2,name:'Story Current'}
 };
 
 function readingGoalBadgeDesign(challenge) {
@@ -10453,7 +10453,9 @@ function chooseReadingGoalBadgeStyle(preferred='') {
 
 function readingGoalBadgeIconHTML(challenge, compact=false) {
   const design = readingGoalBadgeDesign(challenge);
-  return `<span class="reading-goal-medallion${compact ? ' compact' : ''}" aria-hidden="true" style="--badge-accent:${design.accent};--badge-wash:${design.wash}" title="${esc(design.name)}">${design.symbol}</span>`;
+  const x = design.column ? `${design.column * 100 / 3}%` : '0%';
+  const y = design.row ? `${design.row * 100 / 2}%` : '0%';
+  return `<span class="reading-goal-medallion${compact ? ' compact' : ''}" role="img" aria-label="${esc(design.name)} badge" style="background-position:${x} ${y}" title="${esc(design.name)}"></span>`;
 }
 
 const READING_GOAL_SUGGESTIONS = [
@@ -10522,7 +10524,7 @@ function openReadingGoalBadgeHistory(challengeId) {
   const entries = wins.length
     ? `<ol class="reading-goal-history-list">${wins.map(win => `<li><strong>${esc(readingGoalWinPeriodLabel(challenge,win))}</strong><small>${Number(win.progress_value || challenge.target_value).toLocaleString()} ${readingGoalMetricUnit(challenge.metric,Number(win.progress_value || challenge.target_value))}${win.earned_at ? ` · Earned ${esc(new Date(win.earned_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}))}` : ''}</small></li>`).join('')}</ol>`
     : '<div class="reading-goals-empty">No wins have been recorded for this badge yet.</div>';
-  showReadingGoalDialog(`${design.symbol} ${challenge.name}`,`${wins.length} badge win${wins.length === 1 ? '' : 's'} · ${readingGoalCadenceLabel(readingGoalCadence(challenge))} challenge`, '<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
+  showReadingGoalDialog(`${design.name} · ${challenge.name}`,`${wins.length} badge win${wins.length === 1 ? '' : 's'} · ${readingGoalCadenceLabel(readingGoalCadence(challenge))} challenge`, '<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
   document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">These are the periods when this challenge’s target was reached.</div>${entries}`;
 }
 
@@ -10538,13 +10540,13 @@ function buildReadingGoalsPage() {
     : '<div class="reading-goals-empty">No challenges yet. Create a yearly book goal or build a custom challenge to get started.</div>';
   const earned = readingChallenges.filter(challenge => readingChallengeWins.some(win => String(win.challenge_id) === String(challenge.id)));
   panel.innerHTML = `<section class="reading-goals-page">
-    <div class="reading-goals-intro"><div><div class="section-head"><h2>Reading Goals</h2></div><p>Choose annual, monthly, or weekly challenges. Finish a recurring challenge in one period and you’ll earn its badge again; your badge shelf keeps one badge per challenge with its full win history.</p></div>
+    <div class="reading-goals-intro"><div><div class="section-head"><h2>Reading Goals</h2></div><p>Challenges count reading from January 1 of their year, even if you create them later. Finish a recurring challenge in each qualifying week or month and you’ll earn another win; your shelf keeps one illustrated badge per challenge with its full win history.</p></div>
       <div class="reading-goals-actions">${isSignedIn ? `<button class="account-secondary" type="button" onclick="openReadingGoalCreator('annual_books')">New Yearly Book Challenge</button><button class="account-primary" type="button" onclick="openReadingGoalCreator('custom')">Create Custom Challenge</button>` : ''}</div>
     </div>
     ${!isSignedIn ? '<div class="reading-goals-notice">Sign in to create challenges and earn badges. Your sample library can still be browsed here.</div>' : ''}
     ${errorNotice}
     <div><div class="section-head"><h2>Your Challenges</h2></div>${challengeCards}</div>
-    <div><div class="section-head"><h2>Challenge Ideas</h2></div><p style="margin:0 0 .75rem;color:var(--muted)">Pick a ready-made target or build a custom challenge. Monthly goals use calendar months; weekly goals run Monday through Sunday and need a finished date. Each qualifying period earns another win for that challenge’s badge.</p><div class="reading-goals-grid">${READING_GOAL_SUGGESTIONS.map(suggestion => renderReadingGoalSuggestion(suggestion,isSignedIn)).join('')}</div></div>
+    <div><div class="section-head"><h2>Challenge Ideas</h2></div><p style="margin:0 0 .75rem;color:var(--muted)">Pick a ready-made target or build a custom challenge. Monthly goals use calendar months; weekly goals run Monday through Sunday and need a finished date. Earlier qualifying periods this year count too, and each one earns another win for that challenge’s badge.</p><div class="reading-goals-grid">${READING_GOAL_SUGGESTIONS.map(suggestion => renderReadingGoalSuggestion(suggestion,isSignedIn)).join('')}</div></div>
     <div><div class="section-head"><h2>Earned Badges</h2></div>${earned.length ? `<div class="reading-goal-badges">${earned.map(renderReadingGoalBadge).join('')}</div>` : '<div class="reading-goals-empty">Badges you earn will be collected here.</div>'}</div>
   </section>`;
 }
