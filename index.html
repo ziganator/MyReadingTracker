@@ -1452,6 +1452,36 @@
     min-width: 0;
     overflow-wrap: anywhere;
   }
+  .reading-goals-page { display:grid; gap:1.25rem; }
+  .reading-goals-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .reading-goals-intro p { max-width:680px; color:var(--muted); margin:0.25rem 0 0; line-height:1.5; }
+  .reading-goals-actions { display:flex; flex-wrap:wrap; gap:0.65rem; }
+  .reading-goals-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:0.9rem; }
+  .reading-goal-card { min-width:0; padding:1rem; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); box-shadow:0 8px 22px rgba(23,45,95,0.07); }
+  .reading-goal-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.7rem; }
+  .reading-goal-card h3 { margin:0; color:var(--deep); font-family:'Playfair Display',serif; font-size:1.08rem; line-height:1.3; overflow-wrap:anywhere; }
+  .reading-goal-meta { margin-top:0.22rem; color:var(--muted); font-size:0.78rem; }
+  .reading-goal-count { margin-top:1rem; display:flex; align-items:baseline; gap:0.3rem; color:var(--deep); }
+  .reading-goal-count strong { font-size:1.8rem; line-height:1; }
+  .reading-goal-count span { color:var(--muted); }
+  .reading-goal-track { height:10px; margin-top:0.65rem; overflow:hidden; border-radius:99px; background:var(--aged); }
+  .reading-goal-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--gold),var(--rust)); transition:width .35s ease; }
+  .reading-goal-footer { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-top:0.7rem; color:var(--muted); font-size:0.8rem; }
+  .reading-goal-badge { display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.55rem; border:1px solid rgba(196,135,29,.35); border-radius:999px; background:#fff7e4; color:#80530a; font-size:0.76rem; font-weight:750; white-space:nowrap; }
+  .reading-goal-badge-mark { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:linear-gradient(145deg,#ffe08b,#d99821); color:#573708; box-shadow:inset 0 0 0 2px rgba(255,255,255,.55); }
+  .reading-goal-delete { flex:0 0 auto; padding:.4rem .55rem; color:var(--muted); }
+  .reading-goal-badges { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); gap:.75rem; }
+  .reading-goal-earned { display:flex; align-items:center; gap:.75rem; padding:.8rem; border:1px solid rgba(196,135,29,.3); border-radius:10px; background:linear-gradient(135deg,#fffaf0,#fff); }
+  .reading-goal-earned .reading-goal-badge-mark { width:40px; height:40px; flex:0 0 auto; font-size:1.25rem; }
+  .reading-goal-earned strong { display:block; color:var(--deep); }
+  .reading-goal-earned small { color:var(--muted); }
+  .reading-goals-empty { padding:1rem; color:var(--muted); border:1px dashed var(--border); border-radius:10px; }
+  .reading-goals-notice { padding:.85rem 1rem; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); color:var(--muted); line-height:1.45; }
+  .reading-goal-dialog-fields { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; text-align:left; }
+  .reading-goal-dialog-fields label { display:grid; gap:.35rem; color:var(--deep); font-size:.82rem; font-weight:700; }
+  .reading-goal-dialog-fields label:first-child { grid-column:1/-1; }
+  .reading-goal-dialog-fields input,.reading-goal-dialog-fields select { width:100%; min-width:0; }
+  @media(max-width:520px) { .reading-goal-dialog-fields { grid-template-columns:1fr; } .reading-goal-dialog-fields label:first-child { grid-column:auto; } }
   .library-list-title { color: var(--deep); font-weight: 700; }
   .library-list-author, .library-list-detail { color: var(--muted); font-size: 0.86rem; }
   .library-list-pages,
@@ -5886,6 +5916,7 @@
 <nav id="mainNav"></nav>
 <main>
   <div class="tab-panel" id="tab-log-detail"></div>
+  <div class="tab-panel" id="tab-goals"></div>
   <div class="tab-panel" id="tab-stats"></div>
   <div class="tab-panel active" id="tab-social"></div>
   <div class="tab-panel" id="tab-month"></div>
@@ -6114,6 +6145,8 @@ const PAGE_COUNT_SYNC_VERSION = 'isbn-pages-pagination-2026-07-18';
 let supabaseSession = null;
 let guestMode = false;
 let trackerStarted = false;
+let readingChallenges = [];
+let readingGoalsLoadError = '';
 let booksView = loadLibraryView('books');
 let tbrView = loadLibraryView('tbr');
 let booksSortField = 'author';
@@ -9092,11 +9125,11 @@ function buildHeaderStats() {
 // ─── Nav ──────────────────────────────────────────────────────
 function buildNav() {
   const tabs = [
-    ['log-detail','Reading Log'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
+    ['log-detail','Reading Log'],['goals','Reading Goals'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
     ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
-  const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
-  const nativeLabels = {'log-detail':'Log', stats:'Stats', books:'Library', social:'Social'};
+  const mobilePrimary = new Set(['books', 'log-detail', 'goals', 'social', 'stats']);
+  const nativeLabels = {'log-detail':'Log', goals:'Goals', stats:'Stats', books:'Library', social:'Social'};
   const hiddenInMinimalistMode = new Set(['stats','social','club-hub','picker']);
   const visibleTabs = minimalistMode ? tabs.filter(([id]) => !hiddenInMinimalistMode.has(id)) : tabs;
   document.getElementById('mainNav').innerHTML = visibleTabs.map(([id,label]) =>
@@ -9130,6 +9163,7 @@ function showTab(id, scrollMode='preserve') {
     refreshStatsFromDatabase();
   }
   if (id === 'social') buildSocialPage();
+  if (id === 'goals') loadAndBuildReadingGoals();
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+id);
   activeButton?.classList.add('active');
@@ -9244,7 +9278,7 @@ function applyHashRoute() {
     showTab('stats', 'content');
     return;
   }
-  const validTabs = ['log-detail','stats','social','search','books','series','clubs','club-hub','picker','month'];
+  const validTabs = ['log-detail','goals','stats','social','search','books','series','clubs','club-hub','picker','month'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   const hiddenInMinimalistMode = minimalistMode && ['stats','social','clubs','club-hub','picker'].includes(normalizedRequested);
   if (hiddenInMinimalistMode) history.replaceState(appHistoryState(), '', '#books');
@@ -10217,6 +10251,181 @@ function readingSessionEntries() {
       ? sessions.map((session, index) => readingSessionEntry(book, session, index, index === sessions.length - 1))
       : [{...book, author: book.author_full || book.author || book.author_short || ''}];
   });
+}
+
+function completedReadingEntriesForYear(year) {
+  const entries = [];
+  allLibraryBooks().forEach(book => {
+    const sessions = sortedReadingSessions(book);
+    if (sessions.length) {
+      sessions.forEach((session, index) => {
+        const entry = readingSessionEntry(book, session, index, index === sessions.length - 1);
+        if (libraryBookStatus(entry) === 'Read' && readYearForBook(entry) === Number(year)) entries.push(entry);
+      });
+    } else if (libraryBookStatus(book) === 'Read' && readYearForBook(book) === Number(year)) {
+      entries.push(book);
+    }
+  });
+  return entries;
+}
+
+function readingGoalProgress(challenge) {
+  const entries = completedReadingEntriesForYear(challenge.year);
+  const value = challenge.metric === 'pages'
+    ? entries.reduce((total, book) => total + pageCountForBook(book), 0)
+    : entries.length;
+  return {value, target:Number(challenge.target_value) || 1, unit:challenge.metric === 'pages' ? 'pages' : 'books'};
+}
+
+function readingGoalMetricLabel(metric) {
+  return metric === 'pages' ? 'Pages in Completed Books' : 'Books Read';
+}
+
+function renderReadingGoalCard(challenge) {
+  const progress = readingGoalProgress(challenge);
+  const percent = Math.min(100, Math.round(progress.value / progress.target * 100));
+  const badge = challenge.completed_at
+    ? '<span class="reading-goal-badge"><span class="reading-goal-badge-mark">★</span> Badge Earned</span>'
+    : '';
+  const remove = guestMode ? '' : `<button type="button" class="editor-button reading-goal-delete" aria-label="Delete ${esc(challenge.name)}" title="Delete Challenge" onclick="deleteReadingChallenge(${jsArg(challenge.id)})">Delete</button>`;
+  return `<article class="reading-goal-card">
+    <div class="reading-goal-card-head"><div><h3>${esc(challenge.name)}</h3><div class="reading-goal-meta">${esc(readingGoalMetricLabel(challenge.metric))} · ${Number(challenge.year)}</div></div>${remove}</div>
+    <div class="reading-goal-count"><strong>${progress.value.toLocaleString()}</strong><span>of ${progress.target.toLocaleString()} ${progress.unit}</span></div>
+    <div class="reading-goal-track" role="progressbar" aria-label="${esc(challenge.name)} progress" aria-valuenow="${Math.min(progress.value,progress.target)}" aria-valuemin="0" aria-valuemax="${progress.target}"><div class="reading-goal-fill" style="width:${percent}%"></div></div>
+    <div class="reading-goal-footer"><span>${challenge.completed_at ? 'Completed' : `${percent}% complete`}</span>${badge}</div>
+  </article>`;
+}
+
+function renderReadingGoalBadge(challenge) {
+  const earned = safeDate(challenge.completed_at);
+  const earnedLabel = earned ? new Date(`${earned}T12:00:00`).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) : '';
+  return `<div class="reading-goal-earned"><span class="reading-goal-badge-mark">★</span><div><strong>${esc(challenge.name)}</strong><small>${esc(readingGoalMetricLabel(challenge.metric))} · ${Number(challenge.year)}${earnedLabel ? ` · Earned ${esc(earnedLabel)}` : ''}</small></div></div>`;
+}
+
+function buildReadingGoalsPage() {
+  const panel = document.getElementById('tab-goals');
+  if (!panel) return;
+  const isSignedIn = !guestMode && Boolean(supabaseSession?.access_token && supabaseSession?.user?.id);
+  const errorNotice = readingGoalsLoadError
+    ? `<div class="reading-goals-notice">${esc(readingGoalsLoadError)}</div>`
+    : '';
+  const challengeCards = readingChallenges.length
+    ? `<div class="reading-goals-grid">${readingChallenges.map(renderReadingGoalCard).join('')}</div>`
+    : '<div class="reading-goals-empty">No challenges yet. Create a yearly book goal or build a custom challenge to get started.</div>';
+  const earned = readingChallenges.filter(challenge => challenge.completed_at);
+  panel.innerHTML = `<section class="reading-goals-page">
+    <div class="reading-goals-intro"><div><div class="section-head"><h2>Reading Goals</h2></div><p>Set a target, keep an eye on your progress, and earn a badge when you reach it. Finished reading sessions count toward their recorded year; rereads count as separate completions.</p></div>
+      <div class="reading-goals-actions">${isSignedIn ? `<button class="account-secondary" type="button" onclick="openReadingGoalCreator('annual_books')">New Yearly Book Challenge</button><button class="account-primary" type="button" onclick="openReadingGoalCreator('custom')">Create Custom Challenge</button>` : ''}</div>
+    </div>
+    ${!isSignedIn ? '<div class="reading-goals-notice">Sign in to create challenges and earn badges. Your sample library can still be browsed here.</div>' : ''}
+    ${errorNotice}
+    <div><div class="section-head"><h2>Your Challenges</h2></div>${challengeCards}</div>
+    <div><div class="section-head"><h2>Earned Badges</h2></div>${earned.length ? `<div class="reading-goal-badges">${earned.map(renderReadingGoalBadge).join('')}</div>` : '<div class="reading-goals-empty">Badges you earn will be collected here.</div>'}</div>
+  </section>`;
+}
+
+async function loadAndBuildReadingGoals() {
+  const userId = supabaseSession?.user?.id || '';
+  readingGoalsLoadError = '';
+  if (guestMode || !userId || !supabaseSession?.access_token) {
+    readingChallenges = [];
+    buildReadingGoalsPage();
+    return;
+  }
+  try {
+    readingChallenges = await supabaseTableRequest('reading_challenges', {query:'?select=*&order=year.desc,created_at.desc'});
+    let newlyEarned = false;
+    for (const challenge of readingChallenges) {
+      if (challenge.completed_at) continue;
+      const progress = readingGoalProgress(challenge);
+      if (progress.value < Number(challenge.target_value)) continue;
+      const completedAt = new Date().toISOString();
+      try {
+        await supabaseTableRequest('reading_challenges', {
+          method:'PATCH', query:`?id=eq.${encodeURIComponent(challenge.id)}&completed_at=is.null`,
+          body:{completed_at:completedAt}, prefer:'return=minimal'
+        });
+        challenge.completed_at = completedAt;
+        newlyEarned = true;
+      } catch (error) {
+        console.warn('Could not save a completed reading-goal badge:', error.message);
+        readingGoalsLoadError = 'A challenge is complete, but its badge could not be saved yet. Please try again.';
+      }
+    }
+    if (newlyEarned) readingGoalsLoadError = '';
+  } catch (error) {
+    readingChallenges = [];
+    const message = String(error.message || '');
+    readingGoalsLoadError = /reading_challenges|schema cache|relation|does not exist/i.test(message)
+      ? 'Reading Goals need their Supabase setup. Run supabase_reading_goals.sql once in the Supabase SQL Editor, then refresh this page.'
+      : `Could not load your challenges: ${message}`;
+  }
+  buildReadingGoalsPage();
+}
+
+function openReadingGoalCreator(type='custom') {
+  if (guestMode || !supabaseSession?.user?.id) {
+    showAppDialog('Sign In Required','Sign in to create a Reading Goal and save its badge to your account.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    return;
+  }
+  const annual = type === 'annual_books';
+  const year = new Date().getFullYear();
+  const defaultName = annual ? `Read 24 Books in ${year}` : 'My Reading Challenge';
+  showAppDialog(annual ? 'New Yearly Book Challenge' : 'Create Custom Challenge','Choose a target and the year you want the challenge to cover.',`
+    <button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>
+    <button class="account-primary" type="button" onclick="saveReadingChallenge(${jsArg(type)})">Create Challenge</button>`);
+  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-dialog-fields">
+    <label>Challenge Name<input id="reading-goal-name" type="text" maxlength="80" value="${esc(defaultName)}" autocomplete="off"></label>
+    <label>Target<input id="reading-goal-target" type="number" min="1" max="1000000" step="1" value="${annual ? 24 : 12}"></label>
+    <label>Year<input id="reading-goal-year" type="number" min="1900" max="2200" step="1" value="${year}"></label>
+    ${annual ? '<input id="reading-goal-metric" type="hidden" value="books"><label>Measure<span>Books Read</span></label>' : '<label>Measure<select id="reading-goal-metric"><option value="books">Books Read</option><option value="pages">Pages in Completed Books</option></select></label>'}
+  </div>`;
+}
+
+async function saveReadingChallenge(type='custom') {
+  const button = document.querySelector('#app-dialog-actions .account-primary');
+  const name = document.getElementById('reading-goal-name')?.value.trim() || '';
+  const target = Number(document.getElementById('reading-goal-target')?.value);
+  const year = Number(document.getElementById('reading-goal-year')?.value);
+  const metric = type === 'annual_books' ? 'books' : (document.getElementById('reading-goal-metric')?.value || 'books');
+  if (!name || !Number.isInteger(target) || target < 1 || target > 1000000 || !Number.isInteger(year) || year < 1900 || year > 2200) {
+    showAppDialog('Check Your Challenge','Enter a challenge name, a whole-number target from 1 to 1,000,000, and a year from 1900 to 2200.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Saving...'; }
+  try {
+    await supabaseTableRequest('reading_challenges', {
+      method:'POST', query:'',
+      body:{name, metric, target_value:target, year, challenge_type:type},
+      prefer:'return=minimal'
+    });
+    closeAppDialog();
+    await loadAndBuildReadingGoals();
+  } catch (error) {
+    if (button) { button.disabled = false; button.textContent = 'Create Challenge'; }
+    const message = /reading_challenges|schema cache|relation|does not exist/i.test(String(error.message || ''))
+      ? 'Run supabase_reading_goals.sql once in the Supabase SQL Editor, then try again.'
+      : error.message;
+    showAppDialog('Could Not Save Challenge',message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  }
+}
+
+function deleteReadingChallenge(id) {
+  const challenge = readingChallenges.find(item => String(item.id) === String(id));
+  if (!challenge) return;
+  showAppDialog('Delete Challenge?',`Delete “${challenge.name}”? Any badge earned for this challenge will also be removed.`,
+    `<button class="account-primary" type="button" onclick="confirmDeleteReadingChallenge(${jsArg(id)})">Delete Challenge</button><button class="account-secondary" type="button" onclick="closeAppDialog()">Cancel</button>`);
+}
+
+async function confirmDeleteReadingChallenge(id) {
+  try {
+    await supabaseTableRequest('reading_challenges',{method:'DELETE',query:`?id=eq.${encodeURIComponent(id)}`,prefer:'return=minimal'});
+    readingChallenges = readingChallenges.filter(challenge => String(challenge.id) !== String(id));
+    closeAppDialog();
+    buildReadingGoalsPage();
+  } catch (error) {
+    showAppDialog('Could Not Delete Challenge',error.message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  }
 }
 
 function readingLogBooks() {
