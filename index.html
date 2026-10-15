@@ -6094,6 +6094,7 @@
     <div id="social-post-modal-content"></div>
   </div>
 </div>
+<datalist id="book-genre-suggestions"></datalist>
 <script>
 const SUPABASE_URL = 'https://fwjblysdbjcceclzjnkk.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_yKozI2UKSNXe-jVuoW0IvA_DPeSlXri';
@@ -10961,6 +10962,35 @@ function allLibraryBooks() {
   });
 }
 
+function refreshGenreSuggestions(input) {
+  const list = document.getElementById('book-genre-suggestions');
+  if (!list) return;
+  const query = normalizedKey(input?.value);
+  if (!query) {
+    list.replaceChildren();
+    return;
+  }
+  const genres = new Map();
+  allLibraryBooks().forEach(book => {
+    const genre = String(book.genre || '').trim();
+    const key = normalizedKey(genre);
+    if (key && !genres.has(key)) genres.set(key, genre);
+  });
+  const matches = [...genres.entries()]
+    .filter(([key]) => key.startsWith(query) || key.includes(query))
+    .sort(([keyA, genreA], [keyB, genreB]) => {
+      const prefixA = keyA.startsWith(query) ? 0 : 1;
+      const prefixB = keyB.startsWith(query) ? 0 : 1;
+      return prefixA - prefixB || genreA.localeCompare(genreB, undefined, {sensitivity:'base'});
+    })
+    .slice(0, 20);
+  list.replaceChildren(...matches.map(([, genre]) => {
+    const option = document.createElement('option');
+    option.value = genre;
+    return option;
+  }));
+}
+
 function genericBookCoverHTML(book, size='card-cover', imageClass='') {
   const title = book?.title || 'Untitled';
   const author = displayBookContributor(book);
@@ -12114,7 +12144,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         <div class="add-book-field series-position"><label for="add-book-series-position">Book #</label><input id="add-book-series-position" type="number" min="0" step="0.1"></div>
       </div>
       <div class="add-book-basic-grid">
-        <div class="add-book-field add-book-genre-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text"></div>
+        <div class="add-book-field add-book-genre-field"><label for="add-book-genre">Genre</label><input id="add-book-genre" type="text" list="book-genre-suggestions" autocomplete="off" onfocus="refreshGenreSuggestions(this)" oninput="refreshGenreSuggestions(this)"></div>
         <div class="add-book-field add-book-isbn-field"><label for="add-book-isbn">ISBN</label><input id="add-book-isbn" type="text" inputmode="numeric"></div>
         <div class="add-book-field add-book-type-field"><label for="add-book-type">Type</label><select id="add-book-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML('Novel')}</select></div>
         <div class="add-book-field add-book-status-field"><label for="add-book-status">Status</label>
@@ -14628,7 +14658,7 @@ function openBulkEditDialog() {
       <label class="bulk-edit-field">
         <input id="bulk-genre-enabled" type="checkbox">
         <span>Genre</span>
-        <input id="bulk-genre-value" type="text" placeholder="Fantasy">
+        <input id="bulk-genre-value" type="text" placeholder="Fantasy" list="book-genre-suggestions" autocomplete="off" onfocus="refreshGenreSuggestions(this)" oninput="refreshGenreSuggestions(this)">
       </label>
       <label class="bulk-edit-field">
         <input id="bulk-format-enabled" type="checkbox">
@@ -16154,7 +16184,7 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-series-position">Book #</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
       </div>
       <div class="book-editor-row core-row">
-        <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}"></div>
+        <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}" list="book-genre-suggestions" autocomplete="off" onfocus="refreshGenreSuggestions(this)" oninput="refreshGenreSuggestions(this)"></div>
         <div class="book-editor-field"><label for="book-editor-type">Type</label><select id="book-editor-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML(bookWorkTypeForBook(book) || 'Novel')}</select></div>
         <div class="book-editor-field"><label for="book-editor-format">Format</label><select id="book-editor-format" onchange="updateShortStoryFullBookControls()">${bookFormatOptionsHTML(book.format || 'Book')}</select></div>
         <div class="book-editor-field"><label for="book-editor-status">Status</label><select id="book-editor-status" onchange="updatePausedPageControls()">
