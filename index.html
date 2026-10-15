@@ -1467,6 +1467,11 @@
   .reading-log-goals-link span { color:var(--burnt); font-size:1.1em; line-height:1; }
   .reading-goals-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr)); gap:0.9rem; }
   .reading-goal-card { min-width:0; padding:1rem; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); box-shadow:0 8px 22px rgba(23,45,95,0.07); }
+  .reading-goal-suggestion { display:flex; flex-direction:column; align-items:flex-start; }
+  .reading-goal-suggestion p { flex:1; margin:.55rem 0 1rem; color:var(--muted); font-size:.88rem; line-height:1.45; }
+  .reading-goal-suggestion .reading-goal-meta { color:var(--burnt); font-weight:700; }
+  .reading-goal-suggestion .account-primary { min-height:40px; padding:.55rem .85rem; border-radius:10px; font-weight:700; }
+  .reading-goal-suggestion .account-primary:disabled { opacity:.65; cursor:default; box-shadow:none; }
   .reading-goal-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.7rem; }
   .reading-goal-card h3 { margin:0; color:var(--deep); font-family:'Playfair Display',serif; font-size:1.08rem; line-height:1.3; overflow-wrap:anywhere; }
   .reading-goal-meta { margin-top:0.22rem; color:var(--muted); font-size:0.78rem; }
@@ -10308,6 +10313,25 @@ function readingGoalMetricLabel(metric) {
   return metric === 'pages' ? 'Pages in Completed Books' : 'Books Read';
 }
 
+const READING_GOAL_SUGGESTIONS = [
+  {id:'steady-reader',name:'The Steady Reader',description:'Finish one book every other month and build a consistent reading rhythm.',metric:'books',target:6},
+  {id:'one-book-a-month',name:'The One-Book-a-Month Year',description:'Make room for a new story each month.',metric:'books',target:12},
+  {id:'two-dozen-stories',name:'Two Dozen Stories',description:'A satisfying stretch goal: two books each month.',metric:'books',target:24},
+  {id:'weekly-reader',name:'The Weekly Reader',description:'Complete one book each week throughout the year.',metric:'books',target:52},
+  {id:'first-thousand-pages',name:'The First Thousand Pages',description:'Ease into a page-count goal, one chapter at a time.',metric:'pages',target:1000},
+  {id:'five-thousand-pages',name:'The Five-Thousand-Page Journey',description:'A longer page-by-page adventure across the year.',metric:'pages',target:5000}
+];
+
+function renderReadingGoalSuggestion(suggestion, canAdd) {
+  const year = new Date().getFullYear();
+  const alreadyAdded = readingChallenges.some(challenge => challenge.name === suggestion.name && Number(challenge.year) === year);
+  const metric = suggestion.metric === 'pages' ? 'Pages' : 'Books';
+  const button = canAdd
+    ? `<button class="account-primary" type="button" ${alreadyAdded ? 'disabled' : ''} onclick="addSuggestedReadingChallenge(${jsArg(suggestion.id)},this)">${alreadyAdded ? 'Added This Year' : 'Add Challenge'}</button>`
+    : '';
+  return `<article class="reading-goal-card reading-goal-suggestion"><div class="reading-goal-card-head"><div><h3>${esc(suggestion.name)}</h3><div class="reading-goal-meta">${suggestion.target.toLocaleString()} ${metric} · ${year}</div></div></div><p>${esc(suggestion.description)}</p>${button}</article>`;
+}
+
 function renderReadingGoalCard(challenge) {
   const progress = readingGoalProgress(challenge);
   const percent = Math.min(100, Math.round(progress.value / progress.target * 100));
@@ -10347,6 +10371,7 @@ function buildReadingGoalsPage() {
     ${!isSignedIn ? '<div class="reading-goals-notice">Sign in to create challenges and earn badges. Your sample library can still be browsed here.</div>' : ''}
     ${errorNotice}
     <div><div class="section-head"><h2>Your Challenges</h2></div>${challengeCards}</div>
+    <div><div class="section-head"><h2>Challenge Ideas</h2></div><p style="margin:0 0 .75rem;color:var(--muted)">Pick a ready-made target, or create a custom challenge above. Each one tracks your progress for this year.</p><div class="reading-goals-grid">${READING_GOAL_SUGGESTIONS.map(suggestion => renderReadingGoalSuggestion(suggestion,isSignedIn)).join('')}</div></div>
     <div><div class="section-head"><h2>Earned Badges</h2></div>${earned.length ? `<div class="reading-goal-badges">${earned.map(renderReadingGoalBadge).join('')}</div>` : '<div class="reading-goals-empty">Badges you earn will be collected here.</div>'}</div>
   </section>`;
 }
@@ -10388,6 +10413,30 @@ async function loadAndBuildReadingGoals() {
       : `Could not load your challenges: ${message}`;
   }
   buildReadingGoalsPage();
+}
+
+async function addSuggestedReadingChallenge(id, button=null) {
+  const suggestion = READING_GOAL_SUGGESTIONS.find(item => item.id === id);
+  if (!suggestion) return;
+  if (guestMode || !supabaseSession?.user?.id) {
+    showReadingGoalDialog('Sign In Required','Sign in to add a challenge and track its progress.','<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Adding...'; }
+  try {
+    await supabaseTableRequest('reading_challenges', {
+      method:'POST', query:'',
+      body:{name:suggestion.name, metric:suggestion.metric, target_value:suggestion.target, year:new Date().getFullYear(), challenge_type:suggestion.metric === 'books' ? 'annual_books' : 'custom'},
+      prefer:'return=minimal'
+    });
+    await loadAndBuildReadingGoals();
+  } catch (error) {
+    if (button) { button.disabled = false; button.textContent = 'Add Challenge'; }
+    const message = /reading_challenges|schema cache|relation|does not exist/i.test(String(error.message || ''))
+      ? 'Run supabase_reading_goals.sql once in the Supabase SQL Editor, then try again.'
+      : error.message;
+    showReadingGoalDialog('Could Not Add Challenge',message,'<button class="account-primary" type="button" onclick="closeAppDialog()">OK</button>');
+  }
 }
 
 function openReadingGoalCreator(type='custom') {
