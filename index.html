@@ -1520,7 +1520,12 @@
   .reading-goal-dialog-fields label:first-child { grid-column:1/-1; }
   .reading-goal-dialog-fields input,.reading-goal-dialog-fields select { width:100%; min-width:0; }
   .app-dialog-box.reading-goal-dialog { width:min(540px,100%); max-height:calc(100vh - 2rem); overflow-y:auto; padding:clamp(1rem,4vw,1.5rem); border:1px solid rgba(65,105,225,.2); border-radius:20px; background:linear-gradient(145deg,#fff,#f5f7ff); box-shadow:0 24px 70px rgba(23,45,95,.25); }
-  .reading-goal-dialog h3 { margin:0 0 .45rem; color:var(--deep); font-family:'Fraunces',Georgia,serif; font-size:1.4rem; letter-spacing:-.02em; }
+  .reading-goal-dialog-header { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
+  .reading-goal-close { display:none; }
+  .reading-goal-dialog .reading-goal-dialog-header { margin-bottom:.45rem; }
+  .reading-goal-dialog-header h3 { margin:0; color:var(--deep); font-family:'Fraunces',Georgia,serif; font-size:1.4rem; letter-spacing:-.02em; }
+  .reading-goal-dialog .reading-goal-close { display:inline-grid; place-items:center; flex:0 0 40px; width:40px; height:40px; margin:-.25rem -.25rem 0 0; border:1px solid rgba(65,105,225,.2); border-radius:11px; background:#fff; color:var(--deep); font:700 1.35rem/1 inherit; cursor:pointer; }
+  .reading-goal-dialog .reading-goal-close:hover { background:#eef2ff; border-color:rgba(65,105,225,.45); }
   .reading-goal-dialog #app-dialog-message { margin:.25rem 0 1rem; color:var(--muted); line-height:1.5; }
   .reading-goal-dialog .reading-goal-dialog-fields { gap:.9rem; }
   .reading-goal-dialog .reading-goal-dialog-fields label { gap:.4rem; color:var(--deep); font-size:.8rem; font-weight:750; }
@@ -5473,6 +5478,15 @@
   .social-panel,.social-post,.social-person-card { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 14px rgba(21,42,85,.06); }
   .social-panel,.social-post { padding:1rem; }
   .social-panel h3 { margin:0 0 .7rem; color:var(--ink); }
+  .social-challenge-list { display:grid; gap:.6rem; }
+  .social-challenge-item { display:flex; align-items:center; gap:.7rem; padding:.65rem .75rem; border:1px solid var(--border); border-radius:10px; background:#f8faff; }
+  .social-challenge-item .reading-goal-medallion { width:42px; height:42px; flex:0 0 42px; }
+  .social-challenge-copy { flex:1; min-width:0; }
+  .social-challenge-copy strong,.social-challenge-copy small { display:block; }
+  .social-challenge-copy strong { color:var(--deep); }
+  .social-challenge-copy small { margin-top:.12rem; color:var(--muted); line-height:1.4; }
+  .social-challenge-track { height:6px; margin-top:.4rem; overflow:hidden; border-radius:99px; background:#e5eafa; }
+  .social-challenge-track span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#25499a,#6d8ce8); }
   .social-create-post { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.7rem; align-items:center; padding:.8rem 1rem; }
   .social-create-post .social-avatar { width:40px; height:40px; flex-basis:40px; }
   .social-create-trigger { width:100%; min-height:42px; border:1.5px solid #cbd5f5; border-radius:10px; background:#f7f9ff; color:#74809d; padding:.65rem .82rem; font:600 .92rem 'Crimson Pro',serif; text-align:left; cursor:pointer; transition:border-color .16s ease,background .16s ease,box-shadow .16s ease; }
@@ -6165,8 +6179,8 @@
 </div>
 <div class="app-dialog-overlay" id="app-dialog" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
   <div class="app-dialog-box">
-    <h3 id="app-dialog-title">Something went wrong</h3>
-  <div id="app-dialog-message"></div>
+    <div class="reading-goal-dialog-header"><h3 id="app-dialog-title">Something went wrong</h3><button class="reading-goal-close" type="button" aria-label="Close Modal" title="Close Modal" onclick="closeAppDialog()">×</button></div>
+    <div id="app-dialog-message"></div>
     <div class="account-actions" id="app-dialog-actions"></div>
   </div>
 </div>
@@ -8268,6 +8282,7 @@ async function refreshSocialData(button=null) {
   }
   try {
     await loadSocialData();
+    if (currentSocialUserId()) await loadAndBuildReadingGoals();
   } finally {
     buildSocialPage();
   }
@@ -8517,8 +8532,33 @@ function socialCreatePostCardHTML() {
   return `<section class="social-panel social-create-post">${socialAvatarHTML(profile,name)}<button class="social-create-trigger" type="button" onclick="openSocialPostModal()">Share a reading thought…</button><button class="account-primary" type="button" onclick="openSocialPostModal()">Create Post</button></section>`;
 }
 
+function socialChallengesHTML() {
+  const userId=currentSocialUserId();
+  if (!userId) return '';
+  const year=new Date().getFullYear();
+  const challenges=readingChallenges.filter(challenge => {
+    const cadence=readingGoalCadence(challenge);
+    return cadence === 'annual'
+      ? Number(challenge.year) === year
+      : Number(challenge.year) <= year && readingGoalChallengeStart(challenge) <= localDateKey(new Date());
+  });
+  const items=challenges.map(challenge => {
+    const progress=readingGoalProgress(challenge);
+    const percent=Math.min(100,Math.round(progress.value / progress.target * 100));
+    const cadence=readingGoalCadence(challenge);
+    const yearWins=readingChallengeWins.filter(win => String(win.challenge_id) === String(challenge.id)
+      && String(win.period_start || '').startsWith(String(year))
+      && (win.cadence || cadence) === cadence).length;
+    const state=progress.value >= progress.target ? 'Current period complete' : 'In progress';
+    const winsLabel=cadence === 'annual' ? (progress.value >= progress.target ? 'Yearly challenge completed' : 'Yearly challenge') : `${yearWins} win${yearWins === 1 ? '' : 's'} this year`;
+    const periodUnit=cadence === 'annual' ? 'year' : cadence === 'weekly' ? 'week' : 'month';
+    return `<div class="social-challenge-item">${readingGoalBadgeIconHTML(challenge,true)}<div class="social-challenge-copy"><strong>${esc(challenge.name)}</strong><small>${esc(winsLabel)} · ${progress.value.toLocaleString()} of ${progress.target.toLocaleString()} ${esc(progress.unit)} this ${periodUnit}</small><div class="social-challenge-track" role="progressbar" aria-label="${esc(challenge.name)} progress" aria-valuenow="${Math.min(progress.value,progress.target)}" aria-valuemin="0" aria-valuemax="${progress.target}"><span style="width:${percent}%"></span></div><small>${esc(state)} · ${percent}%</small></div></div>`;
+  }).join('');
+  return `<section class="social-panel social-challenges"><h3>Challenges This Year</h3>${items ? `<div class="social-challenge-list">${items}</div>` : '<p class="social-empty">No challenges are active this year yet.</p>'}<button class="account-secondary" style="margin-top:.75rem" type="button" onclick="switchTab('goals')">View Challenges</button></section>`;
+}
+
 function socialFeedHTML() {
-  return `<div class="social-layout"><div class="social-feed">${socialCreatePostCardHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
+  return `<div class="social-layout"><div class="social-feed">${socialChallengesHTML()}${socialCreatePostCardHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
     ? socialPosts.map(socialPostHTML).join('')
     : '<section class="social-panel social-empty">It’s quiet here for now. Share what you’re reading, or find a few readers to follow along with.</section>'}</div>
     <aside class="social-side">${socialPromptHTML()}${socialSuggestionsPreviewHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('requests')">View Requests</button></section></aside></div>`;
@@ -9220,7 +9260,12 @@ function showTab(id, scrollMode='preserve') {
     buildStats();
     refreshStatsFromDatabase();
   }
-  if (id === 'social') buildSocialPage();
+  if (id === 'social') {
+    buildSocialPage();
+    if (currentSocialUserId()) loadAndBuildReadingGoals().then(() => {
+      if (document.getElementById('tab-social')?.classList.contains('active')) buildSocialPage();
+    });
+  }
   if (id === 'goals') loadAndBuildReadingGoals();
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+(id === 'goals' ? 'log-detail' : id));
@@ -10651,6 +10696,26 @@ async function loadAndBuildReadingGoals() {
     ]);
     readingChallenges = challenges;
     readingChallengeWins = wins;
+    const weeklyReaderIds = new Set(readingChallenges
+      .filter(challenge => challenge.name === 'The Weekly Reader' && readingGoalCadence(challenge) === 'weekly')
+      .map(challenge => String(challenge.id)));
+    const legacyWeeklyWins = readingChallengeWins.filter(win => {
+      const challenge = readingChallenges.find(item => String(item.id) === String(win.challenge_id));
+      return challenge && weeklyReaderIds.has(String(challenge.id)) && win.cadence === 'annual'
+        && String(win.period_start || '') === `${challenge.year}-01-01`
+        && String(win.period_end || '') === `${challenge.year}-12-31`;
+    });
+    for (const win of legacyWeeklyWins) {
+      try {
+        await supabaseTableRequest('reading_challenge_wins', {
+          method:'DELETE', query:`?id=eq.${encodeURIComponent(win.id)}`, prefer:'return=minimal'
+        });
+        readingChallengeWins = readingChallengeWins.filter(item => String(item.id) !== String(win.id));
+      } catch (error) {
+        console.warn('Could not remove the legacy yearly win for The Weekly Reader:', error.message);
+        readingGoalsLoadError = 'The old yearly win for The Weekly Reader could not be removed yet. Please refresh Reading Goals while online.';
+      }
+    }
     for (const challenge of readingChallenges) {
       const existingPeriods = new Set(readingChallengeWins
         .filter(win => String(win.challenge_id) === String(challenge.id))
