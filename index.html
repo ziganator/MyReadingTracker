@@ -1519,14 +1519,14 @@
   .reading-goal-dialog-fields label { display:grid; gap:.35rem; color:var(--deep); font-size:.82rem; font-weight:700; }
   .reading-goal-dialog-fields label:first-child { grid-column:1/-1; }
   .reading-goal-dialog-fields input,.reading-goal-dialog-fields select { width:100%; min-width:0; }
-  .app-dialog-box.reading-goal-dialog { width:min(540px,100%); max-height:calc(100vh - 2rem); overflow-y:auto; padding:clamp(1rem,4vw,1.5rem); border:1px solid rgba(65,105,225,.2); border-radius:20px; background:linear-gradient(145deg,#fff,#f5f7ff); box-shadow:0 24px 70px rgba(23,45,95,.25); }
+  .app-dialog-box.reading-goal-dialog { display:flex; flex-direction:column; width:min(540px,100%); max-height:calc(100vh - 2rem); overflow:hidden; padding:clamp(1rem,4vw,1.5rem); border:1px solid rgba(65,105,225,.2); border-radius:20px; background:linear-gradient(145deg,#fff,#f5f7ff); box-shadow:0 24px 70px rgba(23,45,95,.25); }
   .reading-goal-dialog-header { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
   .reading-goal-close { display:none; }
-  .reading-goal-dialog .reading-goal-dialog-header { position:sticky; top:calc(-1 * clamp(1rem,4vw,1.5rem)); z-index:2; align-items:center; margin:calc(-1 * clamp(1rem,4vw,1.5rem)) calc(-1 * clamp(1rem,4vw,1.5rem)) 1rem; padding:1rem clamp(1rem,4vw,1.5rem); border-radius:19px 19px 0 0; background:var(--deep); color:#f7f8ff; }
+  .reading-goal-dialog .reading-goal-dialog-header { position:relative; z-index:2; flex:0 0 auto; align-items:center; margin:calc(-1 * clamp(1rem,4vw,1.5rem)) calc(-1 * clamp(1rem,4vw,1.5rem)) 1rem; padding:1rem clamp(1rem,4vw,1.5rem); border-radius:19px 19px 0 0; background:var(--deep); color:#f7f8ff; }
   .reading-goal-dialog-header h3 { margin:0; color:#f7f8ff; font-family:'Playfair Display',Georgia,serif; font-size:1.25rem; }
   .reading-goal-dialog .reading-goal-close { display:inline-grid; place-items:center; flex:0 0 44px; width:44px; height:44px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--gold-light); font:400 1.5rem/1 inherit; cursor:pointer; }
   .reading-goal-dialog .reading-goal-close:hover { background:transparent; color:#fff; }
-  .reading-goal-dialog #app-dialog-message { margin:.25rem 0 1rem; color:var(--muted); line-height:1.5; }
+  .reading-goal-dialog #app-dialog-message { flex:1 1 auto; min-height:0; overflow-y:auto; margin:.25rem 0 1rem; color:var(--muted); line-height:1.5; }
   .reading-goal-dialog .reading-goal-dialog-fields { gap:.9rem; }
   .reading-goal-dialog .reading-goal-dialog-fields label { gap:.4rem; color:var(--deep); font-size:.8rem; font-weight:750; }
   .reading-goal-dialog-fields [hidden] { display:none !important; }
@@ -1536,7 +1536,7 @@
   .reading-goal-dialog .reading-goal-dialog-fields label > span { display:flex; align-items:center; background:#f2f5ff; }
   .reading-goal-dialog .reading-goal-dialog-fields input:focus,
   .reading-goal-dialog .reading-goal-dialog-fields select:focus { outline:3px solid rgba(65,105,225,.18); outline-offset:1px; border-color:#4169e1; }
-  .reading-goal-dialog .account-actions { justify-content:flex-end; gap:.6rem; margin-top:1.1rem; }
+  .reading-goal-dialog .account-actions { flex:0 0 auto; justify-content:flex-end; gap:.6rem; margin-top:1.1rem; }
   .reading-goal-dialog .account-actions button { min-height:42px; padding:.62rem 1rem; border-radius:11px; font-weight:700; box-shadow:0 5px 14px rgba(23,45,95,.1); }
   .reading-goal-dialog .account-actions .account-primary { background:linear-gradient(135deg,#25499a,#4169e1); border-color:#4169e1 !important; color:#fff; }
   .reading-goal-dialog .account-actions .account-secondary { background:#fff; border-color:rgba(65,105,225,.28) !important; color:var(--deep); }
