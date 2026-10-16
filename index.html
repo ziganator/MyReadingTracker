@@ -1453,8 +1453,10 @@
     overflow-wrap: anywhere;
   }
   .reading-goals-page { display:grid; gap:1.25rem; }
-  .reading-goals-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
-  .reading-goals-intro p { max-width:680px; color:var(--muted); margin:0.25rem 0 0; line-height:1.5; }
+  .reading-goals-intro { display:grid; gap:.55rem; }
+  .reading-goals-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .reading-goals-title-row > .section-head { flex:1 1 320px; }
+  .reading-goals-intro p { width:100%; max-width:none; color:var(--muted); margin:0; line-height:1.5; }
   .reading-goals-actions { display:flex; flex-wrap:wrap; gap:0.65rem; }
   .reading-goals-actions button { min-height:42px; padding:.62rem 1rem; border-radius:11px; font-weight:700; letter-spacing:.01em; box-shadow:0 5px 14px rgba(23,45,95,.1); }
   .reading-goals-actions .account-primary { background:var(--deep); border-color:var(--deep) !important; color:#fff; }
@@ -10614,9 +10616,9 @@ function buildReadingGoalsPage() {
     : '<div class="reading-goals-empty">No challenges yet. Create a yearly book goal or build a custom challenge to get started.</div>';
   const earned = readingChallenges.filter(challenge => readingChallengeWins.some(win => String(win.challenge_id) === String(challenge.id)));
   panel.innerHTML = `<section class="reading-goals-page">
-    <div class="reading-goals-intro"><div><div class="section-head"><h2>Reading Goals</h2></div><p>Challenges count reading from January 1 of their year, even if you create them later. Finish a recurring challenge in each qualifying week or month and you’ll earn another win; your shelf keeps one illustrated badge per challenge with its full win history.</p></div>
+    <div class="reading-goals-intro"><div class="reading-goals-title-row"><div class="section-head"><h2>Reading Goals</h2></div>
       <div class="reading-goals-actions">${isSignedIn ? `<button class="account-secondary" type="button" onclick="openReadingGoalCreator('annual_books')">New Yearly Book Challenge</button><button class="account-primary" type="button" onclick="openReadingGoalCreator('custom')">Create Custom Challenge</button>` : ''}</div>
-    </div>
+    </div><p>Challenges count reading from January 1 of their year, even if you create them later. Finish a recurring challenge in each qualifying week or month and you’ll earn another win; your shelf keeps one illustrated badge per challenge with its full win history.</p></div>
     ${!isSignedIn ? '<div class="reading-goals-notice">Sign in to create challenges and earn badges. Your sample library can still be browsed here.</div>' : ''}
     ${errorNotice}
     <div><div class="section-head"><h2>Your Challenges</h2></div>${challengeCards}</div>
