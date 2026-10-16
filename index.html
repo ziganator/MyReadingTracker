@@ -10311,6 +10311,10 @@ function readingSessionEntries() {
   });
 }
 
+function readingGoalEligibleEntry(entry) {
+  return !isShortStoryCollection(entry) || usesFullBookPageCount(entry);
+}
+
 function allCompletedReadingEntries() {
   const entries = [];
   allLibraryBooks().forEach(book => {
@@ -10318,9 +10322,9 @@ function allCompletedReadingEntries() {
     if (sessions.length) {
       sessions.forEach((session, index) => {
         const entry = readingSessionEntry(book, session, index, index === sessions.length - 1);
-        if (libraryBookStatus(entry) === 'Read') entries.push(entry);
+        if (libraryBookStatus(entry) === 'Read' && readingGoalEligibleEntry(entry)) entries.push(entry);
       });
-    } else if (libraryBookStatus(book) === 'Read') {
+    } else if (libraryBookStatus(book) === 'Read' && readingGoalEligibleEntry(book)) {
       entries.push(book);
     }
   });
