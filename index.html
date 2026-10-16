@@ -1501,7 +1501,7 @@
   .reading-goal-history-list small { color:var(--muted); text-align:right; }
   .reading-goal-history-intro { margin:.2rem 0 .75rem; color:var(--muted); line-height:1.45; }
   .reading-goal-winning-period + .reading-goal-winning-period { margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--border); }
-  .reading-goal-winning-period h3 { margin:0 0 .55rem; color:var(--deep); font-family:'Playfair Display',serif; font-size:1rem; }
+  .reading-goal-winning-period h3 { margin:0 0 .55rem; color:var(--deep); font-family:inherit; font-size:.86rem; font-weight:750; line-height:1.4; }
   .reading-goal-books-list { display:grid; gap:.45rem; margin:0; padding:0; list-style:none; }
   .reading-goal-books-list li { display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; padding:.65rem .75rem; border:1px solid rgba(65,105,225,.12); border-radius:9px; background:rgba(255,255,255,.72); }
   .reading-goal-book-title { color:var(--deep); font-weight:700; }
@@ -10517,7 +10517,10 @@ function readingGoalWinPeriodLabel(challenge, win) {
   const cadence = win.cadence || readingGoalCadence(challenge);
   const start = safeDate(win.period_start) || '';
   const end = safeDate(win.period_end) || start;
-  if (cadence === 'annual') return `Year ${start.slice(0,4) || challenge.year}`;
+  if (cadence === 'annual') {
+    const year = start.slice(0,4) || challenge.year;
+    return readingGoalCadence(challenge) === 'annual' ? `Year ${year}` : `Legacy yearly win · ${year}`;
+  }
   const startDate = start ? new Date(`${start}T12:00:00`) : null;
   if (!startDate || Number.isNaN(startDate.getTime())) return start || 'Reading period';
   if (cadence === 'monthly') return startDate.toLocaleDateString(undefined,{month:'long',year:'numeric'});
@@ -10595,13 +10598,14 @@ function openReadingGoalBadgeHistory(challengeId) {
   const entries = wins.length
     ? wins.map(win => {
       const books = readingGoalEntriesForWin(challenge,win);
-      const value = Number(win.progress_value || challenge.target_value);
+      const isLegacyAnnual = win.cadence === 'annual' && readingGoalCadence(challenge) !== 'annual';
+      const value = isLegacyAnnual ? readingGoalValue(books,challenge.metric) : Number(win.progress_value || challenge.target_value);
       const earned = win.earned_at ? ` · Earned ${new Date(win.earned_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}` : '';
       return `<section class="reading-goal-winning-period"><h3>${esc(readingGoalWinPeriodLabel(challenge,win))} · ${value.toLocaleString()} ${readingGoalMetricUnit(challenge.metric,value)}${esc(earned)}</h3>${readingGoalBooksListHTML(challenge,books,win.cadence || readingGoalCadence(challenge))}</section>`;
     }).join('')
     : '<div class="reading-goals-empty">No wins have been recorded for this badge yet.</div>';
   showReadingGoalDialog(`${design.name} · ${challenge.name}`,`${wins.length} badge win${wins.length === 1 ? '' : 's'} · ${readingGoalCadenceLabel(readingGoalCadence(challenge))} challenge`, '<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
-  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">Each win is shown with the books from its recorded period. Legacy annual wins on recurring challenges show books from that year.</div>${entries}`;
+  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">Each win is shown with the books from its recorded period. Legacy yearly wins on recurring challenges show the books and recalculated total for that year.</div>${entries}`;
 }
 
 function buildReadingGoalsPage() {
