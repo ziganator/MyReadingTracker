@@ -10536,10 +10536,14 @@ function readingGoalEntriesForWin(challenge, win) {
   });
 }
 
-function readingGoalBooksListHTML(challenge, entries) {
+function readingGoalBooksListHTML(challenge, entries, cadence=readingGoalCadence(challenge)) {
   if (!entries.length) return '<div class="reading-goals-empty">No completed books were found for this period.</div>';
-  const rows = entries.map(entry => {
-    const date = readingGoalEventDate(entry,readingGoalCadence(challenge));
+  const sortedEntries = [...entries].sort((a,b) =>
+    String(readingGoalEventDate(a,cadence) || '').localeCompare(String(readingGoalEventDate(b,cadence) || ''))
+      || String(a.title || '').localeCompare(String(b.title || ''))
+  );
+  const rows = sortedEntries.map(entry => {
+    const date = readingGoalEventDate(entry,cadence);
     const byline = entry.author || entry.author_full || entry.author_short || 'Author not listed';
     const pages = Number(pageCountForBook(entry)) || 0;
     const contribution = challenge.metric === 'pages' && pages ? `${pages.toLocaleString()} ${readingGoalMetricUnit('pages',pages)}` : '';
@@ -10587,10 +10591,15 @@ function openReadingGoalBadgeHistory(challengeId) {
     .sort((a,b) => String(b.period_start || '').localeCompare(String(a.period_start || '')));
   const design = readingGoalBadgeDesign(challenge);
   const entries = wins.length
-    ? `<ol class="reading-goal-history-list">${wins.map(win => `<li><strong>${esc(readingGoalWinPeriodLabel(challenge,win))}</strong><small>${Number(win.progress_value || challenge.target_value).toLocaleString()} ${readingGoalMetricUnit(challenge.metric,Number(win.progress_value || challenge.target_value))}${win.earned_at ? ` · Earned ${esc(new Date(win.earned_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}))}` : ''}</small></li>`).join('')}</ol>`
+    ? wins.map(win => {
+      const books = readingGoalEntriesForWin(challenge,win);
+      const value = Number(win.progress_value || challenge.target_value);
+      const earned = win.earned_at ? ` · Earned ${new Date(win.earned_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}` : '';
+      return `<section class="reading-goal-winning-period"><h3>${esc(readingGoalWinPeriodLabel(challenge,win))} · ${value.toLocaleString()} ${readingGoalMetricUnit(challenge.metric,value)}${esc(earned)}</h3>${readingGoalBooksListHTML(challenge,books,win.cadence || readingGoalCadence(challenge))}</section>`;
+    }).join('')
     : '<div class="reading-goals-empty">No wins have been recorded for this badge yet.</div>';
   showReadingGoalDialog(`${design.name} · ${challenge.name}`,`${wins.length} badge win${wins.length === 1 ? '' : 's'} · ${readingGoalCadenceLabel(readingGoalCadence(challenge))} challenge`, '<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
-  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">These are the periods when this challenge’s target was reached.</div>${entries}`;
+  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">Each win is shown with the books from its recorded period. Legacy annual wins on recurring challenges show books from that year.</div>${entries}`;
 }
 
 function buildReadingGoalsPage() {
