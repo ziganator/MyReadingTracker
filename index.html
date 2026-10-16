@@ -5479,7 +5479,8 @@
   .social-panel,.social-post { padding:1rem; }
   .social-panel h3 { margin:0 0 .7rem; color:var(--ink); }
   .social-challenge-list { display:grid; gap:.6rem; }
-  .social-challenge-item { display:flex; align-items:center; gap:.7rem; padding:.65rem .75rem; border:1px solid var(--border); border-radius:10px; background:#f8faff; }
+  .social-challenge-item { display:flex; align-items:center; width:100%; gap:.7rem; padding:.65rem .75rem; border:1px solid var(--border); border-radius:10px; background:#f8faff; color:inherit; font:inherit; text-align:left; cursor:pointer; transition:border-color .16s ease,background .16s ease,box-shadow .16s ease; }
+  .social-challenge-item:hover { border-color:rgba(65,105,225,.4); background:#fff; box-shadow:0 4px 12px rgba(21,42,85,.08); }
   .social-challenge-item .reading-goal-medallion { width:42px; height:42px; flex:0 0 42px; }
   .social-challenge-copy { flex:1; min-width:0; }
   .social-challenge-copy strong,.social-challenge-copy small { display:block; }
@@ -8552,16 +8553,16 @@ function socialChallengesHTML() {
     const state=progress.value >= progress.target ? 'Current period complete' : 'In progress';
     const winsLabel=cadence === 'annual' ? (progress.value >= progress.target ? 'Yearly challenge completed' : 'Yearly challenge') : `${yearWins} win${yearWins === 1 ? '' : 's'} this year`;
     const periodUnit=cadence === 'annual' ? 'year' : cadence === 'weekly' ? 'week' : 'month';
-    return `<div class="social-challenge-item">${readingGoalBadgeIconHTML(challenge,true)}<div class="social-challenge-copy"><strong>${esc(challenge.name)}</strong><small>${esc(winsLabel)} · ${progress.value.toLocaleString()} of ${progress.target.toLocaleString()} ${esc(progress.unit)} this ${periodUnit}</small><div class="social-challenge-track" role="progressbar" aria-label="${esc(challenge.name)} progress" aria-valuenow="${Math.min(progress.value,progress.target)}" aria-valuemin="0" aria-valuemax="${progress.target}"><span style="width:${percent}%"></span></div><small>${esc(state)} · ${percent}%</small></div></div>`;
+    return `<button class="social-challenge-item" type="button" onclick="openReadingGoalBadgeHistory(${jsArg(challenge.id)})" aria-label="View ${esc(challenge.name)} challenge wins and books" title="View challenge wins and books">${readingGoalBadgeIconHTML(challenge,true)}<span class="social-challenge-copy"><strong>${esc(challenge.name)}</strong><small>${esc(winsLabel)} · ${progress.value.toLocaleString()} of ${progress.target.toLocaleString()} ${esc(progress.unit)} this ${periodUnit}</small><span class="social-challenge-track" role="progressbar" aria-label="${esc(challenge.name)} progress" aria-valuenow="${Math.min(progress.value,progress.target)}" aria-valuemin="0" aria-valuemax="${progress.target}"><span style="width:${percent}%"></span></span><small>${esc(state)} · ${percent}%</small></span></button>`;
   }).join('');
   return `<section class="social-panel social-challenges"><h3>Challenges This Year</h3>${items ? `<div class="social-challenge-list">${items}</div>` : '<p class="social-empty">No challenges are active this year yet.</p>'}<button class="account-secondary" style="margin-top:.75rem" type="button" onclick="switchTab('goals')">View Challenges</button></section>`;
 }
 
 function socialFeedHTML() {
-  return `<div class="social-layout"><div class="social-feed">${socialChallengesHTML()}${socialCreatePostCardHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
+  return `<div class="social-layout"><div class="social-feed">${socialCreatePostCardHTML()}<div class="social-feed-heading"><h3>Latest from readers</h3><span>${socialPosts.length ? 'Fresh thoughts from your circle' : 'Your feed is ready'}</span></div>${socialPosts.length
     ? socialPosts.map(socialPostHTML).join('')
     : '<section class="social-panel social-empty">It’s quiet here for now. Share what you’re reading, or find a few readers to follow along with.</section>'}</div>
-    <aside class="social-side">${socialPromptHTML()}${socialSuggestionsPreviewHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('requests')">View Requests</button></section></aside></div>`;
+    <aside class="social-side">${socialChallengesHTML()}${socialPromptHTML()}${socialSuggestionsPreviewHTML()}<section class="social-panel"><h3>Your circle</h3><p class="social-empty">${socialFriendIds().length} ${socialFriendIds().length === 1 ? 'friend' : 'friends'} · ${socialIncomingRequests().length} pending ${socialIncomingRequests().length === 1 ? 'request' : 'requests'}</p><button class="account-secondary" type="button" onclick="selectSocialSection('requests')">View Requests</button></section></aside></div>`;
 }
 
 function socialPersonCardHTML(profile, mode='discover') {
