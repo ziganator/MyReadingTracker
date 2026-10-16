@@ -1522,7 +1522,7 @@
   .app-dialog-box.reading-goal-dialog { width:min(540px,100%); max-height:calc(100vh - 2rem); overflow-y:auto; padding:clamp(1rem,4vw,1.5rem); border:1px solid rgba(65,105,225,.2); border-radius:20px; background:linear-gradient(145deg,#fff,#f5f7ff); box-shadow:0 24px 70px rgba(23,45,95,.25); }
   .reading-goal-dialog-header { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
   .reading-goal-close { display:none; }
-  .reading-goal-dialog .reading-goal-dialog-header { margin-bottom:.45rem; }
+  .reading-goal-dialog .reading-goal-dialog-header { position:sticky; top:0; z-index:2; align-items:center; margin:0 0 .45rem; padding:.25rem 0 .7rem; background:#fff; }
   .reading-goal-dialog-header h3 { margin:0; color:var(--deep); font-family:'Fraunces',Georgia,serif; font-size:1.4rem; letter-spacing:-.02em; }
   .reading-goal-dialog .reading-goal-close { display:inline-grid; place-items:center; flex:0 0 40px; width:40px; height:40px; margin:-.25rem -.25rem 0 0; border:1px solid rgba(65,105,225,.2); border-radius:11px; background:#fff; color:var(--deep); font:700 1.35rem/1 inherit; cursor:pointer; }
   .reading-goal-dialog .reading-goal-close:hover { background:#eef2ff; border-color:rgba(65,105,225,.45); }
@@ -10569,7 +10569,7 @@ function readingGoalWinPeriodLabel(challenge, win) {
   const end = safeDate(win.period_end) || start;
   if (cadence === 'annual') {
     const year = start.slice(0,4) || challenge.year;
-    return readingGoalCadence(challenge) === 'annual' ? `Year ${year}` : `Legacy yearly win · ${year}`;
+    return `Year ${year}`;
   }
   const startDate = start ? new Date(`${start}T12:00:00`) : null;
   if (!startDate || Number.isNaN(startDate.getTime())) return start || 'Reading period';
@@ -10648,14 +10648,13 @@ function openReadingGoalBadgeHistory(challengeId) {
   const entries = wins.length
     ? wins.map(win => {
       const books = readingGoalEntriesForWin(challenge,win);
-      const isLegacyAnnual = win.cadence === 'annual' && readingGoalCadence(challenge) !== 'annual';
-      const value = isLegacyAnnual ? readingGoalValue(books,challenge.metric) : Number(win.progress_value || challenge.target_value);
+      const value = Number(win.progress_value || challenge.target_value);
       const earned = win.earned_at ? ` · Earned ${new Date(win.earned_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}` : '';
       return `<section class="reading-goal-winning-period"><h3>${esc(readingGoalWinPeriodLabel(challenge,win))} · ${value.toLocaleString()} ${readingGoalMetricUnit(challenge.metric,value)}${esc(earned)}</h3>${readingGoalBooksListHTML(challenge,books,win.cadence || readingGoalCadence(challenge))}</section>`;
     }).join('')
     : '<div class="reading-goals-empty">No wins have been recorded for this badge yet.</div>';
   showReadingGoalDialog(`${design.name} · ${challenge.name}`,`${wins.length} badge win${wins.length === 1 ? '' : 's'} · ${readingGoalCadenceLabel(readingGoalCadence(challenge))} challenge`, '<button class="account-primary" type="button" onclick="closeAppDialog()">Close</button>');
-  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">Each win is shown with the books from its recorded period. Legacy yearly wins on recurring challenges show the books and recalculated total for that year.</div>${entries}`;
+  document.getElementById('app-dialog-message').innerHTML = `<div class="reading-goal-history-intro">Each win is shown with the books from its recorded period.</div>${entries}`;
 }
 
 function buildReadingGoalsPage() {
@@ -10697,26 +10696,27 @@ async function loadAndBuildReadingGoals() {
     ]);
     readingChallenges = challenges;
     readingChallengeWins = wins;
-    const weeklyReaderIds = new Set(readingChallenges
-      .filter(challenge => challenge.name === 'The Weekly Reader' && readingGoalCadence(challenge) === 'weekly')
+    const recurringChallengeIds = new Set(readingChallenges
+      .filter(challenge => ['weekly','monthly'].includes(readingGoalCadence(challenge)))
       .map(challenge => String(challenge.id)));
-    const legacyWeeklyWins = readingChallengeWins.filter(win => {
+    const legacyRecurringWins = readingChallengeWins.filter(win => {
       const challenge = readingChallenges.find(item => String(item.id) === String(win.challenge_id));
-      return challenge && weeklyReaderIds.has(String(challenge.id)) && win.cadence === 'annual'
+      return challenge && recurringChallengeIds.has(String(challenge.id)) && win.cadence === 'annual'
         && String(win.period_start || '') === `${challenge.year}-01-01`
         && String(win.period_end || '') === `${challenge.year}-12-31`;
     });
-    for (const win of legacyWeeklyWins) {
+    for (const win of legacyRecurringWins) {
       try {
         await supabaseTableRequest('reading_challenge_wins', {
           method:'DELETE', query:`?id=eq.${encodeURIComponent(win.id)}`, prefer:'return=minimal'
         });
-        readingChallengeWins = readingChallengeWins.filter(item => String(item.id) !== String(win.id));
       } catch (error) {
-        console.warn('Could not remove the legacy yearly win for The Weekly Reader:', error.message);
-        readingGoalsLoadError = 'The old yearly win for The Weekly Reader could not be removed yet. Please refresh Reading Goals while online.';
+        console.warn('Could not remove a legacy annual win from a recurring challenge:', error.message);
+        readingGoalsLoadError = 'A legacy yearly win could not be removed from a recurring challenge yet. Please refresh Reading Goals while online.';
       }
     }
+    const legacyRecurringWinIds = new Set(legacyRecurringWins.map(win => String(win.id)));
+    readingChallengeWins = readingChallengeWins.filter(win => !legacyRecurringWinIds.has(String(win.id)));
     for (const challenge of readingChallenges) {
       const existingPeriods = new Set(readingChallengeWins
         .filter(win => String(win.challenge_id) === String(challenge.id))
