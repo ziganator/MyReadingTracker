@@ -2201,6 +2201,7 @@
   }
   .amazon-import-hint { margin:.35rem 0 .35rem; color:var(--muted); font-size:.82rem; line-height:1.4; }
   .amazon-import-row input { font-family:'Crimson Pro',serif; font-size:.95rem; }
+  .amazon-import-row { margin-bottom:1rem; }
   .add-book-search-row {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto;
   }
@@ -2587,11 +2588,13 @@
 .add-book-publication-row {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: 8rem minmax(13rem, 17rem) 7rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 0.95fr);
   gap: 0.75rem;
   align-items: start;
+  min-width: 0;
 }
-.add-book-publication-row > .add-book-field { grid-column: auto; }
+.add-book-publication-row > .add-book-field { grid-column: auto; min-width:0; }
+.add-book-publication-row input { width:100%; min-width:0; }
 .audiobook-duration-inputs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -9244,7 +9247,7 @@ function openMobileNavigationMenu() {
   ].filter(([id]) => !(minimalistMode && ['club-hub','picker'].includes(id)));
   showAppDialog('More', 'More places in your reading tracker.', tabs.map(([id, label]) =>
     `<button class="account-secondary" type="button" onclick="closeAppDialog();switchTab(${jsArg(id)})">${esc(label)}</button>`
-  ).join(''));
+  ).join('') + '<button class="account-secondary" type="button" onclick="closeAppDialog()">Close</button>');
 }
 function pageContentTop(panel) {
   const nav = document.getElementById('mainNav');
