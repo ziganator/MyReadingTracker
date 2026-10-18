@@ -2199,6 +2199,8 @@
     gap: 0.5rem;
     margin-bottom: 0;
   }
+  .amazon-import-hint { margin:.35rem 0 .35rem; color:var(--muted); font-size:.82rem; line-height:1.4; }
+  .amazon-import-row input { font-family:'Crimson Pro',serif; font-size:.95rem; }
   .add-book-search-row {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto;
   }
@@ -12737,6 +12739,12 @@ function openAddBookDialog(defaultStatus='TBR') {
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByISBN()}">
       <button class="account-primary" type="button" onclick="lookupBookByISBN()">Look Up</button>
     </div>
+    <p class="amazon-import-hint" id="amazon-import-hint" style="display:none">Paste a full Amazon product link. We’ll look up the book and prepare it as a Wishlist item for you to review.</p>
+    <div class="isbn-lookup-row amazon-import-row" id="amazon-import-row" style="display:none">
+      <input id="add-book-amazon-url" type="url" placeholder="https://www.amazon.com/.../dp/..." aria-label="Amazon product link"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByAmazonLink()}">
+      <button class="account-primary" type="button" onclick="lookupBookByAmazonLink()">Find Book</button>
+    </div>
     <div class="isbn-lookup-row add-book-search-row" id="add-book-search-row" style="display:none">
       <input id="add-book-search-title" type="search" placeholder="Book title" autocomplete="off"
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByTitleAuthor()}">
@@ -12847,11 +12855,15 @@ function setAddBookMode(mode) {
   document.getElementById('add-mode-scan')?.classList.toggle('active', mode === 'scan');
   document.getElementById('add-mode-quick')?.classList.toggle('active', mode === 'quick');
   const isbnRow = document.getElementById('isbn-lookup-row');
+  const amazonRow = document.getElementById('amazon-import-row');
+  const amazonHint = document.getElementById('amazon-import-hint');
   const searchRow = document.getElementById('add-book-search-row');
   const quickRow = document.getElementById('add-book-quick');
   const scanRow = document.getElementById('add-book-scan-row');
   const fields = document.querySelector('.add-book-fields');
   if (isbnRow) isbnRow.style.display = ['isbn', 'scan'].includes(mode) ? 'grid' : 'none';
+  if (amazonRow) amazonRow.style.display = mode === 'search' ? 'grid' : 'none';
+  if (amazonHint) amazonHint.style.display = mode === 'search' ? 'block' : 'none';
   if (searchRow) searchRow.style.display = mode === 'search' ? 'grid' : 'none';
   if (quickRow) quickRow.style.display = mode === 'quick' ? 'grid' : 'none';
   if (scanRow) scanRow.style.display = mode === 'scan' ? 'grid' : 'none';
@@ -13768,6 +13780,61 @@ async function lookupBookByISBN() {
   } catch (error) {
     message.textContent = `ISBN captured: ${isbn}. ${error.message} You can enter the book manually.`;
   }
+}
+
+function amazonBookLinkDetails(rawLink) {
+  let url;
+  try { url = new URL(String(rawLink || '').trim()); }
+  catch (_) { throw new Error('Paste a valid Amazon product link.'); }
+  const hostname = url.hostname.toLowerCase();
+  const amazonHosts = new Set(['amazon.com','www.amazon.com','amazon.ca','www.amazon.ca','amazon.com.mx','www.amazon.com.mx','amazon.com.br','www.amazon.com.br','amazon.co.uk','www.amazon.co.uk','amazon.de','www.amazon.de','amazon.fr','www.amazon.fr','amazon.it','www.amazon.it','amazon.es','www.amazon.es','amazon.nl','www.amazon.nl','amazon.se','www.amazon.se','amazon.pl','www.amazon.pl','amazon.co.jp','www.amazon.co.jp','amazon.com.au','www.amazon.com.au','amazon.in','www.amazon.in','amazon.sg','www.amazon.sg','amazon.ae','www.amazon.ae','amazon.sa','www.amazon.sa','amazon.com.tr','www.amazon.com.tr','amazon.eg','www.amazon.eg']);
+  if (!amazonHosts.has(hostname)) {
+    throw new Error('Use a full Amazon product page link. Short links and links from other stores are not supported yet.');
+  }
+  const pathMatch = url.pathname.match(/^(.*?)(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([a-z0-9]{10})(?:\/|$)/i);
+  if (!pathMatch) throw new Error('I couldn’t find a book product ID in that link. Copy the link from the Amazon book’s product page.');
+  let titleQuery = '';
+  const titleSlug = pathMatch[1].split('/').filter(Boolean).pop() || '';
+  try { titleQuery = decodeURIComponent(titleSlug).replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim(); }
+  catch (_) { titleQuery = titleSlug.replace(/[-_]+/g,' ').trim(); }
+  return {asin:pathMatch[2].toUpperCase(),titleQuery};
+}
+
+async function lookupBookByAmazonLink() {
+  const input = document.getElementById('add-book-amazon-url');
+  const message = document.getElementById('add-book-status-message');
+  const status = document.getElementById('add-book-status');
+  let details;
+  try { details = amazonBookLinkDetails(input?.value); }
+  catch (error) { if (message) message.textContent = error.message; return; }
+  if (status) {
+    status.value = 'Wishlist';
+    updateAddBookOwnedDefault();
+  }
+  if (message) message.textContent = 'Looking up the Amazon book link…';
+  let editions = [];
+  if (/^(?:\d{9}[\dX]|\d{13})$/.test(details.asin)) {
+    try { editions = await fetchEditionCandidatesByISBN(details.asin); }
+    catch (_) { editions = []; }
+  }
+  if (!editions.length) {
+    const query = details.titleQuery || details.asin;
+    try { editions = await fetchBookSearchCandidates(query); }
+    catch (error) {
+      if (message) message.textContent = `${error.message} Try searching by title and author instead.`;
+      return;
+    }
+  }
+  addBookEditionCandidates = mergeEditionCandidates(editions).slice(0,24);
+  if (!addBookEditionCandidates.length) {
+    if (message) message.textContent = 'No matching book records were found for that Amazon link. Try searching by title and author instead.';
+    document.getElementById('add-book-edition-results').hidden = true;
+    return;
+  }
+  document.getElementById('add-book-edition-results').hidden = false;
+  renderEditionPicker('add-book-edition-picker',addBookEditionCandidates,null,'selectAddBookEdition');
+  renderSelectedEditionPreview(null);
+  if (message) message.textContent = `${addBookEditionCandidates.length} possible edition${addBookEditionCandidates.length === 1 ? '' : 's'} found. Choose the matching book, review the details, then save it to your Wishlist.`;
 }
 
 async function lookupBookByTitleAuthor() {
