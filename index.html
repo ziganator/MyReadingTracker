@@ -13120,6 +13120,14 @@ function cleanISBN(value) {
   return String(value || '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
+function isbn13FromISBN10(value) {
+  const isbn10 = cleanISBN(value);
+  if (!/^\d{9}[\dX]$/.test(isbn10)) return '';
+  const body = `978${isbn10.slice(0,9)}`;
+  const sum = [...body].reduce((total,digit,index) => total + Number(digit) * (index % 2 ? 3 : 1),0);
+  return `${body}${(10 - sum % 10) % 10}`;
+}
+
 function numericPageCount(...values) {
   for (const value of values) {
     const text = String(value || '').trim();
@@ -13400,7 +13408,7 @@ async function populateAddBookFromEdition(edition) {
   document.getElementById('add-book-edition-results').hidden = false;
   document.getElementById('add-book-title').value = edition.title || '';
   document.getElementById('add-book-author').value = (edition.authors || []).join(', ');
-  document.getElementById('add-book-isbn').value = edition.isbn_13 || edition.isbn_10 || '';
+  document.getElementById('add-book-isbn').value = edition.isbn_13 || edition.isbn_10 || document.getElementById('add-book-isbn')?.value || '';
   if (edition.work_publication_year) {
     document.getElementById('add-book-year').value = String(edition.work_publication_year);
   }
@@ -13821,23 +13829,26 @@ async function lookupBookByAmazonLink() {
     status.value = 'Wishlist';
     updateAddBookOwnedDefault();
   }
+  const fallbackISBN = /^(?:\d{9}[\dX]|\d{13})$/.test(details.asin) ? details.asin : '';
+  if (fallbackISBN) document.getElementById('add-book-isbn').value = fallbackISBN;
   if (message) message.textContent = 'Looking up the Amazon book link…';
   let editions = [];
-  if (/^(?:\d{9}[\dX]|\d{13})$/.test(details.asin)) {
-    try { editions = await fetchEditionCandidatesByISBN(details.asin); }
-    catch (_) { editions = []; }
+  if (fallbackISBN) {
+    const isbnQueries = [...new Set([fallbackISBN,isbn13FromISBN10(fallbackISBN)].filter(Boolean))];
+    const results = await Promise.allSettled(isbnQueries.map(isbn => fetchEditionCandidatesByISBN(isbn)));
+    editions = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
   }
-  if (!editions.length) {
-    const query = details.titleQuery || details.asin;
+  if (!editions.length && details.titleQuery) {
+    const query = details.titleQuery;
     try { editions = await fetchBookSearchCandidates(query); }
-    catch (error) {
-      if (message) message.textContent = `${error.message} Try searching by title and author instead.`;
-      return;
-    }
+    catch (_) { editions = []; }
   }
   addBookEditionCandidates = mergeEditionCandidates(editions).slice(0,24);
   if (!addBookEditionCandidates.length) {
-    if (message) message.textContent = 'No matching book records were found for that Amazon link. Try searching by title and author instead.';
+    const isbn13 = isbn13FromISBN10(fallbackISBN);
+    if (message) message.textContent = fallbackISBN
+      ? `No catalog match was found for ISBN ${fallbackISBN}${isbn13 ? ` (also tried ${isbn13})` : ''}. Wishlist is selected and the ISBN is saved in Book Details. Search by title and author above, or enter the details manually, then save.`
+      : 'No matching book records were found for that Amazon link. Search by title and author above, or enter the details manually, then save.';
     document.getElementById('add-book-edition-results').hidden = true;
     return;
   }
