@@ -1526,6 +1526,8 @@
   .reading-goal-dialog-header h3 { margin:0; color:#f7f8ff; font-family:'Playfair Display',Georgia,serif; font-size:1.25rem; }
   .reading-goal-dialog .reading-goal-close { display:inline-grid; place-items:center; flex:0 0 44px; width:44px; height:44px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--gold-light); font:400 1.5rem/1 inherit; cursor:pointer; }
   .reading-goal-dialog .reading-goal-close:hover { background:transparent; color:#fff; }
+  .app-dialog-box.app-dialog-with-close .reading-goal-close { display:inline-grid; place-items:center; flex:0 0 40px; width:40px; height:40px; margin:-.3rem -.35rem 0 0; border:0; background:transparent; color:var(--muted); font:400 1.45rem/1 inherit; cursor:pointer; }
+  .app-dialog-box.app-dialog-with-close .reading-goal-close:hover { color:var(--deep); }
   .reading-goal-dialog #app-dialog-message { flex:1 1 auto; min-height:0; overflow-y:auto; margin:.25rem 0 1rem; color:var(--muted); line-height:1.5; }
   .reading-goal-dialog .reading-goal-dialog-fields { gap:.9rem; }
   .reading-goal-dialog .reading-goal-dialog-fields label { gap:.4rem; color:var(--deep); font-size:.8rem; font-weight:750; }
@@ -2595,6 +2597,10 @@
 }
 .add-book-publication-row > .add-book-field { grid-column: auto; min-width:0; }
 .add-book-publication-row input { width:100%; min-width:0; }
+@media (max-width: 900px) {
+  .add-book-publication-row { grid-template-columns:minmax(0,1fr) minmax(0,1.7fr); }
+  .add-book-publication-row .add-book-year-read-field { grid-column:1; }
+}
 .audiobook-duration-inputs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -9247,7 +9253,8 @@ function openMobileNavigationMenu() {
   ].filter(([id]) => !(minimalistMode && ['club-hub','picker'].includes(id)));
   showAppDialog('More', 'More places in your reading tracker.', tabs.map(([id, label]) =>
     `<button class="account-secondary" type="button" onclick="closeAppDialog();switchTab(${jsArg(id)})">${esc(label)}</button>`
-  ).join('') + '<button class="account-secondary" type="button" onclick="closeAppDialog()">Close</button>');
+  ).join(''));
+  document.querySelector('#app-dialog .app-dialog-box')?.classList.add('app-dialog-with-close');
 }
 function pageContentTop(panel) {
   const nav = document.getElementById('mainNav');
@@ -16647,11 +16654,11 @@ function bookEditorValue(id) {
 
 function closeAppDialog() {
   document.getElementById('app-dialog')?.classList.remove('open');
-  document.querySelector('#app-dialog .app-dialog-box')?.classList.remove('reading-goal-dialog');
+  document.querySelector('#app-dialog .app-dialog-box')?.classList.remove('reading-goal-dialog','app-dialog-with-close');
 }
 
 function showAppDialog(title, message, actions) {
-  document.querySelector('#app-dialog .app-dialog-box')?.classList.remove('reading-goal-dialog');
+  document.querySelector('#app-dialog .app-dialog-box')?.classList.remove('reading-goal-dialog','app-dialog-with-close');
   document.getElementById('app-dialog-title').textContent = title;
   document.getElementById('app-dialog-message').textContent = message;
   document.getElementById('app-dialog-actions').innerHTML = actions;
