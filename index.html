@@ -9696,7 +9696,7 @@ function showPublicationYearChart(evt) {
   document.getElementById('modal-series-name').textContent='Books by Publication Year';
   document.getElementById('modal-series-sub').textContent=`${datedReads.length} books with a publication year · ${years.length} year${years.length===1?'':'s'} with data`;
   document.getElementById('modal-series-body').innerHTML=years.length
-    ? `<div class="stats-chart"><h3>Books Published Each Year</h3>${statsColumnChart(years,{limit:years.length})}</div>`
+    ? `<div class="stats-chart"><h3>Books Published Each Year</h3>${statsBarChart(years,{limit:years.length})}</div>`
     : '<p class="stats-note">No books with a publication year match the current Stats filters.</p>';
   openModal(evt,'author');
 }
