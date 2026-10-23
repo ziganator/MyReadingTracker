@@ -5147,6 +5147,9 @@
   .stats-chart-wide { grid-column: 1 / -1; }
   .stats-chart-span-two { grid-column: span 2; }
   .stats-chart h3 { margin: 0 0 0.8rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border); color: var(--burnt); font: 700 1.05rem 'Playfair Display',serif; }
+  .stats-chart-title-button { display: block; width: 100%; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .stats-chart-title-button:hover { color: var(--deep); text-decoration: underline; text-underline-offset: 0.16em; }
+  .stats-chart-title-button:focus-visible { outline: 2px solid #4169e1; outline-offset: 3px; border-radius: 2px; }
   .stats-threshold-control { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; margin: -0.1rem 0 0.8rem; color: var(--muted); font-size: 0.78rem; }
   .stats-threshold-control label { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; }
   .stats-threshold-control input { width: 68px; min-height: 36px; padding: 0.35rem 0.45rem; color: var(--ink); background: #fff; font-family: inherit; font-size: 0.85rem; font-weight: 700; }
@@ -9527,8 +9530,11 @@ function statsStreakCard(streaks) {
   </button>`;
 }
 
-function statsChart(title, content, note='', className='') {
-  return `<section class="stats-chart ${esc(className)}"><h3>${esc(title)}</h3>${content || '<p class="stats-note">Not enough data for this view.</p>'}${note ? `<p class="stats-note">${esc(note)}</p>` : ''}</section>`;
+function statsChart(title, content, note='', className='', titleAction='') {
+  const heading=titleAction
+    ? `<h3><button class="stats-chart-title-button" type="button" onclick="${titleAction}" title="View book counts by publication year">${esc(title)}</button></h3>`
+    : `<h3>${esc(title)}</h3>`;
+  return `<section class="stats-chart ${esc(className)}">${heading}${content || '<p class="stats-note">Not enough data for this view.</p>'}${note ? `<p class="stats-note">${esc(note)}</p>` : ''}</section>`;
 }
 
 function statsBarChart(entries, options={}) {
@@ -9675,6 +9681,24 @@ function statsCountBy(books, keyFn) {
     counts.set(key, (counts.get(key) || 0) + 1);
   });
   return [...counts.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
+}
+
+function showPublicationYearChart(evt) {
+  evt?.preventDefault?.();
+  evt?.stopPropagation?.();
+  const reads=filteredStatsReads();
+  const datedReads=reads.filter(book=>{
+    const year=Number(book.year_pub||book.publication_year);
+    return Number.isInteger(year)&&year>0;
+  });
+  const years=statsCountBy(datedReads,book=>String(Number(book.year_pub||book.publication_year)))
+    .sort((a,b)=>Number(a[0])-Number(b[0]));
+  document.getElementById('modal-series-name').textContent='Books by Publication Year';
+  document.getElementById('modal-series-sub').textContent=`${datedReads.length} books with a publication year · ${years.length} year${years.length===1?'':'s'} with data`;
+  document.getElementById('modal-series-body').innerHTML=years.length
+    ? `<div class="stats-chart"><h3>Books Published Each Year</h3>${statsColumnChart(years,{limit:years.length})}</div>`
+    : '<p class="stats-note">No books with a publication year match the current Stats filters.</p>';
+  openModal(evt,'author');
 }
 
 function statsAuthorCreditBooks(books) {
@@ -10113,7 +10137,7 @@ function statsFormatsHTML(reads) {
   const currentYear=new Date().getFullYear();
   const newReleases=reads.filter(b=>Number(b.year_pub||b.publication_year)===readYearForBook(b)).length;
   const known=reads.filter(b=>Number(b.year_pub||b.publication_year)&&readYearForBook(b)).length;
-  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads','',statsGroupAction('Publication-Year Reads','new-release'))}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads','',statsGroupAction('Backlist Reads','backlist'))}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read','',statsGroupAction('Owned Books Read','owned'))}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsRankedDotChart(formats,{limit:30,drilldownKind:'format',drilldownTitle:format=>statsFormatGroupTitle(format)}))}${statsChart('Publication Decades',statsBubbleTimeline(decades,{limit:40,drilldownKind:'publication-decade',drilldownTitle:decade=>`Books Published in the ${decade}`}),'','stats-chart-span-two')}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}),'','stats-chart-wide')}</div>`;
+  return `<div class="stats-card-grid">${statsCard('🆕',newReleases,'Publication-Year Reads','',statsGroupAction('Publication-Year Reads','new-release'))}${statsCard('📚',Math.max(0,known-newReleases),'Backlist Reads','',statsGroupAction('Backlist Reads','backlist'))}${statsCard('🏠',reads.filter(b=>ownedValue(b.own)).length,'Owned Books Read','',statsGroupAction('Owned Books Read','owned'))}</div><div class="stats-chart-grid">${statsChart('Format Breakdown',statsRankedDotChart(formats,{limit:30,drilldownKind:'format',drilldownTitle:format=>statsFormatGroupTitle(format)}))}${statsChart('Publication Decades',statsBubbleTimeline(decades,{limit:40,drilldownKind:'publication-decade',drilldownTitle:decade=>`Books Published in the ${decade}`}),'','stats-chart-span-two','showPublicationYearChart(event)')}${statsChart('Average Rating by Format',statsBarChart(statsAverageBy(reads,b=>b.format||'Unknown'),{drilldownKind:'rated-format',drilldownTitle:format=>statsFormatGroupTitle(format,true)}),'','stats-chart-wide')}</div>`;
 }
 
 function statsSeriesHTML(library) {
