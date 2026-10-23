@@ -9683,10 +9683,20 @@ function statsCountBy(books, keyFn) {
   return [...counts.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
 }
 
+function uniqueStatsBooks(books) {
+  const seen=new Set();
+  return books.filter(book=>{
+    const key=book.database_id?`db:${book.database_id}`:bookIdentity(book);
+    if (!key||seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function showPublicationYearChart(evt) {
   evt?.preventDefault?.();
   evt?.stopPropagation?.();
-  const reads=filteredStatsReads();
+  const reads=uniqueStatsBooks(filteredStatsReads());
   const datedReads=reads.filter(book=>{
     const year=Number(book.year_pub||book.publication_year);
     return Number.isInteger(year)&&year>0;
@@ -9783,7 +9793,7 @@ function statsGroupBooks(kind, value='', scope='reads') {
   }
   if (kind==='genre' || kind==='rated-genre') return base.filter(book=>normalizedKey(book.genre||'Unknown')===key&&(kind!=='rated-genre'||(String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)))));
   if (kind==='format' || kind==='rated-format') return base.filter(book=>bookFormatKey(String(book.format||'').trim()||'Unknown')===bookFormatKey(value)&&(kind!=='rated-format'||(String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)))));
-  if (kind==='publication-year') return base.filter(book=>Number(book.year_pub||book.publication_year)===Number(value));
+  if (kind==='publication-year') return uniqueStatsBooks(base.filter(book=>Number(book.year_pub||book.publication_year)===Number(value)));
   if (kind==='publication-decade') return base.filter(book=>{const year=Number(book.year_pub||book.publication_year);return (year?`${Math.floor(year/10)*10}s`:'Unknown')===value;});
   if (kind==='completed') return base.filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
   if (kind==='status-read') return base.filter(book=>libraryBookStatus(book)==='Read');
@@ -10134,7 +10144,7 @@ function filterStatsAuthors(value) {
 
 function statsFormatsHTML(reads) {
   const formats=statsCountBy(reads,b=>b.format||'Unknown');
-  const decades=statsCountBy(reads,b=>{const year=Number(b.year_pub||b.publication_year);return year?`${Math.floor(year/10)*10}s`:'Unknown';}).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  const decades=statsCountBy(uniqueStatsBooks(reads),b=>{const year=Number(b.year_pub||b.publication_year);return year?`${Math.floor(year/10)*10}s`:'Unknown';}).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
   const currentYear=new Date().getFullYear();
   const newReleases=reads.filter(b=>Number(b.year_pub||b.publication_year)===readYearForBook(b)).length;
   const known=reads.filter(b=>Number(b.year_pub||b.publication_year)&&readYearForBook(b)).length;
