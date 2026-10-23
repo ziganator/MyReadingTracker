@@ -9696,7 +9696,7 @@ function showPublicationYearChart(evt) {
   document.getElementById('modal-series-name').textContent='Books by Publication Year';
   document.getElementById('modal-series-sub').textContent=`${datedReads.length} books with a publication year · ${years.length} year${years.length===1?'':'s'} with data`;
   document.getElementById('modal-series-body').innerHTML=years.length
-    ? `<div class="stats-chart"><h3>Books Published Each Year</h3>${statsBarChart(years,{limit:years.length})}</div>`
+    ? `<div class="stats-chart"><h3>Books Published Each Year</h3>${statsBarChart(years,{limit:years.length,drilldownKind:'publication-year',drilldownTitle:year=>`Books Published in ${year}`})}</div>`
     : '<p class="stats-note">No books with a publication year match the current Stats filters.</p>';
   openModal(evt,'author');
 }
@@ -9783,6 +9783,7 @@ function statsGroupBooks(kind, value='', scope='reads') {
   }
   if (kind==='genre' || kind==='rated-genre') return base.filter(book=>normalizedKey(book.genre||'Unknown')===key&&(kind!=='rated-genre'||(String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)))));
   if (kind==='format' || kind==='rated-format') return base.filter(book=>bookFormatKey(String(book.format||'').trim()||'Unknown')===bookFormatKey(value)&&(kind!=='rated-format'||(String(book.rating??'').trim()!==''&&Number.isFinite(Number(book.rating)))));
+  if (kind==='publication-year') return base.filter(book=>Number(book.year_pub||book.publication_year)===Number(value));
   if (kind==='publication-decade') return base.filter(book=>{const year=Number(book.year_pub||book.publication_year);return (year?`${Math.floor(year/10)*10}s`:'Unknown')===value;});
   if (kind==='completed') return base.filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
   if (kind==='status-read') return base.filter(book=>libraryBookStatus(book)==='Read');
