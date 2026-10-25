@@ -9317,10 +9317,11 @@ function buildPrivateQuickCheckPage() {
   if (!panel || !isSiteAdmin()) return;
   panel.innerHTML=`<section class="private-quick-check" aria-label="Private book and author check">
     <h2 class="visually-hidden">Private Quick Check</h2>
-    <div class="quick-check-search"><label class="visually-hidden" for="private-quick-check-query">Search books, authors, or series</label><span class="quick-check-search-icon" aria-hidden="true">⌕</span><input id="private-quick-check-query" name="private-reading-tracker-lookup" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="${quickCheckQuestion==='author'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author'}" oninput="updatePrivateQuickCheckResults()"><button class="quick-check-clear" id="private-quick-check-clear" type="button" onclick="clearPrivateQuickCheckSearch()" aria-label="Clear Search" title="Clear Search" hidden>×</button></div>
+    <div class="quick-check-search"><label class="visually-hidden" for="private-quick-check-query">Search books, authors, or series</label><span class="quick-check-search-icon" aria-hidden="true">⌕</span><input id="private-quick-check-query" name="private-reading-tracker-lookup" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="${quickCheckQuestion==='author'||quickCheckQuestion==='disliked'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author'}" oninput="updatePrivateQuickCheckResults()"><button class="quick-check-clear" id="private-quick-check-clear" type="button" onclick="clearPrivateQuickCheckSearch()" aria-label="Clear Search" title="Clear Search" hidden>×</button></div>
     <fieldset class="quick-check-questions" aria-label="Choose a question">
       <label><input type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Is This Book in the Tracker?</span></label>
       <label><input type="radio" name="private-quick-check-question" value="author" ${quickCheckQuestion==='author'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Like This Author?</span></label>
+      <label><input type="radio" name="private-quick-check-question" value="disliked" ${quickCheckQuestion==='disliked'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Who Are the Authors He Doesn’t Like?</span></label>
       <label><input type="radio" name="private-quick-check-question" value="series" ${quickCheckQuestion==='series'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Have This Series?</span></label>
     </fieldset>
     <div class="quick-check-results" id="private-quick-check-results" aria-live="polite"></div>
@@ -9329,9 +9330,9 @@ function buildPrivateQuickCheckPage() {
 }
 
 function setPrivateQuickCheckQuestion(value) {
-  quickCheckQuestion=['author','series'].includes(value)?value:'book';
+  quickCheckQuestion=['author','disliked','series'].includes(value)?value:'book';
   const input=document.getElementById('private-quick-check-query');
-  if (input) input.placeholder=quickCheckQuestion==='author'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author';
+  if (input) input.placeholder=quickCheckQuestion==='author'||quickCheckQuestion==='disliked'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author';
   updatePrivateQuickCheckResults();
 }
 
@@ -9364,12 +9365,12 @@ function updatePrivateQuickCheckResults() {
   const clearButton=document.getElementById('private-quick-check-clear');
   if (clearButton) clearButton.hidden=!input.value;
   const query=input.value.trim();
-  if (!query) {
+  if (!query && quickCheckQuestion!=='disliked') {
     results.innerHTML='<p class="quick-check-empty">Search for a book or author to check your library.</p>';
     return;
   }
   const key=normalizedKey(query);
-  if (!key) {
+  if (!key && quickCheckQuestion!=='disliked') {
     results.innerHTML='<p class="quick-check-empty">Enter a book title or author name to search.</p>';
     return;
   }
@@ -9400,12 +9401,26 @@ function updatePrivateQuickCheckResults() {
   }
   const authorBooks=new Map();
   books.forEach(book=>privateQuickCheckAuthorNames(book).forEach(author=>{
-    if (!normalizedKey(author).includes(key)) return;
+    if (key && !normalizedKey(author).includes(key)) return;
     const authorKey=normalizedKey(author);
     if (!authorBooks.has(authorKey)) authorBooks.set(authorKey,{author,books:[]});
     authorBooks.get(authorKey).books.push(book);
   }));
-  const matches=[...authorBooks.values()].sort((a,b)=>a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
+  let matches=[...authorBooks.values()].sort((a,b)=>a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
+  if (quickCheckQuestion==='disliked') {
+    matches=matches.filter(({books:authorTitles})=>{
+      const rated=authorTitles.filter(book=>libraryBookStatus(book)!=='Wishlist'&&book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
+      return rated.length>0&&rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length<=5;
+    });
+    results.innerHTML=matches.length
+      ? matches.map(({author,books:authorTitles})=>{
+        const rated=authorTitles.filter(book=>libraryBookStatus(book)!=='Wishlist'&&book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
+        const average=rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length;
+        return `<article class="quick-check-result"><strong>${esc(author)}</strong><small>${rated.length} rated book${rated.length===1?'':'s'} in the library</small><p class="quick-check-answer">Average rating: ${average.toFixed(1)} / 10</p></article>`;
+      }).join('')
+      : '<p class="quick-check-empty">No authors with an average rating of 5 or below were found.</p>';
+    return;
+  }
   results.innerHTML=matches.length
     ? matches.slice(0,12).map(({author,books:authorTitles})=>`<article class="quick-check-result"><strong>${esc(author)}</strong><small>${authorTitles.length} book${authorTitles.length===1?'':'s'} in the library</small><p class="quick-check-answer">${esc(privateQuickCheckAuthorResult(author,authorTitles))}</p></article>`).join('')+(matches.length>12?`<p class="quick-check-empty">Showing 12 of ${matches.length} matches. Refine your search to narrow the results.</p>`:'')
     : '<article class="quick-check-result"><p class="quick-check-answer">He doesn’t know this author.</p></article>';
