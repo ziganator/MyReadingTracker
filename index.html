@@ -6011,7 +6011,8 @@
   .quick-check-clear { position:absolute; top:50%; right:.65rem; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); cursor:pointer; font-family:inherit; font-size:1.35rem; font-weight:600; line-height:1; transform:translateY(-50%); }
   .quick-check-clear:hover { background:rgba(65,105,225,.1); color:var(--deep); }
   .quick-check-clear[hidden] { display:none !important; }
-  .quick-check-questions { display:flex; justify-content:center; gap:.75rem; flex-wrap:wrap; margin:1rem 0; padding:0; border:0; }
+  .quick-check-questions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem 1rem; margin:1rem 0; padding:0; border:0; }
+  .quick-check-question-column { display:grid; gap:.5rem; align-content:start; min-width:0; }
   .quick-check-questions label { display:flex; align-items:center; gap:.55rem; min-height:44px; padding:.55rem .8rem; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); color:var(--ink); cursor:pointer; font-size:.9rem; font-weight:700; }
   .quick-check-questions input { accent-color:var(--deep); width:1.05rem; height:1.05rem; margin:0; }
   .quick-check-results { display:grid; gap:.65rem; }
@@ -6025,7 +6026,7 @@
     body.quick-check-active > header .site-logo { width:42px; max-height:40px; }
     body.quick-check-active > header h1 { max-width:230px; font-size:1.15rem; }
     .private-quick-check { margin-top:1rem; }
-    .quick-check-questions { display:grid; grid-template-columns:1fr; gap:.5rem; }
+    .quick-check-questions { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
     .quick-check-questions label { justify-content:flex-start; }
   }
 
@@ -9319,12 +9320,16 @@ function buildPrivateQuickCheckPage() {
     <h2 class="visually-hidden">Private Quick Check</h2>
     <div class="quick-check-search"><label class="visually-hidden" for="private-quick-check-query">Search books, authors, or series</label><span class="quick-check-search-icon" aria-hidden="true">⌕</span><input id="private-quick-check-query" name="private-reading-tracker-lookup" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="${quickCheckQuestion==='author'||quickCheckQuestion==='disliked'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author'}" oninput="updatePrivateQuickCheckResults()"><button class="quick-check-clear" id="private-quick-check-clear" type="button" onclick="clearPrivateQuickCheckSearch()" aria-label="Clear Search" title="Clear Search" hidden>×</button></div>
     <fieldset class="quick-check-questions" aria-label="Choose a question">
-      <label><input type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Is This Book in the Tracker?</span></label>
-      <label><input type="radio" name="private-quick-check-question" value="author" ${quickCheckQuestion==='author'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Like This Author?</span></label>
-      <label><input type="radio" name="private-quick-check-question" value="disliked" ${quickCheckQuestion==='disliked'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Who Are the Authors He Doesn’t Like?</span></label>
-      <label><input type="radio" name="private-quick-check-question" value="favorites" ${quickCheckQuestion==='favorites'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>What Books Are Rated 10?</span></label>
-      <label><input type="radio" name="private-quick-check-question" value="rated9" ${quickCheckQuestion==='rated9'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>What Books Are Rated 9?</span></label>
-      <label><input type="radio" name="private-quick-check-question" value="series" ${quickCheckQuestion==='series'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Have This Series?</span></label>
+      <div class="quick-check-question-column" aria-label="Tracker questions">
+        <label title="Is This Book in the Tracker?"><input aria-label="Is This Book in the Tracker?" type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Tracker</span></label>
+        <label title="Does He Like This Author?"><input aria-label="Does He Like This Author?" type="radio" name="private-quick-check-question" value="author" ${quickCheckQuestion==='author'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Author</span></label>
+        <label title="Does He Have This Series?"><input aria-label="Does He Have This Series?" type="radio" name="private-quick-check-question" value="series" ${quickCheckQuestion==='series'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Series</span></label>
+      </div>
+      <div class="quick-check-question-column" aria-label="Rating questions">
+        <label title="What Books Are Rated 9?"><input aria-label="What Books Are Rated 9?" type="radio" name="private-quick-check-question" value="rated9" ${quickCheckQuestion==='rated9'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>9</span></label>
+        <label title="What Books Are Rated 10?"><input aria-label="What Books Are Rated 10?" type="radio" name="private-quick-check-question" value="favorites" ${quickCheckQuestion==='favorites'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>10</span></label>
+        <label title="Who Are the Authors He Doesn’t Like?"><input aria-label="Who Are the Authors He Doesn’t Like?" type="radio" name="private-quick-check-question" value="disliked" ${quickCheckQuestion==='disliked'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Disliked</span></label>
+      </div>
     </fieldset>
     <div class="quick-check-results" id="private-quick-check-results" aria-live="polite"></div>
   </section>`;
