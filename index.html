@@ -9322,6 +9322,8 @@ function buildPrivateQuickCheckPage() {
       <label><input type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Is This Book in the Tracker?</span></label>
       <label><input type="radio" name="private-quick-check-question" value="author" ${quickCheckQuestion==='author'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Like This Author?</span></label>
       <label><input type="radio" name="private-quick-check-question" value="disliked" ${quickCheckQuestion==='disliked'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Who Are the Authors He Doesn’t Like?</span></label>
+      <label><input type="radio" name="private-quick-check-question" value="favorites" ${quickCheckQuestion==='favorites'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>What Are His Favorite Books?</span></label>
+      <label><input type="radio" name="private-quick-check-question" value="rated9" ${quickCheckQuestion==='rated9'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>What Books Are Rated 9?</span></label>
       <label><input type="radio" name="private-quick-check-question" value="series" ${quickCheckQuestion==='series'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Have This Series?</span></label>
     </fieldset>
     <div class="quick-check-results" id="private-quick-check-results" aria-live="polite"></div>
@@ -9330,7 +9332,7 @@ function buildPrivateQuickCheckPage() {
 }
 
 function setPrivateQuickCheckQuestion(value) {
-  quickCheckQuestion=['author','disliked','series'].includes(value)?value:'book';
+  quickCheckQuestion=['author','disliked','favorites','rated9','series'].includes(value)?value:'book';
   const input=document.getElementById('private-quick-check-query');
   if (input) input.placeholder=quickCheckQuestion==='author'||quickCheckQuestion==='disliked'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author';
   updatePrivateQuickCheckResults();
@@ -9365,16 +9367,42 @@ function updatePrivateQuickCheckResults() {
   const clearButton=document.getElementById('private-quick-check-clear');
   if (clearButton) clearButton.hidden=!input.value;
   const query=input.value.trim();
-  if (!query && quickCheckQuestion!=='disliked') {
+  if (!query && !['disliked','favorites','rated9'].includes(quickCheckQuestion)) {
     results.innerHTML='<p class="quick-check-empty">Search for a book or author to check your library.</p>';
     return;
   }
   const key=normalizedKey(query);
-  if (!key && quickCheckQuestion!=='disliked') {
+  if (!key && !['disliked','favorites','rated9'].includes(quickCheckQuestion)) {
     results.innerHTML='<p class="quick-check-empty">Enter a book title or author name to search.</p>';
     return;
   }
   const books=allLibraryBooks();
+  if (['favorites','rated9'].includes(quickCheckQuestion)) {
+    const ratingMatches=books.filter(book=>{
+      const rating=Number(book.rating);
+      if (libraryBookStatus(book)==='Wishlist'||!Number.isFinite(rating)) return false;
+      if (quickCheckQuestion==='favorites'&&rating!==10) return false;
+      if (quickCheckQuestion==='rated9'&&!(rating>9&&rating<10)) return false;
+      return !key||normalizedKey(book.title).includes(key)||privateQuickCheckAuthorNames(book).some(author=>normalizedKey(author).includes(key));
+    }).sort((a,b)=>{
+      const ratingOrder=Number(b.rating)-Number(a.rating);
+      if (ratingOrder) return ratingOrder;
+      const authorOrder=authorLastNameKey(primaryBookContributorName(a)).localeCompare(authorLastNameKey(primaryBookContributorName(b)),undefined,{sensitivity:'base'});
+      if (authorOrder) return authorOrder;
+      const sameSeries=normalizedKey(a.series||'')&&normalizedKey(a.series||'')===normalizedKey(b.series||'');
+      if (sameSeries) {
+        const aPosition=Number(a.series_position)||Number.MAX_SAFE_INTEGER;
+        const bPosition=Number(b.series_position)||Number.MAX_SAFE_INTEGER;
+        if (aPosition!==bPosition) return aPosition-bPosition;
+      }
+      return String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'});
+    });
+    const heading=quickCheckQuestion==='favorites'?'Books Rated 10':'Books Rated Above 9 and Below 10';
+    results.innerHTML=ratingMatches.length
+      ? `<h3 class="quick-check-section-title">${heading}</h3>${ratingMatches.map(book=>`<article class="quick-check-result"><strong>${esc(book.title||'Untitled')}</strong><small>${esc(displayContributorName(book.author_full||book.author||book.author_short)||'Unknown Author')}${book.series?` · ${esc(book.series)}${book.series_position?` #${esc(book.series_position)}`:''}`:''}</small><p class="quick-check-answer">Rating: ${Number(book.rating).toLocaleString(undefined,{maximumFractionDigits:2})}</p></article>`).join('')}`
+      : `<p class="quick-check-empty">No books match this rating${key?' and search':''}.</p>`;
+    return;
+  }
   if (quickCheckQuestion==='book') {
     const matches=books.filter(book=>normalizedKey(book.title).includes(key)||privateQuickCheckAuthorNames(book).some(author=>normalizedKey(author).includes(key)));
     results.innerHTML=matches.length
