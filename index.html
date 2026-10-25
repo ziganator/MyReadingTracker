@@ -9408,14 +9408,15 @@ function updatePrivateQuickCheckResults() {
   }));
   let matches=[...authorBooks.values()].sort((a,b)=>a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
   if (quickCheckQuestion==='disliked') {
-    matches=matches.filter(({books:authorTitles})=>{
+    matches=matches.map(entry=>{
+      const {books:authorTitles}=entry;
       const rated=authorTitles.filter(book=>libraryBookStatus(book)!=='Wishlist'&&book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
-      return rated.length>0&&rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length<=5;
-    });
+      const average=rated.length?rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length:null;
+      return {...entry,rated,average};
+    }).filter(entry=>entry.average!==null&&entry.average<=5)
+      .sort((a,b)=>a.average-b.average||a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
     results.innerHTML=matches.length
-      ? matches.map(({author,books:authorTitles})=>{
-        const rated=authorTitles.filter(book=>libraryBookStatus(book)!=='Wishlist'&&book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
-        const average=rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length;
+      ? matches.map(({author,rated,average})=>{
         return `<article class="quick-check-result"><strong>${esc(author)}</strong><small>${rated.length} rated book${rated.length===1?'':'s'} in the library</small><p class="quick-check-answer">Average rating: ${average.toFixed(1)} / 10</p></article>`;
       }).join('')
       : '<p class="quick-check-empty">No authors with an average rating of 5 or below were found.</p>';
