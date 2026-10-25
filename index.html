@@ -137,7 +137,8 @@
   .account-button:hover { background: rgba(255,255,255,0.08); }
   .header-utility-actions { position:absolute; top:max(.8rem,env(safe-area-inset-top)); right:1rem; z-index:2; display:flex; align-items:center; gap:.45rem; }
   .header-utility-actions .account-button { position:static; top:auto; right:auto; }
-  .quick-check-header-button { display:none; width:40px; height:40px; padding:0; border:1px solid rgba(255,122,0,.65); border-radius:4px; background:transparent; color:var(--gold-light); cursor:pointer; font:700 1.35rem 'Crimson Pro',serif; line-height:1; }
+  .quick-check-header-button { display:none; align-items:center; justify-content:center; width:40px; height:40px; padding:0; border:1px solid rgba(255,122,0,.65); border-radius:4px; background:transparent; color:var(--gold-light); cursor:pointer; font:700 1.35rem 'Crimson Pro',serif; line-height:1; text-align:center; }
+  .quick-check-header-button span { display:block; line-height:1; transform:translateY(-1px); }
   .quick-check-header-button:hover { background:rgba(255,255,255,.08); }
   .standalone-button {
     display: none;
@@ -6030,7 +6031,7 @@
 <header>
   <a class="standalone-button" id="standalone-link" href="#" onclick="openStandalonePage(event)">Open Full Page</a>
   <div class="header-utility-actions">
-    <button class="quick-check-header-button" id="quick-check-header-button" type="button" onclick="switchTab('quick-check')" title="Private Check" aria-label="Open Private Check">⚡</button>
+    <button class="quick-check-header-button" id="quick-check-header-button" type="button" onclick="switchTab('quick-check')" title="Private Check" aria-label="Open Private Check"><span aria-hidden="true">⚡</span></button>
     <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
   </div>
   <div class="header-ornament">✦ ✦ ✦</div>
