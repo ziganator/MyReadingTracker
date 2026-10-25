@@ -5984,6 +5984,36 @@
     header::after { right:4%; width:34%; }
   }
 
+  body.quick-check-active > header { min-height:0; gap:.25rem; padding:.55rem 1rem .65rem; }
+  body.quick-check-active > header .header-ornament,
+  body.quick-check-active > header .header-sub,
+  body.quick-check-active > header .stats-row { display:none !important; }
+  body.quick-check-active > header .site-brand { gap:.55rem; }
+  body.quick-check-active > header .site-logo { width:52px; max-height:48px; }
+  body.quick-check-active > header h1 { font-size:clamp(1.2rem,3vw,1.65rem); line-height:1.05; }
+  .private-quick-check { width:min(100%,760px); margin:clamp(1.2rem,8vh,5rem) auto 0; }
+  .quick-check-search { position:relative; }
+  .quick-check-search input { width:100%; min-height:58px; padding:.8rem 1rem .8rem 3rem; border:1px solid var(--border); border-radius:15px; background:var(--card-bg); color:var(--ink); box-shadow:0 10px 28px rgba(23,45,95,.08); font-family:inherit; font-size:1.05rem; font-weight:600; }
+  .quick-check-search input:focus { border-color:#4169e1; box-shadow:0 0 0 3px rgba(65,105,225,.12),0 10px 28px rgba(23,45,95,.08); outline:none; }
+  .quick-check-search-icon { position:absolute; left:1rem; top:50%; color:var(--muted); font-size:1.35rem; line-height:1; transform:translateY(-50%); pointer-events:none; }
+  .quick-check-questions { display:flex; justify-content:center; gap:.75rem; flex-wrap:wrap; margin:1rem 0; padding:0; border:0; }
+  .quick-check-questions label { display:flex; align-items:center; gap:.55rem; min-height:44px; padding:.55rem .8rem; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); color:var(--ink); cursor:pointer; font-size:.9rem; font-weight:700; }
+  .quick-check-questions input { accent-color:var(--deep); width:1.05rem; height:1.05rem; margin:0; }
+  .quick-check-results { display:grid; gap:.65rem; }
+  .quick-check-result { padding:.8rem 1rem; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); box-shadow:0 6px 18px rgba(23,45,95,.05); }
+  .quick-check-result strong { display:block; color:var(--deep); font-size:1rem; }
+  .quick-check-result small { display:block; margin-top:.15rem; color:var(--muted); }
+  .quick-check-answer { margin:.55rem 0 0; color:var(--ink); font-weight:700; }
+  .quick-check-empty { margin:1.2rem 0; color:var(--muted); text-align:center; }
+  @media(max-width:700px) {
+    body.quick-check-active > header { padding-top:max(.5rem,env(safe-area-inset-top)); }
+    body.quick-check-active > header .site-logo { width:42px; max-height:40px; }
+    body.quick-check-active > header h1 { max-width:230px; font-size:1.15rem; }
+    .private-quick-check { margin-top:1rem; }
+    .quick-check-questions { display:grid; grid-template-columns:1fr; gap:.5rem; }
+    .quick-check-questions label { justify-content:flex-start; }
+  }
+
 </style>
 </head>
 <body>
@@ -6013,6 +6043,7 @@
   <div class="tab-panel" id="tab-club-hub"></div>
   <div class="tab-panel" id="tab-tbr"></div>
   <div class="tab-panel" id="tab-picker"></div>
+  <div class="tab-panel" id="tab-quick-check"></div>
   <div class="tab-panel" id="tab-book-detail"></div>
 </main>
 
@@ -6306,6 +6337,7 @@ let socialLoadMessage = '';
 let socialSection = 'feed';
 let socialPeopleQuery = '';
 let socialComposerBookId = '';
+let quickCheckQuestion = 'book';
 
 const DATA = {books:[],ratings_2026:[],ratings_2025:[],ratings_2024:[],
   series:[],tbr:[],wishlist:[],authors:[],picker_next:[],picker_rereads:[]};
@@ -9239,12 +9271,12 @@ function buildHeaderStats() {
 function buildNav() {
   const tabs = [
     ['log-detail','Reading Log'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
-    ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
+    ['club-hub','Club Hub'],['social','Social'],['picker','Picker'],['quick-check','Private Check']
   ];
   const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
   const nativeLabels = {'log-detail':'Log', stats:'Stats', books:'Library', social:'Social'};
   const hiddenInMinimalistMode = new Set(['stats','social','club-hub','picker']);
-  const visibleTabs = minimalistMode ? tabs.filter(([id]) => !hiddenInMinimalistMode.has(id)) : tabs;
+  const visibleTabs = tabs.filter(([id]) => (id !== 'quick-check' || isSiteAdmin()) && (!minimalistMode || !hiddenInMinimalistMode.has(id)));
   document.getElementById('mainNav').innerHTML = visibleTabs.map(([id,label]) =>
     `<button onclick="switchTab('${id}')" id="nav-${id}" class="${mobilePrimary.has(id) ? 'nav-mobile-primary' : 'nav-mobile-secondary'}" type="button" aria-label="${esc(label)}"><span class="nav-label-full">${esc(label)}</span><span class="nav-label-native">${esc(nativeLabels[id] || label)}</span></button>`
   ).join('') + `<button onclick="openMobileNavigationMenu()" id="nav-more" class="nav-mobile-more" type="button"><span class="nav-label-full">More</span><span class="nav-label-native">More</span></button>`;
@@ -9252,13 +9284,89 @@ function buildNav() {
 
 function openMobileNavigationMenu() {
   const tabs = [
-    ['search', 'Online Lookup'], ['series', 'Series'], ['club-hub', 'Club Hub'], ['picker', 'Picker']
-  ].filter(([id]) => !(minimalistMode && ['club-hub','picker'].includes(id)));
+    ['search', 'Online Lookup'], ['series', 'Series'], ['club-hub', 'Club Hub'], ['picker', 'Picker'], ['quick-check','Private Check']
+  ].filter(([id]) => (id !== 'quick-check' || isSiteAdmin()) && !(minimalistMode && ['club-hub','picker'].includes(id)));
   showAppDialog('More', 'More places in your reading tracker.', tabs.map(([id, label]) =>
     `<button class="account-secondary" type="button" onclick="closeAppDialog();switchTab(${jsArg(id)})">${esc(label)}</button>`
   ).join(''));
   document.querySelector('#app-dialog .app-dialog-box')?.classList.add('app-dialog-with-close');
 }
+
+function buildPrivateQuickCheckPage() {
+  const panel=document.getElementById('tab-quick-check');
+  if (!panel || !isSiteAdmin()) return;
+  panel.innerHTML=`<section class="private-quick-check" aria-label="Private book and author check">
+    <h2 class="visually-hidden">Private Quick Check</h2>
+    <label class="quick-check-search"><span class="visually-hidden">Search books or authors</span><span class="quick-check-search-icon" aria-hidden="true">⌕</span><input id="private-quick-check-query" type="search" autocomplete="off" placeholder="Search by book title or author" oninput="updatePrivateQuickCheckResults()"></label>
+    <fieldset class="quick-check-questions" aria-label="Choose a question">
+      <label><input type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Have This Book?</span></label>
+      <label><input type="radio" name="private-quick-check-question" value="author" ${quickCheckQuestion==='author'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Like This Author?</span></label>
+    </fieldset>
+    <div class="quick-check-results" id="private-quick-check-results" aria-live="polite"></div>
+  </section>`;
+  updatePrivateQuickCheckResults();
+}
+
+function setPrivateQuickCheckQuestion(value) {
+  quickCheckQuestion=value==='author'?'author':'book';
+  const input=document.getElementById('private-quick-check-query');
+  if (input) input.placeholder=quickCheckQuestion==='author'?'Search by author':'Search by book title or author';
+  updatePrivateQuickCheckResults();
+}
+
+function privateQuickCheckAuthorResult(author, books) {
+  const nonWishlist=books.filter(book=>libraryBookStatus(book)!=='Wishlist');
+  if (!nonWishlist.length) return 'He knows about this author but hasn’t read them yet.';
+  const rated=nonWishlist.filter(book=>book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
+  if (!rated.length) return 'He has this author in his library, but no rating is recorded yet.';
+  const average=rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length;
+  const answer=average>=7?'Yes.':average>=5?'Kind of.':'No.';
+  return `${answer} Average rating: ${average.toFixed(1)} / 10 across ${rated.length} rated book${rated.length===1?'':'s'}.`;
+}
+
+function privateQuickCheckAuthorNames(book) {
+  return displayedContributorNames(book?.author_full||book?.author||book?.author_short);
+}
+
+function updatePrivateQuickCheckResults() {
+  const results=document.getElementById('private-quick-check-results');
+  const input=document.getElementById('private-quick-check-query');
+  if (!results || !input || !isSiteAdmin()) return;
+  const query=input.value.trim();
+  if (!query) {
+    results.innerHTML='<p class="quick-check-empty">Search for a book or author to check your library.</p>';
+    return;
+  }
+  const key=normalizedKey(query);
+  if (!key) {
+    results.innerHTML='<p class="quick-check-empty">Enter a book title or author name to search.</p>';
+    return;
+  }
+  const books=allLibraryBooks();
+  if (quickCheckQuestion==='book') {
+    const matches=books.filter(book=>normalizedKey(book.title).includes(key)||privateQuickCheckAuthorNames(book).some(author=>normalizedKey(author).includes(key)));
+    results.innerHTML=matches.length
+      ? matches.slice(0,12).map(book=>{
+        const answer=libraryBookStatus(book)==='Wishlist'?'Yes — it’s on his wishlist.':'Yes — it’s in his library.';
+        const author=displayContributorName(book.author_full||book.author||book.author_short)||'Unknown Author';
+        return `<article class="quick-check-result"><strong>${esc(book.title||'Untitled')}</strong><small>${esc(author)}</small><p class="quick-check-answer">${answer}</p></article>`;
+      }).join('')+(matches.length>12?`<p class="quick-check-empty">Showing 12 of ${matches.length} matches. Refine your search to narrow the results.</p>`:'')
+      : '<article class="quick-check-result"><p class="quick-check-answer">No — this book isn’t in his library or wishlist.</p></article>';
+    return;
+  }
+  const authorBooks=new Map();
+  books.forEach(book=>privateQuickCheckAuthorNames(book).forEach(author=>{
+    if (!normalizedKey(author).includes(key)) return;
+    const authorKey=normalizedKey(author);
+    if (!authorBooks.has(authorKey)) authorBooks.set(authorKey,{author,books:[]});
+    authorBooks.get(authorKey).books.push(book);
+  }));
+  const matches=[...authorBooks.values()].sort((a,b)=>a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
+  results.innerHTML=matches.length
+    ? matches.slice(0,12).map(({author,books:authorTitles})=>`<article class="quick-check-result"><strong>${esc(author)}</strong><small>${authorTitles.length} book${authorTitles.length===1?'':'s'} in the library</small><p class="quick-check-answer">${esc(privateQuickCheckAuthorResult(author,authorTitles))}</p></article>`).join('')+(matches.length>12?`<p class="quick-check-empty">Showing 12 of ${matches.length} matches. Refine your search to narrow the results.</p>`:'')
+    : '<article class="quick-check-result"><p class="quick-check-answer">He doesn’t know this author.</p></article>';
+}
+
 function pageContentTop(panel) {
   const nav = document.getElementById('mainNav');
   const navIsBottom = window.matchMedia('(max-width: 700px)').matches;
@@ -9267,7 +9375,12 @@ function pageContentTop(panel) {
 }
 
 function showTab(id, scrollMode='preserve') {
+  if (id === 'quick-check' && !isSiteAdmin()) {
+    history.replaceState(appHistoryState(), '', '#books');
+    id = 'books';
+  }
   if (minimalistMode && ['stats','social','club-hub','picker','clubs'].includes(id)) id='books';
+  document.body.classList.toggle('quick-check-active', id === 'quick-check');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('tab-'+id);
@@ -9283,6 +9396,7 @@ function showTab(id, scrollMode='preserve') {
     });
   }
   if (id === 'goals') loadAndBuildReadingGoals();
+  if (id === 'quick-check') buildPrivateQuickCheckPage();
   panel.classList.add('active');
   const activeButton = document.getElementById('nav-'+(id === 'goals' ? 'log-detail' : id));
   activeButton?.classList.add('active');
@@ -9397,7 +9511,12 @@ function applyHashRoute() {
     showTab('stats', 'content');
     return;
   }
-  const validTabs = ['log-detail','goals','stats','social','search','books','series','clubs','club-hub','picker','month'];
+  if (normalizedRequested === 'quick-check' && !isSiteAdmin()) {
+    history.replaceState(appHistoryState(), '', '#books');
+    showTab('books','content');
+    return;
+  }
+  const validTabs = ['log-detail','goals','stats','social','search','books','series','clubs','club-hub','picker','month','quick-check'];
   const savedScroll = Number(history.state?.readingTrackerScrollY);
   const hiddenInMinimalistMode = minimalistMode && ['stats','social','clubs','club-hub','picker'].includes(normalizedRequested);
   if (hiddenInMinimalistMode) history.replaceState(appHistoryState(), '', '#books');
