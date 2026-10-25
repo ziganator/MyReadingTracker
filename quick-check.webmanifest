@@ -1,0 +1,23 @@
+{
+  "id": "/?quick-check=1",
+  "name": "Reading Tracker Quick Check",
+  "short_name": "Quick Check",
+  "description": "A private Quick Check for the Reading Tracker.",
+  "start_url": "/?quick-check=1#quick-check",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f8ff",
+  "theme_color": "#173b8f",
+  "icons": [
+    {
+      "src": "/assets/quick-check-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/quick-check-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

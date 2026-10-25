@@ -6,6 +6,25 @@
 <title>My Reading Tracker</title>
 <link rel="icon" type="image/png" href="assets/mrt-app-icon-20260812.png">
 <link rel="apple-touch-icon" href="assets/mrt-app-icon-20260812.png">
+<script>
+if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
+  const quickCheckIcon = '/assets/quick-check-icon-180.png';
+  document.querySelector('link[rel="icon"]')?.setAttribute('href', '/assets/quick-check-icon-192.png');
+  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', quickCheckIcon);
+  const quickCheckManifest = document.createElement('link');
+  quickCheckManifest.rel = 'manifest';
+  quickCheckManifest.href = '/quick-check.webmanifest';
+  document.head.appendChild(quickCheckManifest);
+  const quickCheckTitle = document.createElement('meta');
+  quickCheckTitle.name = 'apple-mobile-web-app-title';
+  quickCheckTitle.content = 'Quick Check';
+  document.head.appendChild(quickCheckTitle);
+  const quickCheckCapable = document.createElement('meta');
+  quickCheckCapable.name = 'apple-mobile-web-app-capable';
+  quickCheckCapable.content = 'yes';
+  document.head.appendChild(quickCheckCapable);
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
   :root {
