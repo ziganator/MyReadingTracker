@@ -135,6 +135,10 @@
     line-height: 1;
   }
   .account-button:hover { background: rgba(255,255,255,0.08); }
+  .header-utility-actions { position:absolute; top:max(.8rem,env(safe-area-inset-top)); right:1rem; z-index:2; display:flex; align-items:center; gap:.45rem; }
+  .header-utility-actions .account-button { position:static; top:auto; right:auto; }
+  .quick-check-header-button { display:none; width:40px; height:40px; padding:0; border:1px solid rgba(255,122,0,.65); border-radius:4px; background:transparent; color:var(--gold-light); cursor:pointer; font:700 1.35rem 'Crimson Pro',serif; line-height:1; }
+  .quick-check-header-button:hover { background:rgba(255,255,255,.08); }
   .standalone-button {
     display: none;
     position: fixed;
@@ -4819,6 +4823,7 @@
     filter: drop-shadow(0 7px 13px rgba(23,45,95,0.1));
   }
   .account-button,
+  .quick-check-header-button,
   .standalone-button {
     background: #fff;
     border: 1px solid var(--border);
@@ -4827,6 +4832,7 @@
     box-shadow: 0 8px 20px rgba(23,45,95,0.08);
   }
   .account-button:hover,
+  .quick-check-header-button:hover,
   .standalone-button:hover {
     background: #fafbff;
     color: var(--deep);
@@ -5068,10 +5074,12 @@
     color: var(--deep);
   }
   .account-button,
+  .quick-check-header-button,
   .standalone-button {
     border-color: rgba(65,105,225,0.55);
   }
   .account-button:hover,
+  .quick-check-header-button:hover,
   .standalone-button:hover,
   .picker-command.secondary:hover,
   .account-secondary:hover,
@@ -5756,6 +5764,7 @@
     color: #f7f8ff !important;
   }
   .account-button,
+  .quick-check-header-button,
   .standalone-button {
     border-color: rgba(255,255,255,.22);
     border-radius: 12px;
@@ -5765,6 +5774,7 @@
     backdrop-filter: blur(10px);
   }
   .account-button:hover,
+  .quick-check-header-button:hover,
   .standalone-button:hover { border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.17); color: #fff; }
   nav {
     top: 0;
@@ -6019,7 +6029,10 @@
 <body>
 <header>
   <a class="standalone-button" id="standalone-link" href="#" onclick="openStandalonePage(event)">Open Full Page</a>
-  <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
+  <div class="header-utility-actions">
+    <button class="quick-check-header-button" id="quick-check-header-button" type="button" onclick="switchTab('quick-check')" title="Private Check" aria-label="Open Private Check">⚡</button>
+    <button class="account-button" id="account-button" type="button" onclick="openAccountPanel()" title="Account settings" aria-label="Account settings">⚙</button>
+  </div>
   <div class="header-ornament">✦ ✦ ✦</div>
   <div class="site-brand">
     <img class="site-logo" src="assets/mrt-logo-20260812.png" alt="MRT">
@@ -6851,10 +6864,12 @@ function updateAccountUI() {
   const signedInView = document.getElementById('account-signed-in');
   const guestView = document.getElementById('account-guest');
   const accountButton = document.getElementById('account-button');
+  const privateQuickCheckButton = document.getElementById('quick-check-header-button');
   const accountDialog = document.querySelector('.account-dialog');
   if (signedOutView) signedOutView.style.display = signedIn || guestMode ? 'none' : 'block';
   if (signedInView) signedInView.style.display = signedIn ? 'block' : 'none';
   if (guestView) guestView.style.display = guestMode ? 'block' : 'none';
+  if (privateQuickCheckButton) privateQuickCheckButton.style.display = isSiteAdmin() ? 'inline-flex' : 'none';
   if (accountDialog) accountDialog.classList.toggle('account-wide', signedIn);
   if (accountButton) {
     accountButton.textContent = '⚙';
@@ -9271,12 +9286,12 @@ function buildHeaderStats() {
 function buildNav() {
   const tabs = [
     ['log-detail','Reading Log'],['stats','Statistics Lab'],['search','Online Lookup'],['books','Library'],['series','Series'],
-    ['club-hub','Club Hub'],['social','Social'],['picker','Picker'],['quick-check','Private Check']
+    ['club-hub','Club Hub'],['social','Social'],['picker','Picker']
   ];
   const mobilePrimary = new Set(['books', 'log-detail', 'social', 'stats']);
   const nativeLabels = {'log-detail':'Log', stats:'Stats', books:'Library', social:'Social'};
   const hiddenInMinimalistMode = new Set(['stats','social','club-hub','picker']);
-  const visibleTabs = tabs.filter(([id]) => (id !== 'quick-check' || isSiteAdmin()) && (!minimalistMode || !hiddenInMinimalistMode.has(id)));
+  const visibleTabs = minimalistMode ? tabs.filter(([id]) => !hiddenInMinimalistMode.has(id)) : tabs;
   document.getElementById('mainNav').innerHTML = visibleTabs.map(([id,label]) =>
     `<button onclick="switchTab('${id}')" id="nav-${id}" class="${mobilePrimary.has(id) ? 'nav-mobile-primary' : 'nav-mobile-secondary'}" type="button" aria-label="${esc(label)}"><span class="nav-label-full">${esc(label)}</span><span class="nav-label-native">${esc(nativeLabels[id] || label)}</span></button>`
   ).join('') + `<button onclick="openMobileNavigationMenu()" id="nav-more" class="nav-mobile-more" type="button"><span class="nav-label-full">More</span><span class="nav-label-native">More</span></button>`;
@@ -9284,8 +9299,8 @@ function buildNav() {
 
 function openMobileNavigationMenu() {
   const tabs = [
-    ['search', 'Online Lookup'], ['series', 'Series'], ['club-hub', 'Club Hub'], ['picker', 'Picker'], ['quick-check','Private Check']
-  ].filter(([id]) => (id !== 'quick-check' || isSiteAdmin()) && !(minimalistMode && ['club-hub','picker'].includes(id)));
+    ['search', 'Online Lookup'], ['series', 'Series'], ['club-hub', 'Club Hub'], ['picker', 'Picker']
+  ].filter(([id]) => !(minimalistMode && ['club-hub','picker'].includes(id)));
   showAppDialog('More', 'More places in your reading tracker.', tabs.map(([id, label]) =>
     `<button class="account-secondary" type="button" onclick="closeAppDialog();switchTab(${jsArg(id)})">${esc(label)}</button>`
   ).join(''));
