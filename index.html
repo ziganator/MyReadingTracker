@@ -9413,7 +9413,7 @@ function updatePrivateQuickCheckResults() {
       const rated=authorTitles.filter(book=>libraryBookStatus(book)!=='Wishlist'&&book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
       const average=rated.length?rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length:null;
       return {...entry,rated,average};
-    }).filter(entry=>entry.average!==null&&entry.average<=5)
+    }).filter(entry=>entry.average!==null&&entry.average<=5&&!entry.books.some(book=>libraryBookStatus(book)==='Currently Reading'))
       .sort((a,b)=>a.average-b.average||a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
     results.innerHTML=matches.length
       ? matches.map(({author,rated,average})=>{
