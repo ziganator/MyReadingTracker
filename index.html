@@ -9408,17 +9408,21 @@ function updatePrivateQuickCheckResults() {
   }));
   let matches=[...authorBooks.values()].sort((a,b)=>a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
   if (quickCheckQuestion==='disliked') {
-    matches=matches.map(entry=>{
+    const evaluated=matches.map(entry=>{
       const {books:authorTitles}=entry;
       const rated=authorTitles.filter(book=>libraryBookStatus(book)!=='Wishlist'&&book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
       const average=rated.length?rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length:null;
-      return {...entry,rated,average};
-    }).filter(entry=>entry.average!==null&&entry.average<=5&&!entry.books.some(book=>libraryBookStatus(book)==='Currently Reading'))
+      const readBooks=authorTitles.filter(book=>['Read','DNF'].includes(libraryBookStatus(book)));
+      return {...entry,rated,average,readBooks};
+    }).filter(entry=>!entry.books.some(book=>libraryBookStatus(book)==='Currently Reading'));
+    const dnfOnlyAuthors=evaluated.filter(entry=>entry.readBooks.length===1&&libraryBookStatus(entry.readBooks[0])==='DNF')
+      .sort((a,b)=>a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
+    const dnfOnlyKeys=new Set(dnfOnlyAuthors.map(entry=>normalizedKey(entry.author)));
+    const lowRatedAuthors=evaluated.filter(entry=>entry.average!==null&&entry.average<=5&&!dnfOnlyKeys.has(normalizedKey(entry.author)))
       .sort((a,b)=>a.average-b.average||a.author.localeCompare(b.author,undefined,{sensitivity:'base'}));
-    results.innerHTML=matches.length
-      ? matches.map(({author,rated,average})=>{
-        return `<article class="quick-check-result"><strong>${esc(author)}</strong><small>${rated.length} rated book${rated.length===1?'':'s'} in the library</small><p class="quick-check-answer">Average rating: ${average.toFixed(1)} / 10</p></article>`;
-      }).join('')
+    results.innerHTML=dnfOnlyAuthors.length||lowRatedAuthors.length
+      ? (dnfOnlyAuthors.length?`<h3 class="quick-check-section-title">Only Read Book Marked DNF</h3>${dnfOnlyAuthors.map(({author,readBooks})=>`<article class="quick-check-result"><strong>${esc(author)}</strong><small>${esc(readBooks[0].title||'Untitled')}</small><p class="quick-check-answer">His only read book by this author is marked DNF.</p></article>`).join('')}`:'')
+        +(lowRatedAuthors.length?`${dnfOnlyAuthors.length?'<h3 class="quick-check-section-title">Lowest Rated Authors</h3>':''}${lowRatedAuthors.map(({author,rated,average})=>`<article class="quick-check-result"><strong>${esc(author)}</strong><small>${rated.length} rated book${rated.length===1?'':'s'} in the library</small><p class="quick-check-answer">Average rating: ${average.toFixed(1)} / 10</p></article>`).join('')}`:'')
       : '<p class="quick-check-empty">No authors with an average rating of 5 or below were found.</p>';
     return;
   }
