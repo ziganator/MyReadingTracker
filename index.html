@@ -9382,7 +9382,7 @@ function updatePrivateQuickCheckResults() {
       const rating=Number(book.rating);
       if (libraryBookStatus(book)==='Wishlist'||!Number.isFinite(rating)) return false;
       if (quickCheckQuestion==='favorites'&&rating!==10) return false;
-      if (quickCheckQuestion==='rated9'&&!(rating>9&&rating<10)) return false;
+      if (quickCheckQuestion==='rated9'&&!(rating>=9&&rating<10)) return false;
       return !key||normalizedKey(book.title).includes(key)||privateQuickCheckAuthorNames(book).some(author=>normalizedKey(author).includes(key));
     }).sort((a,b)=>{
       const ratingOrder=Number(b.rating)-Number(a.rating);
