@@ -6004,9 +6004,13 @@
   body.quick-check-active > header h1 { font-size:clamp(1.2rem,3vw,1.65rem); line-height:1.05; }
   .private-quick-check { width:min(100%,760px); margin:clamp(1.2rem,8vh,5rem) auto 0; }
   .quick-check-search { position:relative; }
-  .quick-check-search input { width:100%; min-height:58px; padding:.8rem 1rem .8rem 3rem; border:1px solid var(--border); border-radius:15px; background:var(--card-bg); color:var(--ink); box-shadow:0 10px 28px rgba(23,45,95,.08); font-family:inherit; font-size:1.05rem; font-weight:600; }
+  .quick-check-search input { width:100%; min-height:58px; padding:.8rem 3rem .8rem 3rem; border:1px solid var(--border); border-radius:15px; background:var(--card-bg); color:var(--ink); box-shadow:0 10px 28px rgba(23,45,95,.08); font-family:inherit; font-size:1.05rem; font-weight:600; }
+  .quick-check-search input::-webkit-search-cancel-button { -webkit-appearance:none; }
   .quick-check-search input:focus { border-color:#4169e1; box-shadow:0 0 0 3px rgba(65,105,225,.12),0 10px 28px rgba(23,45,95,.08); outline:none; }
   .quick-check-search-icon { position:absolute; left:1rem; top:50%; color:var(--muted); font-size:1.35rem; line-height:1; transform:translateY(-50%); pointer-events:none; }
+  .quick-check-clear { position:absolute; top:50%; right:.65rem; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); cursor:pointer; font-family:inherit; font-size:1.35rem; font-weight:600; line-height:1; transform:translateY(-50%); }
+  .quick-check-clear:hover { background:rgba(65,105,225,.1); color:var(--deep); }
+  .quick-check-clear[hidden] { display:none !important; }
   .quick-check-questions { display:flex; justify-content:center; gap:.75rem; flex-wrap:wrap; margin:1rem 0; padding:0; border:0; }
   .quick-check-questions label { display:flex; align-items:center; gap:.55rem; min-height:44px; padding:.55rem .8rem; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); color:var(--ink); cursor:pointer; font-size:.9rem; font-weight:700; }
   .quick-check-questions input { accent-color:var(--deep); width:1.05rem; height:1.05rem; margin:0; }
@@ -9313,10 +9317,11 @@ function buildPrivateQuickCheckPage() {
   if (!panel || !isSiteAdmin()) return;
   panel.innerHTML=`<section class="private-quick-check" aria-label="Private book and author check">
     <h2 class="visually-hidden">Private Quick Check</h2>
-    <label class="quick-check-search"><span class="visually-hidden">Search books or authors</span><span class="quick-check-search-icon" aria-hidden="true">⌕</span><input id="private-quick-check-query" type="search" autocomplete="off" placeholder="Search by book title or author" oninput="updatePrivateQuickCheckResults()"></label>
+    <div class="quick-check-search"><label class="visually-hidden" for="private-quick-check-query">Search books, authors, or series</label><span class="quick-check-search-icon" aria-hidden="true">⌕</span><input id="private-quick-check-query" name="private-reading-tracker-lookup" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="${quickCheckQuestion==='author'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author'}" oninput="updatePrivateQuickCheckResults()"><button class="quick-check-clear" id="private-quick-check-clear" type="button" onclick="clearPrivateQuickCheckSearch()" aria-label="Clear Search" title="Clear Search" hidden>×</button></div>
     <fieldset class="quick-check-questions" aria-label="Choose a question">
-      <label><input type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Have This Book?</span></label>
+      <label><input type="radio" name="private-quick-check-question" value="book" ${quickCheckQuestion==='book'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Is This Book in the Tracker?</span></label>
       <label><input type="radio" name="private-quick-check-question" value="author" ${quickCheckQuestion==='author'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Like This Author?</span></label>
+      <label><input type="radio" name="private-quick-check-question" value="series" ${quickCheckQuestion==='series'?'checked':''} onchange="setPrivateQuickCheckQuestion(this.value)"><span>Does He Have This Series?</span></label>
     </fieldset>
     <div class="quick-check-results" id="private-quick-check-results" aria-live="polite"></div>
   </section>`;
@@ -9324,10 +9329,18 @@ function buildPrivateQuickCheckPage() {
 }
 
 function setPrivateQuickCheckQuestion(value) {
-  quickCheckQuestion=value==='author'?'author':'book';
+  quickCheckQuestion=['author','series'].includes(value)?value:'book';
   const input=document.getElementById('private-quick-check-query');
-  if (input) input.placeholder=quickCheckQuestion==='author'?'Search by author':'Search by book title or author';
+  if (input) input.placeholder=quickCheckQuestion==='author'?'Search by author':quickCheckQuestion==='series'?'Search by series':'Search by book title or author';
   updatePrivateQuickCheckResults();
+}
+
+function clearPrivateQuickCheckSearch() {
+  const input=document.getElementById('private-quick-check-query');
+  if (!input) return;
+  input.value='';
+  updatePrivateQuickCheckResults();
+  input.focus();
 }
 
 function privateQuickCheckAuthorResult(author, books) {
@@ -9336,8 +9349,8 @@ function privateQuickCheckAuthorResult(author, books) {
   const rated=nonWishlist.filter(book=>book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating)));
   if (!rated.length) return 'He has this author in his library, but no rating is recorded yet.';
   const average=rated.reduce((sum,book)=>sum+Number(book.rating),0)/rated.length;
-  const answer=average>=7?'Yes.':average>=5?'Kind of.':'No.';
-  return `${answer} Average rating: ${average.toFixed(1)} / 10 across ${rated.length} rated book${rated.length===1?'':'s'}.`;
+  const answer=average>=7?'Yes':average>=5?'Kind of':'No';
+  return `${answer} (average rating: ${average.toFixed(1)} / 10 across ${rated.length} rated book${rated.length===1?'':'s'}).`;
 }
 
 function privateQuickCheckAuthorNames(book) {
@@ -9348,6 +9361,8 @@ function updatePrivateQuickCheckResults() {
   const results=document.getElementById('private-quick-check-results');
   const input=document.getElementById('private-quick-check-query');
   if (!results || !input || !isSiteAdmin()) return;
+  const clearButton=document.getElementById('private-quick-check-clear');
+  if (clearButton) clearButton.hidden=!input.value;
   const query=input.value.trim();
   if (!query) {
     results.innerHTML='<p class="quick-check-empty">Search for a book or author to check your library.</p>';
@@ -9368,6 +9383,19 @@ function updatePrivateQuickCheckResults() {
         return `<article class="quick-check-result"><strong>${esc(book.title||'Untitled')}</strong><small>${esc(author)}</small><p class="quick-check-answer">${answer}</p></article>`;
       }).join('')+(matches.length>12?`<p class="quick-check-empty">Showing 12 of ${matches.length} matches. Refine your search to narrow the results.</p>`:'')
       : '<article class="quick-check-result"><p class="quick-check-answer">No — this book isn’t in his library or wishlist.</p></article>';
+    return;
+  }
+  if (quickCheckQuestion==='series') {
+    rebuildSeriesFromLibraryBooks();
+    const trackedSeries=DATA.series.map(series=>{
+      const name=String(series.series||'');
+      const trackedBooks=books.filter(book=>normalizedKey(book.series)===normalizedKey(name)&&libraryBookStatus(book)!=='Wishlist');
+      const total=Math.max(Number(series.total)||0,trackedBooks.length);
+      return {name,trackedBooks,total};
+    }).filter(series=>series.name&&normalizedKey(series.name).includes(key));
+    results.innerHTML=trackedSeries.length
+      ? trackedSeries.slice(0,12).map(series=>`<article class="quick-check-result"><strong>${esc(series.name)}</strong><p class="quick-check-answer">Yes — he has ${series.trackedBooks.length} book${series.trackedBooks.length===1?'':'s'} out of ${series.total}.</p></article>`).join('')+(trackedSeries.length>12?`<p class="quick-check-empty">Showing 12 of ${trackedSeries.length} matches. Refine your search to narrow the results.</p>`:'')
+      : '<article class="quick-check-result"><p class="quick-check-answer">No — this series isn’t in the tracker.</p></article>';
     return;
   }
   const authorBooks=new Map();
