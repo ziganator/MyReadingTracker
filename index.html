@@ -9463,21 +9463,28 @@ function updatePrivateQuickCheckResults() {
   }
   if (quickCheckQuestion==='series') {
     rebuildSeriesFromLibraryBooks();
-    const trackedSeries=DATA.series.map(series=>{
-      const name=String(series.series||'');
-      const trackedBooks=books.filter(book=>normalizedKey(book.series)===normalizedKey(name)&&libraryBookStatus(book)!=='Wishlist');
-      const total=Math.max(Number(series.total)||0,trackedBooks.length);
-      return {name,trackedBooks,total,rating:series.rating};
+    const seriesGroups=new Map();
+    books.filter(book=>String(book.series||'').trim()).forEach(book=>{
+      const key=normalizedKey(book.series);
+      if (!seriesGroups.has(key)) seriesGroups.set(key,{name:String(book.series).trim(),seriesBooks:[]});
+      seriesGroups.get(key).seriesBooks.push(book);
+    });
+    const knownSeries=new Map(DATA.series.map(series=>[normalizedKey(series.series),series]));
+    const trackedSeries=[...seriesGroups.entries()].map(([key,group])=>{
+      const series=knownSeries.get(key);
+      const trackedBooks=group.seriesBooks.filter(book=>libraryBookStatus(book)!=='Wishlist');
+      const total=Math.max(Number(series?.total)||0,group.seriesBooks.length,...group.seriesBooks.map(book=>Math.ceil(Number(book.series_position)||0)));
+      return {...group,trackedBooks,total,rating:series?.rating??null};
     }).filter(series=>series.name&&privateQuickCheckTextMatches(series.name,query));
     results.innerHTML=trackedSeries.length
       ? trackedSeries.slice(0,12).map(series=>{
-        const seriesBooks=[...series.trackedBooks].sort((a,b)=>{
+        const seriesBooks=[...series.seriesBooks].sort((a,b)=>{
           const aPosition=Number(a.series_position)||Number.MAX_SAFE_INTEGER;
           const bPosition=Number(b.series_position)||Number.MAX_SAFE_INTEGER;
           return aPosition-bPosition||String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'});
         });
         const seriesRating=series.rating!==null&&series.rating!==undefined&&Number.isFinite(Number(series.rating))?ratingDisplay(series.rating):'<span class="library-status-pill">—</span>';
-        return `<article class="quick-check-result"><div class="quick-check-result-heading"><strong>${esc(series.name)}</strong>${seriesRating}</div><p class="quick-check-answer">${seriesBooks.length} of ${series.total} tracked</p><div class="quick-check-series-books">${seriesBooks.map(book=>`<div class="quick-check-series-book"><span>${esc(book.title||'Untitled')}</span><div class="quick-check-book-value">${privateQuickCheckBookValue(book)}</div></div>`).join('')}</div></article>`;
+        return `<article class="quick-check-result"><div class="quick-check-result-heading"><strong>${esc(series.name)}</strong>${seriesRating}</div><p class="quick-check-answer">${series.trackedBooks.length} of ${series.total} tracked</p><div class="quick-check-series-books">${seriesBooks.map(book=>`<div class="quick-check-series-book"><span>${esc(book.title||'Untitled')}</span><div class="quick-check-book-value">${privateQuickCheckBookValue(book)}</div></div>`).join('')}</div></article>`;
       }).join('')+(trackedSeries.length>12?`<p class="quick-check-empty">Showing 12 of ${trackedSeries.length} matches. Refine your search to narrow the results.</p>`:'')
       : '<article class="quick-check-result"><p class="quick-check-answer">No — this series isn’t in the tracker.</p></article>';
     return;
