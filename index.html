@@ -9467,7 +9467,7 @@ function updatePrivateQuickCheckResults() {
       const name=String(series.series||'');
       const trackedBooks=books.filter(book=>normalizedKey(book.series)===normalizedKey(name)&&libraryBookStatus(book)!=='Wishlist');
       const total=Math.max(Number(series.total)||0,trackedBooks.length);
-      return {name,trackedBooks,total};
+      return {name,trackedBooks,total,rating:series.rating};
     }).filter(series=>series.name&&privateQuickCheckTextMatches(series.name,query));
     results.innerHTML=trackedSeries.length
       ? trackedSeries.slice(0,12).map(series=>{
