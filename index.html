@@ -6038,11 +6038,16 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
   .quick-check-result { padding:.8rem 1rem; border:1px solid var(--border); border-radius:12px; background:var(--card-bg); box-shadow:0 6px 18px rgba(23,45,95,.05); }
   .quick-check-result strong { display:block; color:var(--deep); font-size:1rem; }
   .quick-check-result small { display:block; margin-top:.15rem; color:var(--muted); }
+  .quick-check-book-result { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.75rem; }
+  .quick-check-book-copy { min-width:0; }
+  .quick-check-book-copy strong { overflow-wrap:anywhere; }
+  .quick-check-book-value { justify-self:end; text-align:right; white-space:nowrap; }
+  .quick-check-book-value .rating { justify-content:flex-end; }
   .quick-check-answer { margin:.55rem 0 0; color:var(--ink); font-weight:700; }
   .quick-check-series-books { display:grid; gap:.35rem; margin-top:.55rem; }
   .quick-check-series-book { display:flex; justify-content:space-between; gap:.75rem; padding:.4rem .55rem; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,.65); }
   .quick-check-series-book span { min-width:0; }
-  .quick-check-series-book strong { flex:none; color:var(--deep); }
+  .quick-check-series-book .quick-check-book-value { flex:none; }
   .quick-check-empty { margin:1.2rem 0; color:var(--muted); text-align:center; }
   @media(max-width:700px) {
     body.quick-check-active > header { padding-top:max(.5rem,env(safe-area-inset-top)); }
@@ -9384,12 +9389,19 @@ function privateQuickCheckAuthorResult(author, books) {
 }
 
 function privateQuickCheckBookValue(book) {
-  const status=libraryBookStatus(book);
-  if (status==='TBR'||status==='DNF'||status==='Wishlist') return status;
-  if (book.rating!==null&&book.rating!==undefined&&String(book.rating).trim()!==''&&Number.isFinite(Number(book.rating))) {
-    return `Rating: ${Number(book.rating).toLocaleString(undefined,{maximumFractionDigits:2})}`;
-  }
-  return status;
+  return libraryRatingOrStatus(book);
+}
+
+function privateQuickCheckTextMatches(value, query) {
+  const normalizeWords=text=>String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().match(/[a-z0-9]+/g)||[];
+  const haystack=normalizeWords(value);
+  const terms=normalizeWords(query);
+  return !terms.length||terms.every(term=>haystack.some(word=>term.length<=2?word===term:word.startsWith(term)));
+}
+
+function privateQuickCheckBookCard(book, authorLabel) {
+  const author=authorLabel||displayContributorName(book.author_full||book.author||book.author_short)||'Unknown Author';
+  return `<article class="quick-check-result quick-check-book-result"><div class="quick-check-book-copy"><strong>${esc(book.title||'Untitled')}</strong><small>${esc(author)}${book.series?` · ${esc(book.series)}${book.series_position?` #${esc(book.series_position)}`:''}`:''}</small></div><div class="quick-check-book-value">${privateQuickCheckBookValue(book)}</div></article>`;
 }
 
 function privateQuickCheckAuthorNames(book) {
@@ -9419,7 +9431,7 @@ function updatePrivateQuickCheckResults() {
       if (libraryBookStatus(book)==='Wishlist'||!Number.isFinite(rating)) return false;
       if (quickCheckQuestion==='favorites'&&rating!==10) return false;
       if (quickCheckQuestion==='rated9'&&!(rating>=9&&rating<10)) return false;
-      return !key||normalizedKey(book.title).includes(key)||privateQuickCheckAuthorNames(book).some(author=>normalizedKey(author).includes(key));
+      return !key||privateQuickCheckTextMatches(book.title,query)||privateQuickCheckAuthorNames(book).some(author=>privateQuickCheckTextMatches(author,query));
     }).sort((a,b)=>{
       const ratingOrder=Number(b.rating)-Number(a.rating);
       if (ratingOrder) return ratingOrder;
@@ -9435,17 +9447,14 @@ function updatePrivateQuickCheckResults() {
     });
     const heading=quickCheckQuestion==='favorites'?'Books Rated 10':'Books Rated Above 9 and Below 10';
     results.innerHTML=ratingMatches.length
-      ? `<h3 class="quick-check-section-title">${heading}</h3>${ratingMatches.map(book=>`<article class="quick-check-result"><strong>${esc(book.title||'Untitled')}</strong><small>${esc(displayContributorName(book.author_full||book.author||book.author_short)||'Unknown Author')}${book.series?` · ${esc(book.series)}${book.series_position?` #${esc(book.series_position)}`:''}`:''}</small><p class="quick-check-answer">${esc(privateQuickCheckBookValue(book))}</p></article>`).join('')}`
+      ? `<h3 class="quick-check-section-title">${heading}</h3>${ratingMatches.map(book=>privateQuickCheckBookCard(book)).join('')}`
       : `<p class="quick-check-empty">No books match this rating${key?' and search':''}.</p>`;
     return;
   }
   if (quickCheckQuestion==='book') {
-    const matches=books.filter(book=>normalizedKey(book.title).includes(key)||privateQuickCheckAuthorNames(book).some(author=>normalizedKey(author).includes(key)));
+    const matches=books.filter(book=>privateQuickCheckTextMatches(book.title,query)||privateQuickCheckAuthorNames(book).some(author=>privateQuickCheckTextMatches(author,query)));
     results.innerHTML=matches.length
-      ? matches.slice(0,12).map(book=>{
-        const author=displayContributorName(book.author_full||book.author||book.author_short)||'Unknown Author';
-        return `<article class="quick-check-result"><strong>${esc(book.title||'Untitled')}</strong><small>${esc(author)}</small><p class="quick-check-answer">${esc(privateQuickCheckBookValue(book))}</p></article>`;
-      }).join('')+(matches.length>12?`<p class="quick-check-empty">Showing 12 of ${matches.length} matches. Refine your search to narrow the results.</p>`:'')
+      ? matches.slice(0,12).map(book=>privateQuickCheckBookCard(book)).join('')+(matches.length>12?`<p class="quick-check-empty">Showing 12 of ${matches.length} matches. Refine your search to narrow the results.</p>`:'')
       : '<article class="quick-check-result"><p class="quick-check-answer">No — this book isn’t in his library or wishlist.</p></article>';
     return;
   }
@@ -9456,7 +9465,7 @@ function updatePrivateQuickCheckResults() {
       const trackedBooks=books.filter(book=>normalizedKey(book.series)===normalizedKey(name)&&libraryBookStatus(book)!=='Wishlist');
       const total=Math.max(Number(series.total)||0,trackedBooks.length);
       return {name,trackedBooks,total};
-    }).filter(series=>series.name&&normalizedKey(series.name).includes(key));
+    }).filter(series=>series.name&&privateQuickCheckTextMatches(series.name,query));
     results.innerHTML=trackedSeries.length
       ? trackedSeries.slice(0,12).map(series=>{
         const seriesBooks=[...series.trackedBooks].sort((a,b)=>{
@@ -9464,14 +9473,14 @@ function updatePrivateQuickCheckResults() {
           const bPosition=Number(b.series_position)||Number.MAX_SAFE_INTEGER;
           return aPosition-bPosition||String(a.title||'').localeCompare(String(b.title||''),undefined,{sensitivity:'base'});
         });
-        return `<article class="quick-check-result"><strong>${esc(series.name)}</strong><p class="quick-check-answer">${seriesBooks.length} of ${series.total} tracked</p><div class="quick-check-series-books">${seriesBooks.map(book=>`<div class="quick-check-series-book"><span>${esc(book.title||'Untitled')}</span><strong>${esc(privateQuickCheckBookValue(book))}</strong></div>`).join('')}</div></article>`;
+        return `<article class="quick-check-result"><strong>${esc(series.name)}</strong><p class="quick-check-answer">${seriesBooks.length} of ${series.total} tracked</p><div class="quick-check-series-books">${seriesBooks.map(book=>`<div class="quick-check-series-book"><span>${esc(book.title||'Untitled')}</span><div class="quick-check-book-value">${privateQuickCheckBookValue(book)}</div></div>`).join('')}</div></article>`;
       }).join('')+(trackedSeries.length>12?`<p class="quick-check-empty">Showing 12 of ${trackedSeries.length} matches. Refine your search to narrow the results.</p>`:'')
       : '<article class="quick-check-result"><p class="quick-check-answer">No — this series isn’t in the tracker.</p></article>';
     return;
   }
   const authorBooks=new Map();
   books.forEach(book=>privateQuickCheckAuthorNames(book).forEach(author=>{
-    if (key && !normalizedKey(author).includes(key)) return;
+    if (key && !privateQuickCheckTextMatches(author,query)) return;
     const authorKey=normalizedKey(author);
     if (!authorBooks.has(authorKey)) authorBooks.set(authorKey,{author,books:[]});
     authorBooks.get(authorKey).books.push(book);
