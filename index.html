@@ -313,6 +313,13 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
   }
   .account-settings-toolbar h2 { margin: 0; }
   .account-settings-toolbar .account-actions { margin: 0; }
+  .admin-user-list { margin:.8rem 0 1rem; }
+  .admin-user-list[hidden] { display:none; }
+  .admin-user-list table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  .admin-user-list th,.admin-user-list td { padding:.55rem .65rem; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+  .admin-user-list th { color:var(--deep); white-space:nowrap; }
+  .admin-user-list-status { color:var(--muted); }
+  @media(max-width:600px) { .admin-user-list { overflow-x:auto; } .admin-user-list table { min-width:520px; } }
   .account-primary { background: var(--burnt); border-color: var(--burnt) !important; color: #fff; }
   .account-secondary { background: var(--aged); color: var(--deep); }
   .account-settings-grid {
@@ -6122,6 +6129,7 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
       <div class="account-settings-toolbar">
         <h2>Settings</h2>
         <div class="account-actions">
+          <button class="account-secondary" id="admin-users-button" type="button" onclick="toggleAdminUserList()" style="display:none">View Users</button>
           <button class="account-primary" type="button" onclick="saveAccountProfile()">Save Account</button>
           <button class="account-secondary" type="button" onclick="hideAccountPanel()">Close</button>
         </div>
@@ -6131,6 +6139,11 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
         <span>Site version <code data-site-version></code></span>
         <span id="account-role-badge" class="account-role-badge" style="display:none">Admin</span>
       </div>
+      <section class="account-settings-section admin-user-list" id="admin-user-list" hidden>
+        <strong>Registered Users</strong>
+        <p>Accounts on this tracker, including readers who aren’t discoverable on the social page.</p>
+        <div id="admin-user-list-content" class="admin-user-list-status" aria-live="polite">Loading users…</div>
+      </section>
       <div class="account-settings-grid">
         <section class="account-settings-section">
           <strong>Account</strong>
@@ -6853,6 +6866,33 @@ function openAccountPanel() {
   setAccountStatus('');
 }
 
+async function toggleAdminUserList() {
+  const section=document.getElementById('admin-user-list');
+  const content=document.getElementById('admin-user-list-content');
+  if (!section || !content || !isSiteAdmin()) return;
+  const opening=section.hidden;
+  section.hidden=!opening;
+  if (!opening) return;
+  content.textContent='Loading users…';
+  try {
+    if (!supabaseSession?.access_token) throw new Error('Sign in as the site administrator to view users.');
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_list_tracker_users`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${supabaseSession.access_token}`,'Content-Type':'application/json'},
+      body:'{}'
+    });
+    const raw=await response.text();
+    const rows=raw?JSON.parse(raw):[];
+    if (!response.ok) throw new Error(rows?.message||'Could not load registered users.');
+    if (!rows.length) { content.textContent='No registered users found.'; return; }
+    const date=value=>value?new Date(value).toLocaleDateString():'—';
+    content.innerHTML=`<table><thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Last Active</th><th>Social Profile</th></tr></thead><tbody>${rows.map(user=>`<tr><td>${esc(user.display_name||'—')}</td><td>${esc(user.email||'—')}</td><td>${date(user.created_at)}</td><td>${date(user.last_sign_in_at)}</td><td>${user.discoverable?'Discoverable':'Private'}</td></tr>`).join('')}</tbody></table>`;
+  } catch(error) {
+    console.warn('Could not load admin user list:',error);
+    content.textContent=error.message||'Could not load registered users.';
+  }
+}
+
 function hideAccountPanel() {
   if (document.body.classList.contains('auth-locked')) return;
   document.getElementById('account-panel')?.classList.remove('open');
@@ -6902,11 +6942,13 @@ function updateAccountUI() {
   const guestView = document.getElementById('account-guest');
   const accountButton = document.getElementById('account-button');
   const privateQuickCheckButton = document.getElementById('quick-check-header-button');
+  const adminUsersButton=document.getElementById('admin-users-button');
   const accountDialog = document.querySelector('.account-dialog');
   if (signedOutView) signedOutView.style.display = signedIn || guestMode ? 'none' : 'block';
   if (signedInView) signedInView.style.display = signedIn ? 'block' : 'none';
   if (guestView) guestView.style.display = guestMode ? 'block' : 'none';
   if (privateQuickCheckButton) privateQuickCheckButton.style.display = isSiteAdmin() ? 'inline-flex' : 'none';
+  if (adminUsersButton) adminUsersButton.style.display = isSiteAdmin() ? 'inline-flex' : 'none';
   if (accountDialog) accountDialog.classList.toggle('account-wide', signedIn);
   if (accountButton) {
     accountButton.textContent = '⚙';
