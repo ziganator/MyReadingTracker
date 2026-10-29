@@ -2546,9 +2546,9 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
   padding: 0.45rem 0.8rem;
 }
 @media (min-width: 620px) {
-  .add-book-mode { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .add-book-mode { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .add-book-mode button,
-  .add-book-mode button:nth-last-child(-n+2) { border-bottom: 0; }
+  .add-book-mode button:nth-last-child(-n+5) { border-bottom: 0; }
   .add-book-mode button:nth-child(even) { border-right: 1px solid var(--border); }
   .add-book-mode button:last-child { border-right: 0; }
 }
@@ -13084,6 +13084,7 @@ function openAddBookDialog(defaultStatus='TBR') {
       <button id="add-mode-scan" type="button" onclick="setAddBookMode('scan')">Scan ISBN</button>
       <button id="add-mode-quick" type="button" onclick="setAddBookMode('quick')">Quick Add</button>
       <button id="add-mode-manual" type="button" onclick="setAddBookMode('manual')">Enter Manually</button>
+      <button id="add-mode-amazon" type="button" onclick="setAddBookMode('amazon')">Add from Amazon</button>
     </div>
     <div class="add-book-quick" id="add-book-quick" style="display:none">
       <label for="add-book-quick-title">Title
@@ -13109,7 +13110,7 @@ function openAddBookDialog(defaultStatus='TBR') {
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByISBN()}">
       <button class="account-primary" type="button" onclick="lookupBookByISBN()">Look Up</button>
     </div>
-    <p class="amazon-import-hint" id="amazon-import-hint" style="display:none">Paste a full Amazon product link. We’ll look up the book and prepare it as a Wishlist item for you to review.</p>
+    <p class="amazon-import-hint" id="amazon-import-hint" style="display:none">Share a book from Amazon to My Reading Tracker, or paste its product link. We’ll look up the book and prepare it as a Wishlist item for you to review.</p>
     <div class="isbn-lookup-row amazon-import-row" id="amazon-import-row" style="display:none">
       <input id="add-book-amazon-url" type="url" placeholder="https://www.amazon.com/.../dp/..." aria-label="Amazon product link"
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByAmazonLink()}">
@@ -13224,6 +13225,7 @@ function setAddBookMode(mode) {
   document.getElementById('add-mode-search')?.classList.toggle('active', mode === 'search');
   document.getElementById('add-mode-scan')?.classList.toggle('active', mode === 'scan');
   document.getElementById('add-mode-quick')?.classList.toggle('active', mode === 'quick');
+  document.getElementById('add-mode-amazon')?.classList.toggle('active', mode === 'amazon');
   const isbnRow = document.getElementById('isbn-lookup-row');
   const amazonRow = document.getElementById('amazon-import-row');
   const amazonHint = document.getElementById('amazon-import-hint');
@@ -13232,8 +13234,8 @@ function setAddBookMode(mode) {
   const scanRow = document.getElementById('add-book-scan-row');
   const fields = document.querySelector('.add-book-fields');
   if (isbnRow) isbnRow.style.display = ['isbn', 'scan'].includes(mode) ? 'grid' : 'none';
-  if (amazonRow) amazonRow.style.display = mode === 'search' ? 'grid' : 'none';
-  if (amazonHint) amazonHint.style.display = mode === 'search' ? 'block' : 'none';
+  if (amazonRow) amazonRow.style.display = mode === 'amazon' ? 'grid' : 'none';
+  if (amazonHint) amazonHint.style.display = mode === 'amazon' ? 'block' : 'none';
   if (searchRow) searchRow.style.display = mode === 'search' ? 'grid' : 'none';
   if (quickRow) quickRow.style.display = mode === 'quick' ? 'grid' : 'none';
   if (scanRow) scanRow.style.display = mode === 'scan' ? 'grid' : 'none';
@@ -13242,6 +13244,7 @@ function setAddBookMode(mode) {
   updateAddBookSaveButton();
   if (mode === 'isbn') document.getElementById('add-book-isbn-lookup')?.focus();
   if (mode === 'search') document.getElementById('add-book-search-title')?.focus();
+  if (mode === 'amazon') document.getElementById('add-book-amazon-url')?.focus();
   if (mode === 'quick') document.getElementById('add-book-quick-title')?.focus();
   if (mode === 'scan') startAddBookBarcodeScanner();
 }
@@ -14216,6 +14219,21 @@ async function lookupBookByAmazonLink() {
   renderEditionPicker('add-book-edition-picker',addBookEditionCandidates,null,'selectAddBookEdition');
   renderSelectedEditionPreview(null);
   if (message) message.textContent = `${addBookEditionCandidates.length} possible edition${addBookEditionCandidates.length === 1 ? '' : 's'} found. Choose the matching book, review the details, then save it to your Wishlist.`;
+}
+
+function consumeAmazonShareLink() {
+  if (!trackerStarted || guestMode) return;
+  const currentUrl=new URL(window.location.href);
+  const sharedLink=currentUrl.searchParams.get('amazon-import')?.trim();
+  if (!sharedLink) return;
+  currentUrl.searchParams.delete('amazon-import');
+  history.replaceState(appHistoryState(), '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+  openAddBookDialog('Wishlist');
+  setAddBookMode('amazon');
+  const input=document.getElementById('add-book-amazon-url');
+  if (!input) return;
+  input.value=sharedLink;
+  lookupBookByAmazonLink();
 }
 
 async function lookupBookByTitleAuthor() {
@@ -21695,6 +21713,7 @@ async function startTracker() {
   await loadPickerPreferences();
   buildPicker();
   applyHashRoute();
+  consumeAmazonShareLink();
   setTimeout(applyHashRoute, 100);
   setTimeout(() => syncMissingPageCountsFromISBNs(), 800);
 }
