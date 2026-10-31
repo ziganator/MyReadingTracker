@@ -383,14 +383,22 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
   .genre-color-picker-dialog { width:min(440px,100%); }
   .genre-color-picker-dialog .modal-header { grid-template-columns:minmax(0,1fr) 44px; align-items:center; }
   .genre-color-picker-dialog .modal-header h3 { margin:0; color:#f7f8ff; }
-  .genre-color-picker-dialog .modal-body { display:grid; gap:1rem; padding:1.1rem; }
-  .genre-color-picker-controls { display:grid; grid-template-columns:88px minmax(0,1fr); gap:1rem; align-items:center; }
-  .genre-color-picker-controls input[type="color"] { width:88px; height:72px; min-height:72px; padding:3px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; }
-  .genre-color-hex-field { display:grid; gap:.35rem; color:var(--deep); font-size:.8rem; font-weight:700; }
-  .genre-color-hex-field input { width:100%; min-height:44px; font:600 1rem ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.04em; text-transform:uppercase; }
+  .genre-color-picker-dialog .modal-body { display:grid; gap:.8rem; padding:1.1rem; }
+  .genre-color-picker-controls { display:grid; gap:.75rem; }
+  .genre-color-spectrum { position:relative; width:100%; height:210px; overflow:hidden; border:1px solid rgba(23,33,61,.25); border-radius:3px; background:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,var(--genre-picker-hue,#2f68d8)); cursor:crosshair; touch-action:none; }
+  .genre-color-spectrum:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+  .genre-color-spectrum-handle { position:absolute; left:var(--genre-picker-x,100%); top:var(--genre-picker-y,50%); width:16px; height:16px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #17213d; transform:translate(-50%,-50%); pointer-events:none; }
+  .genre-color-picker-hue-row { display:grid; grid-template-columns:34px minmax(0,1fr); gap:.7rem; align-items:center; }
+  .genre-color-preview { width:32px; height:32px; border:1px solid rgba(23,33,61,.3); border-radius:50%; background:var(--genre-picker-color,#2f68d8); }
+  .genre-color-picker-hue { appearance:none; width:100%; height:14px; margin:0; border:1px solid rgba(23,33,61,.18); border-radius:2px; background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); cursor:pointer; }
+  .genre-color-picker-hue::-webkit-slider-thumb { appearance:none; width:16px; height:20px; border:2px solid #fff; border-radius:8px; background:var(--genre-picker-hue,#2f68d8); box-shadow:0 0 0 1px #7683a0; }
+  .genre-color-picker-hue::-moz-range-thumb { width:12px; height:16px; border:2px solid #fff; border-radius:8px; background:var(--genre-picker-hue,#2f68d8); box-shadow:0 0 0 1px #7683a0; }
+  .genre-color-rgb-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+  .genre-color-rgb-fields label { display:grid; justify-items:center; gap:.15rem; color:var(--deep); font-size:.76rem; }
+  .genre-color-rgb-fields input { width:100%; min-height:38px; padding:.35rem; text-align:center; font:500 .9rem ui-monospace,SFMono-Regular,Menlo,monospace; }
   .genre-color-picker-error { min-height:1.1rem; margin:0; color:#a32929; font-size:.82rem; }
   .genre-color-picker-actions { display:flex; justify-content:flex-end; gap:.55rem; }
-  @media(max-width:420px) { .genre-color-picker-controls { grid-template-columns:72px minmax(0,1fr); gap:.7rem; } .genre-color-picker-controls input[type="color"] { width:72px; height:64px; } }
+  @media(max-width:420px) { .genre-color-spectrum { height:190px; } }
   .editor-button {
     min-height: 38px;
     border: 1px solid var(--border);
@@ -6324,15 +6332,18 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
 <div class="modal-overlay genre-color-picker-overlay" id="genre-color-picker-modal" role="dialog" aria-modal="true" aria-labelledby="genre-color-picker-title" onclick="closeGenreColorPicker(event)">
   <div class="modal-box genre-color-picker-dialog">
     <div class="modal-header">
-      <div class="modal-header-copy"><h3 id="genre-color-picker-title">Edit Genre Color</h3><p>Choose a shade or enter its exact hex code.</p></div>
+      <div class="modal-header-copy"><h3 id="genre-color-picker-title">Edit Genre Color</h3><p>Choose a shade using the color field, hue strip, or RGB values.</p></div>
       <button class="modal-close" type="button" onclick="closeGenreColorPicker()" aria-label="Close Color Picker">✕</button>
     </div>
     <div class="modal-body">
       <div class="genre-color-picker-controls">
-        <input id="genre-color-picker-swatch" type="color" aria-label="Choose a color visually" oninput="syncGenreColorHexFromPicker()">
-        <label class="genre-color-hex-field" for="genre-color-picker-hex">Hex Code
-          <input id="genre-color-picker-hex" type="text" maxlength="7" inputmode="text" autocomplete="off" spellcheck="false" placeholder="#4169E1" oninput="syncGenreColorPickerFromHex()">
-        </label>
+        <div class="genre-color-spectrum" id="genre-color-spectrum" role="slider" aria-label="Color saturation and brightness" aria-valuemin="0" aria-valuemax="100" tabindex="0" onpointerdown="beginGenreColorSpectrumDrag(event)" onpointermove="moveGenreColorSpectrum(event)" onpointerup="endGenreColorSpectrumDrag(event)" onpointercancel="endGenreColorSpectrumDrag(event)" onkeydown="handleGenreColorSpectrumKey(event)"><span class="genre-color-spectrum-handle" id="genre-color-spectrum-handle"></span></div>
+        <div class="genre-color-picker-hue-row"><span class="genre-color-preview" id="genre-color-preview" aria-hidden="true"></span><input class="genre-color-picker-hue" id="genre-color-picker-hue" type="range" min="0" max="359" value="220" aria-label="Hue" oninput="updateGenreColorFromHue()"></div>
+        <div class="genre-color-rgb-fields">
+          <label>R<input id="genre-color-r" type="number" min="0" max="255" step="1" inputmode="numeric" oninput="updateGenreColorFromRGB()"></label>
+          <label>G<input id="genre-color-g" type="number" min="0" max="255" step="1" inputmode="numeric" oninput="updateGenreColorFromRGB()"></label>
+          <label>B<input id="genre-color-b" type="number" min="0" max="255" step="1" inputmode="numeric" oninput="updateGenreColorFromRGB()"></label>
+        </div>
       </div>
       <p class="genre-color-picker-error" id="genre-color-picker-error" aria-live="polite"></p>
       <div class="genre-color-picker-actions">
@@ -6785,38 +6796,108 @@ function renderGenreColorSettings() {
 }
 
 let activeGenreColorKey='';
+let genreColorHSV={h:220,s:0.75,v:0.9};
+let genreColorSpectrumDragging=false;
+
+function genreColorHexToRGB(hex) {
+  const value=String(hex||'').replace('#','');
+  return {r:parseInt(value.slice(0,2),16)||0,g:parseInt(value.slice(2,4),16)||0,b:parseInt(value.slice(4,6),16)||0};
+}
+
+function genreColorRGBToHSV({r,g,b}) {
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), delta=max-min;
+  let h=0;
+  if (delta) {
+    if (max===r) h=60*(((g-b)/delta)%6);
+    else if (max===g) h=60*((b-r)/delta+2);
+    else h=60*((r-g)/delta+4);
+  }
+  return {h:(h+360)%360,s:max?delta/max:0,v:max};
+}
+
+function genreColorHSVToRGB({h,s,v}) {
+  const c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c;
+  let channels;
+  if (h<60) channels=[c,x,0]; else if (h<120) channels=[x,c,0]; else if (h<180) channels=[0,c,x]; else if (h<240) channels=[0,x,c]; else if (h<300) channels=[x,0,c]; else channels=[c,0,x];
+  return {r:Math.round((channels[0]+m)*255),g:Math.round((channels[1]+m)*255),b:Math.round((channels[2]+m)*255)};
+}
+
+function renderGenreColorPicker() {
+  const hueColor=`hsl(${Math.round(genreColorHSV.h)} 100% 50%)`;
+  const rgb=genreColorHSVToRGB(genreColorHSV);
+  const hex=`#${[rgb.r,rgb.g,rgb.b].map(value=>value.toString(16).padStart(2,'0')).join('')}`;
+  const spectrum=document.getElementById('genre-color-spectrum');
+  if (spectrum) {
+    spectrum.style.setProperty('--genre-picker-hue',hueColor);
+    spectrum.style.setProperty('--genre-picker-x',`${genreColorHSV.s*100}%`);
+    spectrum.style.setProperty('--genre-picker-y',`${(1-genreColorHSV.v)*100}%`);
+    spectrum.style.setProperty('--genre-picker-color',hex);
+    spectrum.setAttribute('aria-valuenow',String(Math.round(genreColorHSV.s*100)));
+    spectrum.setAttribute('aria-valuetext',`${hex.toUpperCase()}, saturation ${Math.round(genreColorHSV.s*100)}%, brightness ${Math.round(genreColorHSV.v*100)}%`);
+  }
+  const hue=document.getElementById('genre-color-picker-hue');
+  if (hue) { hue.value=String(Math.round(genreColorHSV.h)); hue.style.setProperty('--genre-picker-hue',hueColor); }
+  const preview=document.getElementById('genre-color-preview');
+  if (preview) preview.style.setProperty('--genre-picker-color',hex);
+  [['r',rgb.r],['g',rgb.g],['b',rgb.b]].forEach(([channel,value])=>{
+    const input=document.getElementById(`genre-color-${channel}`);
+    if (input && document.activeElement!==input) input.value=String(value);
+  });
+  return hex.toUpperCase();
+}
 
 function openGenreColorPicker(key, label) {
   const savedColor=[...document.querySelectorAll('[data-genre-color-key]')].find(input=>input.dataset.genreColorKey===key)?.value || DEFAULT_GENRE_COLORS.unknown;
   activeGenreColorKey=key;
   document.getElementById('genre-color-picker-title').textContent=`${label} Color`;
-  document.getElementById('genre-color-picker-swatch').value=savedColor;
-  document.getElementById('genre-color-picker-hex').value=savedColor.toUpperCase();
+  genreColorHSV=genreColorRGBToHSV(genreColorHexToRGB(savedColor));
+  renderGenreColorPicker();
   document.getElementById('genre-color-picker-error').textContent='';
   document.getElementById('genre-color-picker-modal')?.classList.add('open');
 }
 
-function syncGenreColorHexFromPicker() {
-  const picker=document.getElementById('genre-color-picker-swatch');
-  const hex=document.getElementById('genre-color-picker-hex');
-  const error=document.getElementById('genre-color-picker-error');
-  if (picker && hex) hex.value=picker.value.toUpperCase();
-  if (error) error.textContent='';
+function updateGenreColorFromHue() {
+  genreColorHSV.h=Number(document.getElementById('genre-color-picker-hue')?.value)||0;
+  renderGenreColorPicker();
 }
 
-function syncGenreColorPickerFromHex() {
-  const hex=document.getElementById('genre-color-picker-hex');
-  const picker=document.getElementById('genre-color-picker-swatch');
-  const error=document.getElementById('genre-color-picker-error');
-  const raw=String(hex?.value || '').trim();
-  const normalized=raw.startsWith('#') ? raw : `#${raw}`;
-  if (/^#[0-9a-f]{6}$/i.test(normalized)) {
-    if (hex) hex.value=normalized.toUpperCase();
-    if (picker) picker.value=normalized;
-    if (error) error.textContent='';
-  } else if (error) {
-    error.textContent=raw ? 'Enter a six-digit hex color, such as #4169E1.' : '';
-  }
+function updateGenreColorFromRGB() {
+  const values=['r','g','b'].map(channel=>Number(document.getElementById(`genre-color-${channel}`)?.value));
+  if (values.some(value=>!Number.isFinite(value)||value<0||value>255)) return;
+  genreColorHSV=genreColorRGBToHSV({r:Math.round(values[0]),g:Math.round(values[1]),b:Math.round(values[2])});
+  renderGenreColorPicker();
+}
+
+function setGenreColorSpectrumFromPointer(event) {
+  const spectrum=document.getElementById('genre-color-spectrum');
+  if (!spectrum) return;
+  const rect=spectrum.getBoundingClientRect();
+  genreColorHSV.s=Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width));
+  genreColorHSV.v=1-Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height));
+  renderGenreColorPicker();
+}
+
+function beginGenreColorSpectrumDrag(event) {
+  if (event.button!==undefined && event.button!==0) return;
+  genreColorSpectrumDragging=true;
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  setGenreColorSpectrumFromPointer(event);
+  event.preventDefault();
+}
+
+function moveGenreColorSpectrum(event) { if (genreColorSpectrumDragging) setGenreColorSpectrumFromPointer(event); }
+function endGenreColorSpectrumDrag(event) { genreColorSpectrumDragging=false; event.currentTarget.releasePointerCapture?.(event.pointerId); }
+
+function handleGenreColorSpectrumKey(event) {
+  const step=event.shiftKey?0.1:0.02;
+  if (event.key==='ArrowLeft') genreColorHSV.s=Math.max(0,genreColorHSV.s-step);
+  else if (event.key==='ArrowRight') genreColorHSV.s=Math.min(1,genreColorHSV.s+step);
+  else if (event.key==='ArrowUp') genreColorHSV.v=Math.min(1,genreColorHSV.v+step);
+  else if (event.key==='ArrowDown') genreColorHSV.v=Math.max(0,genreColorHSV.v-step);
+  else return;
+  event.preventDefault();
+  renderGenreColorPicker();
 }
 
 function closeGenreColorPicker(event) {
@@ -6827,14 +6908,8 @@ function closeGenreColorPicker(event) {
 }
 
 function applyGenreColorPicker() {
-  const raw=String(document.getElementById('genre-color-picker-hex')?.value || '').trim();
-  const color=raw.startsWith('#') ? raw : `#${raw}`;
-  if (!/^#[0-9a-f]{6}$/i.test(color)) {
-    document.getElementById('genre-color-picker-error').textContent='Enter a six-digit hex color, such as #4169E1.';
-    return;
-  }
   const key=activeGenreColorKey;
-  const value=color.toUpperCase();
+  const value=renderGenreColorPicker();
   const saved=[...document.querySelectorAll('[data-genre-color-key]')].find(input=>input.dataset.genreColorKey===key);
   const swatch=[...document.querySelectorAll('[data-genre-color-swatch]')].find(button=>button.dataset.genreColorSwatch===key);
   if (saved) saved.value=value;
