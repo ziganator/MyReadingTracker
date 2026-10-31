@@ -366,7 +366,7 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
   }
   .genre-color-row {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr);
     gap: 0.55rem;
     align-items: center;
     border: 1px solid rgba(203,213,245,0.65);
@@ -374,19 +374,23 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
     background: rgba(247,248,255,0.75);
     padding: 0.45rem;
   }
-  .genre-color-meta { display:flex; align-items:center; justify-content:space-between; gap:.4rem; min-width:0; }
+  .genre-color-swatch { display:grid; place-items:center; width:38px; height:38px; padding:0; border:1px solid rgba(23,33,61,.18); border-radius:7px; color:#fff; cursor:pointer; text-shadow:0 1px 3px rgba(0,0,0,.7); font:700 1rem/1 system-ui,sans-serif; box-shadow:inset 0 0 0 2px rgba(255,255,255,.3); }
+  .genre-color-swatch:hover { transform:scale(1.04); }
+  .genre-color-meta { display:grid; gap:.1rem; min-width:0; }
   .genre-color-meta span { min-width:0; color:var(--deep); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .genre-color-meta code { flex:none; color:var(--muted); font:600 .75rem ui-monospace,SFMono-Regular,Menlo,monospace; }
-  .genre-color-row input[type="color"] {
-    width: 34px;
-    height: 34px;
-    min-height: 34px;
-    border: 0;
-    border-radius: 4px;
-    padding: 0;
-    background: transparent;
-    cursor: pointer;
-  }
+  .genre-color-meta small { color:var(--muted); font-size:.72rem; }
+  .modal-overlay.genre-color-picker-overlay { align-items:center; padding:max(1rem,env(safe-area-inset-top)) 1rem max(1rem,env(safe-area-inset-bottom)); }
+  .genre-color-picker-dialog { width:min(440px,100%); }
+  .genre-color-picker-dialog .modal-header { grid-template-columns:minmax(0,1fr) 44px; align-items:center; }
+  .genre-color-picker-dialog .modal-header h3 { margin:0; color:#f7f8ff; }
+  .genre-color-picker-dialog .modal-body { display:grid; gap:1rem; padding:1.1rem; }
+  .genre-color-picker-controls { display:grid; grid-template-columns:88px minmax(0,1fr); gap:1rem; align-items:center; }
+  .genre-color-picker-controls input[type="color"] { width:88px; height:72px; min-height:72px; padding:3px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; }
+  .genre-color-hex-field { display:grid; gap:.35rem; color:var(--deep); font-size:.8rem; font-weight:700; }
+  .genre-color-hex-field input { width:100%; min-height:44px; font:600 1rem ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.04em; text-transform:uppercase; }
+  .genre-color-picker-error { min-height:1.1rem; margin:0; color:#a32929; font-size:.82rem; }
+  .genre-color-picker-actions { display:flex; justify-content:flex-end; gap:.55rem; }
+  @media(max-width:420px) { .genre-color-picker-controls { grid-template-columns:72px minmax(0,1fr); gap:.7rem; } .genre-color-picker-controls input[type="color"] { width:72px; height:64px; } }
   .editor-button {
     min-height: 38px;
     border: 1px solid var(--border);
@@ -6306,6 +6310,27 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
     <div id="social-post-modal-content"></div>
   </div>
 </div>
+<div class="modal-overlay genre-color-picker-overlay" id="genre-color-picker-modal" role="dialog" aria-modal="true" aria-labelledby="genre-color-picker-title" onclick="closeGenreColorPicker(event)">
+  <div class="modal-box genre-color-picker-dialog">
+    <div class="modal-header">
+      <div class="modal-header-copy"><h3 id="genre-color-picker-title">Edit Genre Color</h3><p>Choose a shade or enter its exact hex code.</p></div>
+      <button class="modal-close" type="button" onclick="closeGenreColorPicker()" aria-label="Close Color Picker">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="genre-color-picker-controls">
+        <input id="genre-color-picker-swatch" type="color" aria-label="Choose a color visually" oninput="syncGenreColorHexFromPicker()">
+        <label class="genre-color-hex-field" for="genre-color-picker-hex">Hex Code
+          <input id="genre-color-picker-hex" type="text" maxlength="7" inputmode="text" autocomplete="off" spellcheck="false" placeholder="#4169E1" oninput="syncGenreColorPickerFromHex()">
+        </label>
+      </div>
+      <p class="genre-color-picker-error" id="genre-color-picker-error" aria-live="polite"></p>
+      <div class="genre-color-picker-actions">
+        <button class="account-secondary" type="button" onclick="closeGenreColorPicker()">Cancel</button>
+        <button class="account-primary" type="button" onclick="applyGenreColorPicker()">Apply Color</button>
+      </div>
+    </div>
+  </div>
+</div>
 <datalist id="book-genre-suggestions"></datalist>
 <script>
 const SUPABASE_URL = 'https://fwjblysdbjcceclzjnkk.supabase.co';
@@ -6733,22 +6758,77 @@ function renderGenreColorSettings() {
   if (!container) return;
   container.innerHTML = genreColorRows().map(([label, key]) => {
     const effectiveKey = key === 'sciencefiction' ? 'scifi' : key;
-    const value = customGenreColors[key]
+    const rawValue = customGenreColors[key]
       || customGenreColors[effectiveKey]
       || (key.includes('fiction') ? customGenreColors.fiction : '')
       || DEFAULT_GENRE_COLORS[effectiveKey]
       || (key.includes('fiction') ? DEFAULT_GENRE_COLORS.fiction : '')
       || DEFAULT_GENRE_COLORS.unknown;
-    return `<label class="genre-color-row">
-      <input type="color" aria-label="${esc(label)} Color" data-genre-color-key="${esc(key)}" value="${esc(value)}" oninput="updateGenreColorHex(this)">
-      <div class="genre-color-meta"><span>${esc(label)}</span><code data-genre-color-hex>${esc(value.toUpperCase())}</code></div>
-    </label>`;
+    const value = /^#[0-9a-f]{6}$/i.test(String(rawValue)) ? String(rawValue).toUpperCase() : DEFAULT_GENRE_COLORS.unknown;
+    return `<div class="genre-color-row">
+      <input type="hidden" data-genre-color-key="${esc(key)}" value="${esc(value)}">
+      <button class="genre-color-swatch" type="button" data-genre-color-swatch="${esc(key)}" style="background-color:${esc(value)}" aria-label="Edit ${esc(label)} color" title="Edit ${esc(label)} color" onclick="openGenreColorPicker(${jsArg(key)},${jsArg(label)})">✎</button>
+      <div class="genre-color-meta"><span>${esc(label)}</span><small>Edit Color</small></div>
+    </div>`;
   }).join('');
 }
 
-function updateGenreColorHex(input) {
-  const hex=input?.parentElement?.querySelector('[data-genre-color-hex]');
-  if (hex && input.value) hex.textContent=input.value.toUpperCase();
+let activeGenreColorKey='';
+
+function openGenreColorPicker(key, label) {
+  const savedColor=[...document.querySelectorAll('[data-genre-color-key]')].find(input=>input.dataset.genreColorKey===key)?.value || DEFAULT_GENRE_COLORS.unknown;
+  activeGenreColorKey=key;
+  document.getElementById('genre-color-picker-title').textContent=`${label} Color`;
+  document.getElementById('genre-color-picker-swatch').value=savedColor;
+  document.getElementById('genre-color-picker-hex').value=savedColor.toUpperCase();
+  document.getElementById('genre-color-picker-error').textContent='';
+  document.getElementById('genre-color-picker-modal')?.classList.add('open');
+}
+
+function syncGenreColorHexFromPicker() {
+  const picker=document.getElementById('genre-color-picker-swatch');
+  const hex=document.getElementById('genre-color-picker-hex');
+  const error=document.getElementById('genre-color-picker-error');
+  if (picker && hex) hex.value=picker.value.toUpperCase();
+  if (error) error.textContent='';
+}
+
+function syncGenreColorPickerFromHex() {
+  const hex=document.getElementById('genre-color-picker-hex');
+  const picker=document.getElementById('genre-color-picker-swatch');
+  const error=document.getElementById('genre-color-picker-error');
+  const raw=String(hex?.value || '').trim();
+  const normalized=raw.startsWith('#') ? raw : `#${raw}`;
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) {
+    if (hex) hex.value=normalized.toUpperCase();
+    if (picker) picker.value=normalized;
+    if (error) error.textContent='';
+  } else if (error) {
+    error.textContent=raw ? 'Enter a six-digit hex color, such as #4169E1.' : '';
+  }
+}
+
+function closeGenreColorPicker(event) {
+  const modal=document.getElementById('genre-color-picker-modal');
+  if (event && event.target!==modal) return;
+  modal?.classList.remove('open');
+  activeGenreColorKey='';
+}
+
+function applyGenreColorPicker() {
+  const raw=String(document.getElementById('genre-color-picker-hex')?.value || '').trim();
+  const color=raw.startsWith('#') ? raw : `#${raw}`;
+  if (!/^#[0-9a-f]{6}$/i.test(color)) {
+    document.getElementById('genre-color-picker-error').textContent='Enter a six-digit hex color, such as #4169E1.';
+    return;
+  }
+  const key=activeGenreColorKey;
+  const value=color.toUpperCase();
+  const saved=[...document.querySelectorAll('[data-genre-color-key]')].find(input=>input.dataset.genreColorKey===key);
+  const swatch=[...document.querySelectorAll('[data-genre-color-swatch]')].find(button=>button.dataset.genreColorSwatch===key);
+  if (saved) saved.value=value;
+  if (swatch) swatch.style.backgroundColor=value;
+  closeGenreColorPicker();
 }
 
 function renderRatingScaleSetting() {
@@ -20661,6 +20741,10 @@ function closeSeriesModal(e) {
   if (e.target === document.getElementById('series-modal')) closeTrackedModal();
 }
 document.addEventListener('keydown', e => {
+  if (e.key==='Escape' && document.getElementById('genre-color-picker-modal')?.classList.contains('open')) {
+    closeGenreColorPicker();
+    return;
+  }
   if (e.key==='Escape' && document.getElementById('social-post-modal')?.classList.contains('open')) {
     closeSocialPostModal();
     return;
