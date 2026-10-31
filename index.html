@@ -462,6 +462,9 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-weight: 800;
   }
+  .admin-site-update[hidden] { display:none !important; }
+  .admin-site-update .account-actions { align-items:center; }
+  .admin-site-update-status { color:var(--muted); font-size:.82rem; }
   .account-status.busy::before {
     content: '';
     display: inline-block;
@@ -6141,6 +6144,14 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
         <span id="account-role-badge" class="account-role-badge" style="display:none">Admin</span>
       </div>
       <div class="account-settings-grid">
+        <section class="account-settings-section admin-site-update" id="admin-site-update" hidden>
+          <strong>Site Version</strong>
+          <p>Currently loaded version: <code id="admin-current-site-version"></code></p>
+          <div class="account-actions" style="margin-top:0">
+            <button class="account-secondary" id="admin-site-update-button" type="button" onclick="checkForSiteUpdate(this)">Check for Updates</button>
+            <span class="admin-site-update-status" id="admin-site-update-status" aria-live="polite"></span>
+          </div>
+        </section>
         <section class="account-settings-section">
           <strong>Account</strong>
           <p>Update your name, email, or password.</p>
@@ -6340,7 +6351,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.09.21.6';
+const SITE_VERSION = '2026.10.31.1';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -7008,11 +7019,64 @@ function updateSiteVersionUI() {
     element.textContent = SITE_VERSION;
   });
   const roleBadge = document.getElementById('account-role-badge');
+  const adminUpdateSection=document.getElementById('admin-site-update');
+  const adminVersion=document.getElementById('admin-current-site-version');
+  const adminUpdateButton=document.getElementById('admin-site-update-button');
+  const admin=isSiteAdmin();
+  if (adminUpdateSection) adminUpdateSection.hidden=!admin;
+  if (adminVersion) adminVersion.textContent=SITE_VERSION;
+  if (adminUpdateButton && !adminUpdateButton.dataset.availableVersion) adminUpdateButton.textContent='Check for Updates';
   if (roleBadge) {
-    const admin = isSiteAdmin();
     roleBadge.textContent = admin ? 'Admin' : 'Reader';
     roleBadge.style.display = supabaseSession?.user ? 'inline-flex' : 'none';
     roleBadge.style.opacity = admin ? '1' : '0.72';
+  }
+}
+
+async function checkForSiteUpdate(button) {
+  const status=document.getElementById('admin-site-update-status');
+  if (!button || !isSiteAdmin()) return;
+  const availableVersion=button.dataset.availableVersion;
+  if (availableVersion) {
+    if (!/^https?:$/.test(window.location.protocol)) {
+      if (status) status.textContent='This is a bundled app copy. Install a new iOS build to update it.';
+      return;
+    }
+    const refreshedUrl=new URL(window.location.href);
+    refreshedUrl.searchParams.set('_site_update',String(Date.now()));
+    if (status) status.textContent=`Reloading the site to version ${availableVersion}…`;
+    window.location.replace(refreshedUrl.toString());
+    return;
+  }
+  if (!/^https?:$/.test(window.location.protocol)) {
+    if (status) status.textContent='This is a bundled app copy. Install a new iOS build to update it.';
+    return;
+  }
+  button.disabled=true;
+  button.textContent='Checking…';
+  if (status) status.textContent='Checking the deployed site version…';
+  try {
+    const latestUrl=new URL('/index.html',window.location.origin);
+    latestUrl.searchParams.set('_version_check',String(Date.now()));
+    const response=await fetch(latestUrl.toString(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+    if (!response.ok) throw new Error(`The site returned ${response.status}.`);
+    const html=await response.text();
+    const match=html.match(/const\s+SITE_VERSION\s*=\s*['"]([^'"]+)['"]/);
+    if (!match) throw new Error('Could not read the deployed version.');
+    const latestVersion=match[1];
+    if (latestVersion===SITE_VERSION) {
+      button.textContent='Check for Updates';
+      if (status) status.textContent='You’re up to date.';
+      return;
+    }
+    button.dataset.availableVersion=latestVersion;
+    button.textContent='Update Site';
+    if (status) status.textContent=`Version ${latestVersion} is available. Select Update Site to reload.`;
+  } catch(error) {
+    button.textContent='Check for Updates';
+    if (status) status.textContent=`Couldn’t check for updates: ${error.message}`;
+  } finally {
+    button.disabled=false;
   }
 }
 
