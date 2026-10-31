@@ -374,6 +374,9 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
     background: rgba(247,248,255,0.75);
     padding: 0.45rem;
   }
+  .genre-color-meta { display:flex; align-items:center; justify-content:space-between; gap:.4rem; min-width:0; }
+  .genre-color-meta span { min-width:0; color:var(--deep); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .genre-color-meta code { flex:none; color:var(--muted); font:600 .75rem ui-monospace,SFMono-Regular,Menlo,monospace; }
   .genre-color-row input[type="color"] {
     width: 34px;
     height: 34px;
@@ -383,14 +386,6 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
     padding: 0;
     background: transparent;
     cursor: pointer;
-  }
-  .genre-color-row span {
-    min-width: 0;
-    color: var(--deep);
-    font-weight: 700;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .editor-button {
     min-height: 38px;
@@ -6745,10 +6740,15 @@ function renderGenreColorSettings() {
       || (key.includes('fiction') ? DEFAULT_GENRE_COLORS.fiction : '')
       || DEFAULT_GENRE_COLORS.unknown;
     return `<label class="genre-color-row">
-      <input type="color" data-genre-color-key="${esc(key)}" value="${esc(value)}">
-      <span>${esc(label)}</span>
+      <input type="color" aria-label="${esc(label)} Color" data-genre-color-key="${esc(key)}" value="${esc(value)}" oninput="updateGenreColorHex(this)">
+      <div class="genre-color-meta"><span>${esc(label)}</span><code data-genre-color-hex>${esc(value.toUpperCase())}</code></div>
     </label>`;
   }).join('');
+}
+
+function updateGenreColorHex(input) {
+  const hex=input?.parentElement?.querySelector('[data-genre-color-hex]');
+  if (hex && input.value) hex.textContent=input.value.toUpperCase();
 }
 
 function renderRatingScaleSetting() {
