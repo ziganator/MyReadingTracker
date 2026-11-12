@@ -2248,7 +2248,7 @@ if (new URLSearchParams(window.location.search).get('quick-check') === '1') {
   .amazon-import-row input { font-family:'Crimson Pro',serif; font-size:.95rem; }
   .amazon-import-row { margin-bottom:1rem; }
   .add-book-search-row {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto minmax(0, 1.15fr) auto;
   }
   .library-pagination {
     display: flex;
@@ -6362,7 +6362,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.10.31.2';
+const SITE_VERSION = '2026.11.12.1';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -13324,11 +13324,6 @@ function openAddBookDialog(defaultStatus='TBR') {
       </label>
       <button class="account-primary" type="button" onclick="saveQuickAddedBook()">Save Quick Add</button>
     </div>
-    <div class="isbn-lookup-row" id="isbn-lookup-row" style="display:none">
-      <input id="add-book-isbn-lookup" type="text" inputmode="numeric" placeholder="ISBN-10 or ISBN-13"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByISBN()}">
-      <button class="account-primary" type="button" onclick="lookupBookByISBN()">Look Up</button>
-    </div>
     <p class="amazon-import-hint" id="amazon-import-hint" style="display:none">Share a book from Amazon to My Reading Tracker, or paste its product link. We’ll look up the book and prepare it as a Wishlist item for you to review.</p>
     <div class="isbn-lookup-row amazon-import-row" id="amazon-import-row" style="display:none">
       <input id="add-book-amazon-url" type="url" placeholder="https://www.amazon.com/.../dp/..." aria-label="Amazon product link"
@@ -13341,6 +13336,9 @@ function openAddBookDialog(defaultStatus='TBR') {
       <input id="add-book-search-author" type="search" placeholder="Author (optional)" autocomplete="off"
         onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByTitleAuthor()}">
       <button class="account-primary" type="button" onclick="lookupBookByTitleAuthor()">Search</button>
+      <input id="add-book-isbn-lookup" type="search" inputmode="numeric" placeholder="ISBN-10 or ISBN-13"
+        aria-label="Look up by ISBN" onkeydown="if(event.key==='Enter'){event.preventDefault();lookupBookByISBN()}">
+      <button class="account-secondary" type="button" onclick="lookupBookByISBN()">Look Up ISBN</button>
     </div>
     <div class="barcode-scanner-panel" id="add-book-scan-row" style="display:none">
       <div class="barcode-scanner-preview" id="add-book-scan-preview">
@@ -13445,14 +13443,12 @@ function setAddBookMode(mode) {
   document.getElementById('add-mode-scan')?.classList.toggle('active', mode === 'scan');
   document.getElementById('add-mode-quick')?.classList.toggle('active', mode === 'quick');
   document.getElementById('add-mode-amazon')?.classList.toggle('active', mode === 'amazon');
-  const isbnRow = document.getElementById('isbn-lookup-row');
   const amazonRow = document.getElementById('amazon-import-row');
   const amazonHint = document.getElementById('amazon-import-hint');
   const searchRow = document.getElementById('add-book-search-row');
   const quickRow = document.getElementById('add-book-quick');
   const scanRow = document.getElementById('add-book-scan-row');
   const fields = document.querySelector('.add-book-fields');
-  if (isbnRow) isbnRow.style.display = ['isbn', 'scan'].includes(mode) ? 'grid' : 'none';
   if (amazonRow) amazonRow.style.display = mode === 'amazon' ? 'grid' : 'none';
   if (amazonHint) amazonHint.style.display = mode === 'amazon' ? 'block' : 'none';
   if (searchRow) searchRow.style.display = mode === 'search' ? 'grid' : 'none';
@@ -13461,7 +13457,6 @@ function setAddBookMode(mode) {
   if (fields) fields.style.display = mode === 'quick' ? 'none' : 'grid';
   if (mode !== 'scan') addBookShelfScanMode = false;
   updateAddBookSaveButton();
-  if (mode === 'isbn') document.getElementById('add-book-isbn-lookup')?.focus();
   if (mode === 'search') document.getElementById('add-book-search-title')?.focus();
   if (mode === 'amazon') document.getElementById('add-book-amazon-url')?.focus();
   if (mode === 'quick') document.getElementById('add-book-quick-title')?.focus();
