@@ -6364,7 +6364,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.11.12.2';
+const SITE_VERSION = '2026.11.18.1';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -15997,6 +15997,11 @@ function openBulkEditDialog() {
         <span>Series</span>
         <input id="bulk-series-value" type="text" placeholder="The Demon Cycle">
       </label>
+      <label class="bulk-edit-field">
+        <input id="bulk-collections-enabled" type="checkbox">
+        <span>Add Collections</span>
+        ${collectionSelectorHTML('bulk-add-collections',[])}
+      </label>
       <div class="picker-settings-status" id="bulk-edit-status"></div>
     </div>
     <div class="account-actions" style="margin-top:1rem">
@@ -16034,6 +16039,8 @@ async function saveBulkBookEdits() {
     return;
   }
   const seriesEnabled = document.getElementById('bulk-series-enabled')?.checked;
+  const collectionsEnabled = document.getElementById('bulk-collections-enabled')?.checked;
+  const collectionIdsToAdd = checkedCollectionIds('bulk-add-collections');
   const seriesName = document.getElementById('bulk-series-value')?.value.trim() || '';
   try {
     if (authorEnabled) patch.author_id = await findOrCreateLibraryRelation('authors', authorName);
@@ -16042,7 +16049,7 @@ async function saveBulkBookEdits() {
     if (status) status.textContent = error.message;
     return;
   }
-  if (!Object.keys(patch).length) {
+  if (!Object.keys(patch).length && !(collectionsEnabled && collectionIdsToAdd.length)) {
     if (status) status.textContent = 'Choose at least one field to update.';
     return;
   }
@@ -16056,10 +16063,14 @@ async function saveBulkBookEdits() {
   if (status) status.textContent = `Saving ${databaseBooks.length} book${databaseBooks.length === 1 ? '' : 's'}...`;
   try {
     for (const book of databaseBooks) {
-      await patchBookRow(book.database_id, {
+      if (Object.keys(patch).length) await patchBookRow(book.database_id, {
         ...patch,
         ...(isReadStatusValue(patch.status) && !hasTimesReadValue(book.times_read) ? {times_read: 1} : {})
       });
+      if (collectionsEnabled) {
+        const currentIds=[...(bookCollectionMemberships.get(book.database_id)||[])];
+        await replaceBookCollectionMemberships(book.database_id,[...new Set([...currentIds,...collectionIdsToAdd])]);
+      }
       await syncSeriesStatusForBook(
         patch.status,
         seriesEnabled ? patch.series_id : book.series_id,
@@ -17512,6 +17523,7 @@ function openBookEditor(title, source='', key='') {
         <div class="book-editor-field"><label for="book-editor-series">Series</label><input id="book-editor-series" value="${esc(book.series || '')}"></div>
         <div class="book-editor-field"><label for="book-editor-series-position">Book #</label><input id="book-editor-series-position" type="number" min="0" step="0.1" value="${esc(book.series_position ?? '')}"></div>
       </div>
+      <div class="book-editor-field edit-all"><label>Collections</label>${collectionSelectorHTML('book-editor-collections',[...(bookCollectionMemberships.get(book.database_id)||[])])}</div>
       <div class="book-editor-row core-row">
         <div class="book-editor-field"><label for="book-editor-genre">Genre</label><input id="book-editor-genre" value="${esc(book.genre || '')}" list="book-genre-suggestions" autocomplete="off" onfocus="refreshGenreSuggestions(this)" oninput="refreshGenreSuggestions(this)"></div>
         <div class="book-editor-field"><label for="book-editor-type">Type</label><select id="book-editor-type" onchange="updateShortStoryFullBookControls()">${bookTypeOptionsHTML(bookWorkTypeForBook(book) || 'Novel')}</select></div>
@@ -17840,6 +17852,8 @@ async function saveBookEditor(originalTitle, source='', key='') {
       await patchBookRow(mergeRetiredDatabaseId, {deleted_at: new Date().toISOString()});
     }
     await setBookRereadMembership(databaseId, Boolean(document.getElementById('book-editor-reread')?.checked));
+    const chosenCollectionIds=checkedCollectionIds('book-editor-collections');
+    await replaceBookCollectionMemberships(databaseId,chosenCollectionIds);
     const sessions = await supabaseTableRequest('reading_sessions', {
       query: `?select=id&book_id=eq.${encodeURIComponent(databaseId)}&order=created_at.desc&limit=1`
     });
