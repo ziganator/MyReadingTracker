@@ -6364,7 +6364,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.11.20.3';
+const SITE_VERSION = '2026.11.20.4';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -13600,6 +13600,7 @@ async function recognizeISBNFromCamera(video) {
     const isbn=barcodeISBNValue(match?.[1]||'');
     if (isbn) setAddBookScannedISBN(isbn);
   } catch(error) {
+    barcodeScannerMessage(`Text recognition could not start: ${error?.message||'check your connection'}. You can enter the ISBN manually.`);
     console.warn('ISBN text recognition failed:',error?.message||error);
   } finally { addBookOCRRunning=false; }
 }
@@ -13647,6 +13648,8 @@ async function startAddBookZXingScanner(preview) {
       if (isbn) setAddBookScannedISBN(isbn);
     }
   );
+  barcodeScannerMessage('Point the camera at the ISBN text or barcode. Text recognition is starting…');
+  addBookBarcodeTimer=setInterval(()=>recognizeISBNFromCamera(video),500);
 }
 
 async function startAddBookBarcodeScanner() {
