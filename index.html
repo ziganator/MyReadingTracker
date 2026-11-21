@@ -6364,7 +6364,7 @@ const SUPABASE_SESSION_COOKIE = 'reading_tracker_session';
 const SESSION_DB_NAME = 'reading-tracker-auth';
 const SESSION_DB_STORE = 'sessions';
 const GUEST_SESSION_KEY = 'reading-tracker-guest-mode';
-const SITE_VERSION = '2026.11.20.2';
+const SITE_VERSION = '2026.11.20.3';
 const SITE_ADMIN_EMAILS = ['ziganator@gmail.com'];
 const GENRE_COLOR_STORAGE_KEY = 'reading-tracker-genre-colors';
 const RATING_SCALE_STORAGE_KEY = 'reading-tracker-rating-scale';
@@ -12908,6 +12908,9 @@ let addBookEditionCandidates = [];
 let selectedAddBookEdition = null;
 let addBookBarcodeStream = null;
 let addBookBarcodeTimer = null;
+let addBookOCRWorker = null;
+let addBookOCRRunning = false;
+let addBookLastOCRAt = 0;
 let addBookZXingControls = null;
 let addBookZXingReader = null;
 let addBookShelfScanMode = false;
@@ -13542,11 +13545,63 @@ function stopAddBookBarcodeScanner(showPlaceholder=false) {
     addBookZXingControls = null;
   }
   addBookZXingReader = null;
+  if (addBookOCRWorker) {
+    const worker=addBookOCRWorker;
+    addBookOCRWorker=null;
+    worker.terminate().catch(()=>{});
+  }
+  addBookOCRRunning=false;
   const preview = document.getElementById('add-book-scan-preview');
   preview?.classList.remove('is-scanning');
   if (preview && showPlaceholder) {
     preview.innerHTML = barcodeScannerPlaceholderHTML();
   }
+}
+
+function loadISBNTextRecognition() {
+  if (window.Tesseract?.createWorker) return Promise.resolve(window.Tesseract);
+  const existing=document.querySelector('script[data-reading-tracker-tesseract]');
+  if (existing) return new Promise((resolve,reject)=>{
+    existing.addEventListener('load',()=>resolve(window.Tesseract),{once:true});
+    existing.addEventListener('error',()=>reject(new Error('Text recognition could not be loaded.')),{once:true});
+  });
+  return new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    script.async=true;
+    script.dataset.readingTrackerTesseract='true';
+    script.onload=()=>window.Tesseract?.createWorker?resolve(window.Tesseract):reject(new Error('Text recognition loaded without its OCR engine.'));
+    script.onerror=()=>reject(new Error('Text recognition could not be loaded. Check your internet connection.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function recognizeISBNFromCamera(video) {
+  if (addBookOCRRunning || !video.videoWidth || Date.now()-addBookLastOCRAt<1100) return;
+  addBookOCRRunning=true;
+  addBookLastOCRAt=Date.now();
+  try {
+    if (!addBookOCRWorker) {
+      const Tesseract=await loadISBNTextRecognition();
+      addBookOCRWorker=await Tesseract.createWorker('eng',1,{
+        workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+        corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core.wasm.js',
+        langPath:'https://tessdata.projectnaptha.com/4.0.0'
+      });
+      await addBookOCRWorker.setParameters({tessedit_char_whitelist:'ISBNisbn0123456789Xx- '});
+    }
+    const scale=Math.min(1,1000/video.videoWidth);
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.round(video.videoWidth*scale); canvas.height=Math.round(video.videoHeight*scale);
+    canvas.getContext('2d',{willReadFrequently:false}).drawImage(video,0,0,canvas.width,canvas.height);
+    const result=await addBookOCRWorker.recognize(canvas);
+    const text=String(result?.data?.text||'').replace(/\s+/g,' ');
+    const match=text.match(/ISBN(?:\s*[- ]?\s*10)?[^0-9X]{0,24}([0-9X](?:[\s-]*[0-9X]){9,12})/i);
+    const isbn=barcodeISBNValue(match?.[1]||'');
+    if (isbn) setAddBookScannedISBN(isbn);
+  } catch(error) {
+    console.warn('ISBN text recognition failed:',error?.message||error);
+  } finally { addBookOCRRunning=false; }
 }
 
 function loadZXingBarcodeDecoder() {
@@ -13629,9 +13684,10 @@ async function startAddBookBarcodeScanner() {
     }
     await video.play();
     const detector = new window.BarcodeDetector({formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e']});
-    barcodeScannerMessage('Point the camera at the book barcode.');
+    barcodeScannerMessage('Point the camera at the ISBN text or barcode. Text recognition is starting…');
     addBookBarcodeTimer = setInterval(async () => {
       if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+      recognizeISBNFromCamera(video);
       try {
         const codes = await detector.detect(video);
         const isbn = barcodeISBNValue(codes[0]?.rawValue);
